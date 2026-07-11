@@ -4,183 +4,231 @@
 <meta charset="utf-8">
 <title>JAL国内線ルートマップ 2026夏</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="JALグループ国内線の全路線を日本地図で。区間・空港・機材から便名/時刻を調べられる非公式ファンサイト">
 <style>
 :root{
-  --sea:#edf2f6; --land:#dce5ea; --coast:#b7c8d2; --ink:#17232f; --sub:#5b6c7a;
-  --panel:#ffffff; --panel-edge:#d7e0e7; --hair:#e4eaef; --chipbg:#f2f6f9;
-  --accent:#b8001f; --accent-soft:#fdeef0; --hover:#0d55a0;
+  color-scheme: light dark;
+  --red:#b7001e; --red-deep:#8c0017; --red-soft:#fbeef0; --gold:#a98e5e;
+  --bg:#faf9f7; --sea:#e9eef2; --land:#fdfdfc; --coast:#c6d2da;
+  --ink:#1b1e24; --sub:#6b7480; --panel:#ffffff; --panel-edge:#e2e0da; --hair:#eceae5; --chipbg:#f4f2ee;
+  --hover:#0d55a0;
   --c-JAL:#c8102e; --c-JAR:#e06a00; --c-JTA:#0077b6; --c-JAC:#2a8a4a;
   --c-RAC:#8a56c2; --c-HAC:#5b7f9e; --c-CS:#8b98a3;
-  --shadow:0 8px 28px rgba(20,40,60,.12); --card-shadow:0 2px 10px rgba(20,40,60,.07);
+  --shadow:0 10px 30px rgba(30,20,20,.12); --card-shadow:0 2px 10px rgba(30,20,20,.06);
 }
 @media (prefers-color-scheme: dark){:root{
-  --sea:#0a1118; --land:#19242f; --coast:#2d3e4c; --ink:#e6edf3; --sub:#8fa1b0;
-  --panel:#111a23; --panel-edge:#243240; --hair:#1e2b37; --chipbg:#19252f;
-  --accent:#ff5468; --accent-soft:#3a1219; --hover:#5ab0ff;
+  --red:#ff4256; --red-deep:#c2182e; --red-soft:#39141a; --gold:#d7bc85;
+  --bg:#0e1216; --sea:#0b1015; --land:#1b242d; --coast:#2c3b47;
+  --ink:#eceff3; --sub:#95a1ad; --panel:#141a21; --panel-edge:#27303a; --hair:#20272f; --chipbg:#1b222b;
+  --hover:#5ab0ff;
   --c-JAL:#ff4d5e; --c-JAR:#ff9040; --c-JTA:#3fb2ee; --c-JAC:#4cc077;
   --c-RAC:#b98af0; --c-HAC:#7fa5c6; --c-CS:#6c7b87;
-  --shadow:0 8px 28px rgba(0,0,0,.5); --card-shadow:0 2px 10px rgba(0,0,0,.35);
+  --shadow:0 10px 30px rgba(0,0,0,.55); --card-shadow:0 2px 10px rgba(0,0,0,.4);
 }}
 :root[data-theme="light"]{
-  --sea:#edf2f6; --land:#dce5ea; --coast:#b7c8d2; --ink:#17232f; --sub:#5b6c7a;
-  --panel:#ffffff; --panel-edge:#d7e0e7; --hair:#e4eaef; --chipbg:#f2f6f9;
-  --accent:#b8001f; --accent-soft:#fdeef0; --hover:#0d55a0;
+  --red:#b7001e; --red-deep:#8c0017; --red-soft:#fbeef0; --gold:#a98e5e;
+  --bg:#faf9f7; --sea:#e9eef2; --land:#fdfdfc; --coast:#c6d2da;
+  --ink:#1b1e24; --sub:#6b7480; --panel:#ffffff; --panel-edge:#e2e0da; --hair:#eceae5; --chipbg:#f4f2ee;
+  --hover:#0d55a0;
   --c-JAL:#c8102e; --c-JAR:#e06a00; --c-JTA:#0077b6; --c-JAC:#2a8a4a;
   --c-RAC:#8a56c2; --c-HAC:#5b7f9e; --c-CS:#8b98a3;
-  --shadow:0 8px 28px rgba(20,40,60,.12); --card-shadow:0 2px 10px rgba(20,40,60,.07);
+  --shadow:0 10px 30px rgba(30,20,20,.12); --card-shadow:0 2px 10px rgba(30,20,20,.06);
 }
 :root[data-theme="dark"]{
-  --sea:#0a1118; --land:#19242f; --coast:#2d3e4c; --ink:#e6edf3; --sub:#8fa1b0;
-  --panel:#111a23; --panel-edge:#243240; --hair:#1e2b37; --chipbg:#19252f;
-  --accent:#ff5468; --accent-soft:#3a1219; --hover:#5ab0ff;
+  --red:#ff4256; --red-deep:#c2182e; --red-soft:#39141a; --gold:#d7bc85;
+  --bg:#0e1216; --sea:#0b1015; --land:#1b242d; --coast:#2c3b47;
+  --ink:#eceff3; --sub:#95a1ad; --panel:#141a21; --panel-edge:#27303a; --hair:#20272f; --chipbg:#1b222b;
+  --hover:#5ab0ff;
   --c-JAL:#ff4d5e; --c-JAR:#ff9040; --c-JTA:#3fb2ee; --c-JAC:#4cc077;
   --c-RAC:#b98af0; --c-HAC:#7fa5c6; --c-CS:#6c7b87;
-  --shadow:0 8px 28px rgba(0,0,0,.5); --card-shadow:0 2px 10px rgba(0,0,0,.35);
+  --shadow:0 10px 30px rgba(0,0,0,.55); --card-shadow:0 2px 10px rgba(0,0,0,.4);
 }
 *{box-sizing:border-box}
 html,body{margin:0}
-body{background:var(--sea);color:var(--ink);
+body{background:var(--bg);color:var(--ink);
   font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP",-apple-system,sans-serif;
   font-size:14px;line-height:1.6;-webkit-text-size-adjust:100%}
+button{font-family:inherit;color:inherit}
 .mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
-button{font-family:inherit}
 /* ---------- ヘッダー ---------- */
-header{display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;
-  padding:14px 20px 10px;border-bottom:1px solid var(--hair)}
-.titlebox h1{margin:0;font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
-  font-size:20px;font-weight:600;letter-spacing:.06em;line-height:1.3}
-.titlebox h1 .jp-red{color:var(--accent)}
-.dateline{color:var(--sub);font-size:11.5px;letter-spacing:.05em}
+.brandline{height:4px;background:linear-gradient(90deg,var(--red-deep),var(--red) 30%,var(--red) 70%,var(--red-deep))}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
+  padding:16px 22px 12px;border-bottom:1px solid var(--hair);
+  background:linear-gradient(180deg,var(--panel),var(--bg))}
+.crest{width:44px;height:44px;border-radius:50%;flex:none;
+  background:radial-gradient(circle at 34% 30%, var(--red) 0%, var(--red-deep) 90%);
+  box-shadow:0 4px 14px color-mix(in srgb,var(--red) 45%,transparent);
+  display:flex;align-items:center;justify-content:center}
+.crest span{color:#fff;font-size:21px;transform:rotate(-45deg) translate(1px,1px)}
+.titlebox{min-width:0}
+.eyebrow{font-size:10px;letter-spacing:.32em;color:var(--red);font-weight:700;line-height:1.4}
+.titlebox h1{margin:0;font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
+  font-size:22px;font-weight:600;letter-spacing:.08em;line-height:1.25}
+.titlebox h1 .jp-red{color:var(--red)}
+.dateline{color:var(--sub);font-size:11px;letter-spacing:.06em}
 .stats{margin-left:auto;display:flex;gap:8px}
-.stat{background:var(--chipbg);border:1px solid var(--panel-edge);border-radius:10px;
-  padding:4px 12px;text-align:center;line-height:1.25}
-.stat b{display:block;font-size:16px;font-variant-numeric:tabular-nums}
-.stat span{font-size:10px;color:var(--sub);letter-spacing:.08em}
-#sharebtn{display:inline-flex;align-items:center;gap:6px;border:none;cursor:pointer;
-  background:var(--accent);color:#fff;border-radius:999px;padding:8px 16px;font-size:12.5px;
-  font-weight:600;letter-spacing:.04em;box-shadow:var(--card-shadow);transition:transform .15s}
-#sharebtn:hover{transform:translateY(-1px)}
+.stat{background:var(--panel);border:1px solid var(--panel-edge);border-radius:12px;
+  padding:5px 14px;text-align:center;line-height:1.25;box-shadow:var(--card-shadow)}
+.stat b{display:block;font-size:17px;color:var(--red);font-variant-numeric:tabular-nums}
+.stat span{font-size:9.5px;color:var(--sub);letter-spacing:.14em}
+#sharebtn{display:inline-flex;align-items:center;gap:7px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff;border-radius:999px;
+  padding:9px 18px;font-size:12.5px;font-weight:700;letter-spacing:.06em;
+  box-shadow:0 4px 14px color-mix(in srgb,var(--red) 40%,transparent);transition:transform .15s,box-shadow .15s}
+#sharebtn:hover{transform:translateY(-1px);box-shadow:0 6px 18px color-mix(in srgb,var(--red) 50%,transparent)}
 #sharebtn:focus-visible{outline:2px solid var(--hover);outline-offset:2px}
 /* ---------- 運航会社バー ---------- */
-.opbar{display:flex;align-items:center;gap:10px;padding:10px 20px;border-bottom:1px solid var(--hair);
-  overflow-x:auto;scrollbar-width:thin}
-.opbar .lbl{font-size:10.5px;color:var(--sub);letter-spacing:.14em;white-space:nowrap;flex:none}
+.opbar{display:flex;align-items:center;gap:10px;padding:10px 22px;border-bottom:1px solid var(--hair);
+  overflow-x:auto;scrollbar-width:thin;background:var(--bg)}
+.opbar .lbl{font-size:10px;color:var(--sub);letter-spacing:.22em;white-space:nowrap;flex:none;font-weight:600}
 .ops{display:flex;gap:6px;flex:none}
 .op-pill{--oc:#888;display:inline-flex;align-items:center;gap:7px;flex:none;
-  border:1.5px solid var(--panel-edge);background:var(--panel);border-radius:999px;
+  border:1px solid var(--panel-edge);background:var(--panel);border-radius:999px;
   padding:5px 13px 5px 9px;cursor:pointer;transition:all .18s;box-shadow:var(--card-shadow)}
 .op-pill .sw{width:10px;height:10px;border-radius:50%;background:var(--oc);flex:none;
-  box-shadow:0 0 0 3px color-mix(in srgb,var(--oc) 22%, transparent)}
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--oc) 20%, transparent)}
 .op-pill .code{font-weight:700;font-size:12.5px;letter-spacing:.02em}
 .op-pill .nm{font-size:10px;color:var(--sub);max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .op-pill .ct{font-size:10px;color:var(--sub);font-variant-numeric:tabular-nums}
-.op-pill:hover{border-color:var(--oc)}
-.op-pill.off{opacity:.38;filter:saturate(.2);box-shadow:none}
+.op-pill:hover{border-color:var(--oc);transform:translateY(-1px)}
+.op-pill.off{opacity:.35;filter:saturate(.15);box-shadow:none;transform:none}
 .op-pill:focus-visible{outline:2px solid var(--hover);outline-offset:2px}
 .op-reset{flex:none;border:none;background:none;color:var(--hover);font-size:11.5px;cursor:pointer;
   white-space:nowrap;padding:4px 6px;border-radius:6px}
 .op-reset:hover{text-decoration:underline}
 .searchwrap{margin-left:auto;flex:none}
-.searchwrap input{background:var(--chipbg);border:1px solid var(--panel-edge);border-radius:999px;
-  padding:6px 14px;font-size:12px;color:var(--ink);width:180px;font-family:inherit}
-.searchwrap input:focus-visible{outline:2px solid var(--hover);outline-offset:1px}
+.searchwrap input{background:var(--panel);border:1px solid var(--panel-edge);border-radius:999px;
+  padding:6px 15px;font-size:12px;color:var(--ink);width:185px;font-family:inherit;box-shadow:var(--card-shadow)}
+.searchwrap input::placeholder{color:var(--sub)}
+.searchwrap input:focus-visible{outline:2px solid var(--red);outline-offset:1px}
 /* ---------- レイアウト ---------- */
-main{display:grid;grid-template-columns:minmax(0,1fr) 410px;height:calc(100vh - 122px);min-height:520px}
-#mapwrap{position:relative;overflow:hidden}
+main{display:grid;grid-template-columns:minmax(0,1fr) 415px;height:calc(100vh - 132px);min-height:520px}
+#mapwrap{position:relative;overflow:hidden;background:var(--sea)}
 #mapwrap svg{width:100%;height:100%;display:block}
 aside{border-left:1px solid var(--hair);background:var(--panel);overflow-y:auto;padding:18px 20px 34px}
 /* ---------- 地図 ---------- */
 .route-line{fill:none;cursor:pointer;transition:opacity .15s,stroke-width .15s}
-.route-line.dim{opacity:.08;pointer-events:none}
+.route-line.dim{opacity:.07;pointer-events:none}
 .route-line.seasonal-off{stroke-dasharray:5 4}
 .route-hit{fill:none;stroke:transparent;stroke-width:15;cursor:pointer}
 .route-hit.dim{pointer-events:none}
-.airport-dot{cursor:pointer;stroke:var(--panel);stroke-width:1.3;transition:opacity .15s,r .15s}
-.airport-dot.dim{opacity:.18}
+.airport-dot{cursor:pointer;stroke:var(--panel);stroke-width:1.3;transition:opacity .15s}
+.airport-dot.dim{opacity:.15}
 .ap-label{font-size:9px;fill:var(--sub);pointer-events:none;
   paint-order:stroke;stroke:var(--sea);stroke-width:2.6px;stroke-linejoin:round;transition:opacity .15s}
 .ap-label.major{font-size:10.5px;font-weight:600;fill:var(--ink)}
-.ap-label.dim{opacity:.12}
+.ap-label.dim{opacity:.1}
+.grat{stroke:var(--coast);stroke-width:.5;opacity:.3;stroke-dasharray:2 7}
+.chartcap{fill:var(--sub);opacity:.55;font-size:10px;letter-spacing:.28em}
 #tooltip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--panel-edge);
-  border-radius:10px;padding:8px 12px;font-size:12px;box-shadow:var(--shadow);display:none;z-index:5;max-width:260px}
+  border-top:3px solid var(--red);border-radius:10px;padding:8px 12px;font-size:12px;
+  box-shadow:var(--shadow);display:none;z-index:5;max-width:265px}
 #tooltip .t1{font-weight:700}
 #tooltip .t2{color:var(--sub);font-size:11px}
-.legend{position:absolute;left:12px;top:12px;background:color-mix(in srgb,var(--panel) 90%,transparent);
-  backdrop-filter:blur(4px);border:1px solid var(--panel-edge);border-radius:12px;
-  padding:9px 13px;font-size:10.5px;line-height:1.8;box-shadow:var(--card-shadow)}
+.legend{position:absolute;left:14px;top:14px;background:color-mix(in srgb,var(--panel) 92%,transparent);
+  backdrop-filter:blur(5px);border:1px solid var(--panel-edge);border-radius:14px;
+  padding:10px 14px;font-size:10.5px;line-height:1.85;box-shadow:var(--card-shadow)}
+.legend .lg-title{font-size:9px;letter-spacing:.26em;color:var(--red);font-weight:700;margin-bottom:2px}
 .legend .row{display:flex;align-items:center;gap:7px}
 .legend .bar{width:18px;height:3px;border-radius:2px;flex:none}
 .legend .bar.dash{background:repeating-linear-gradient(90deg,currentColor 0 4px,transparent 4px 7px)}
 /* ---------- パネル共通 ---------- */
 aside h2{font-size:17px;margin:0 0 2px;letter-spacing:.02em}
 aside .sub{color:var(--sub);font-size:12px}
+.welcome{font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
+  font-size:19px;letter-spacing:.1em;margin:2px 0 4px;line-height:1.5}
+.welcome em{color:var(--red);font-style:normal}
 .acode{color:var(--sub);font-size:11px;font-weight:400}
 .facts{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;margin:12px 0;
-  padding:10px 14px;background:var(--chipbg);border-radius:12px;font-size:12px}
-.facts b{font-size:15px}
+  padding:11px 15px;background:var(--chipbg);border-radius:12px;font-size:12px}
+.facts b{font-size:15px;color:var(--red)}
 .opchip{display:inline-block;padding:1px 9px;border-radius:999px;font-size:10.5px;color:#fff;
   background:var(--oc,#888);letter-spacing:.03em;font-weight:600}
-.backlink{display:inline-flex;align-items:center;gap:4px;margin-bottom:10px;font-size:12px;
-  color:var(--hover);cursor:pointer;background:var(--chipbg);border:1px solid var(--panel-edge);
-  padding:5px 12px;border-radius:999px}
-.backlink:hover{border-color:var(--hover)}
-.note{margin:10px 0;padding:9px 13px;border-left:3px solid var(--accent);background:var(--chipbg);
+.backlink{display:inline-flex;align-items:center;gap:5px;margin-bottom:12px;font-size:12px;
+  color:var(--red);cursor:pointer;background:var(--panel);border:1px solid var(--panel-edge);
+  padding:5px 13px;border-radius:999px;box-shadow:var(--card-shadow);transition:all .15s}
+.backlink:hover{border-color:var(--red);transform:translateX(-2px)}
+.note{margin:10px 0;padding:9px 13px;border-left:3px solid var(--red);background:var(--chipbg);
   border-radius:0 10px 10px 0;font-size:12px}
-.note.season{border-left-color:var(--c-CS)}
-.sec{margin:22px 0 8px;font-size:11px;color:var(--sub);letter-spacing:.16em;font-weight:600}
+.note.season{border-left-color:var(--gold)}
+.sec{margin:24px 0 8px;font-size:10.5px;color:var(--sub);letter-spacing:.24em;font-weight:700;
+  display:flex;align-items:center;gap:8px}
+.sec::before{content:"";width:14px;height:3px;background:var(--red);border-radius:2px}
 .hint{color:var(--sub);font-size:12px;margin-top:12px}
 .fade{animation:fadein .25s ease}
 @keyframes fadein{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+/* 搭乗券風の区間ヘッダー */
+.bp{border:1px solid var(--panel-edge);border-radius:14px;overflow:hidden;background:var(--panel);
+  box-shadow:var(--card-shadow);margin-bottom:4px}
+.bp-band{background:linear-gradient(90deg,var(--red),var(--red-deep));color:#fff;
+  display:flex;justify-content:space-between;gap:8px;padding:5px 14px;
+  font-size:9.5px;letter-spacing:.2em;font-weight:700}
+.bp-main{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:13px 16px 11px;gap:6px}
+.bp-ap b{display:block;font-size:29px;line-height:1.1;font-family:ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.04em}
+.bp-ap span{font-size:11px;color:var(--sub)}
+.bp-ap.right{text-align:right}
+.bp-mid{text-align:center;color:var(--sub);font-size:10.5px;line-height:1.5;padding:0 6px}
+.bp-mid .plane{display:block;color:var(--red);font-size:16px}
 /* 時刻表 */
 .dirhead{margin:20px 0 6px;font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:8px}
-.dirhead .arr{color:var(--accent)}
+.dirhead .arr{color:var(--red)}
 .tablewrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:12.5px}
-th{font-size:10px;color:var(--sub);text-align:left;font-weight:600;letter-spacing:.08em;
-  padding:3px 8px;border-bottom:1.5px solid var(--panel-edge)}
+th{font-size:10px;color:var(--sub);text-align:left;font-weight:600;letter-spacing:.1em;
+  padding:3px 8px;border-bottom:2px solid var(--red)}
 td{padding:6px 8px;border-bottom:1px solid var(--hair);white-space:nowrap}
-td.fno{font-weight:700}
+td.fno{font-weight:700;color:var(--red)}
 tr.flight:hover td{background:var(--chipbg)}
 .acbtn{background:none;border:none;color:var(--hover);cursor:pointer;font-size:12.5px;padding:0}
 .acbtn:hover{text-decoration:underline}
 /* リスト */
 .rtlist{list-style:none;margin:8px 0;padding:0}
-.rtlist li{display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid transparent;
-  border-bottom:1px solid var(--hair);cursor:pointer;border-radius:10px;transition:background .12s}
-.rtlist li:hover{background:var(--chipbg)}
+.rtlist li{display:flex;align-items:center;gap:8px;padding:9px 10px;
+  border-bottom:1px solid var(--hair);cursor:pointer;border-radius:10px;
+  border-left:3px solid transparent;transition:background .12s,border-color .12s}
+.rtlist li:hover{background:var(--chipbg);border-left-color:var(--red)}
 .rtlist .dest{font-weight:600;flex:1;min-width:0}
 .rtlist .meta{color:var(--sub);font-size:11px;white-space:nowrap}
 /* 空港ショートカット・機材カード */
-.hubgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;margin:8px 0}
-.hub{border:1px solid var(--panel-edge);background:var(--panel);border-radius:12px;padding:9px 6px 7px;
-  cursor:pointer;text-align:center;box-shadow:var(--card-shadow);transition:transform .15s,border-color .15s}
-.hub:hover{transform:translateY(-2px);border-color:var(--accent)}
+.hubgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(106px,1fr));gap:8px;margin:8px 0}
+.hub{border:1px solid var(--panel-edge);background:var(--panel);border-radius:12px;padding:10px 6px 8px;
+  cursor:pointer;text-align:center;box-shadow:var(--card-shadow);transition:transform .15s,border-color .15s,box-shadow .15s}
+.hub:hover{transform:translateY(-2px);border-color:var(--red);box-shadow:0 6px 16px color-mix(in srgb,var(--red) 18%,transparent)}
 .hub b{display:block;font-size:12.5px}
 .hub span{font-size:10px;color:var(--sub)}
 .acgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
 .accard{border:1px solid var(--panel-edge);background:var(--panel);border-radius:12px;
   padding:10px 12px;cursor:pointer;text-align:left;box-shadow:var(--card-shadow);
-  transition:transform .15s,border-color .15s;line-height:1.45}
-.accard:hover{transform:translateY(-2px);border-color:var(--accent)}
+  transition:transform .15s,border-color .15s,box-shadow .15s;line-height:1.45;position:relative;overflow:hidden}
+.accard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--red);
+  opacity:0;transition:opacity .15s}
+.accard:hover{transform:translateY(-2px);border-color:var(--red);box-shadow:0 6px 16px color-mix(in srgb,var(--red) 18%,transparent)}
+.accard:hover::before{opacity:1}
 .accard .cd{font-weight:700;font-size:13px;font-family:ui-monospace,Menlo,monospace}
 .accard .nm{font-size:10.5px;color:var(--sub);display:block}
-.accard .ct{font-size:10.5px;color:var(--accent);font-weight:600}
-.accard.sel{border-color:var(--accent);background:var(--accent-soft)}
+.accard .ct{font-size:10.5px;color:var(--red);font-weight:700}
+.accard.sel{border-color:var(--red);background:var(--red-soft)}
+.accard.sel::before{opacity:1}
 .hub:focus-visible,.accard:focus-visible{outline:2px solid var(--hover);outline-offset:2px}
 /* トースト */
-#toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);background:var(--ink);
-  color:var(--sea);padding:9px 20px;border-radius:999px;font-size:12.5px;opacity:0;
+#toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);
+  background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff;
+  padding:10px 22px;border-radius:999px;font-size:12.5px;font-weight:600;opacity:0;
   pointer-events:none;transition:all .3s;z-index:50;box-shadow:var(--shadow)}
 #toast.show{opacity:1;transform:translate(-50%,0)}
-footer{padding:10px 20px 16px;color:var(--sub);font-size:11px;border-top:1px solid var(--hair);line-height:1.7}
+footer{padding:12px 22px 18px;color:var(--sub);font-size:11px;border-top:1px solid var(--hair);line-height:1.75;background:var(--bg)}
 footer a{color:var(--hover)}
+footer .fan{color:var(--sub);letter-spacing:.04em}
 /* ---------- モバイル ---------- */
 @media (max-width:900px){
-  header{padding:12px 14px 8px;flex-wrap:nowrap;justify-content:space-between;align-items:flex-start}
-  .titlebox{min-width:0}
-  .titlebox h1{font-size:16.5px}
+  header{padding:12px 14px 10px;flex-wrap:nowrap;justify-content:flex-start;align-items:center;gap:10px}
+  .crest{width:36px;height:36px}
+  .crest span{font-size:17px}
+  .titlebox h1{font-size:16px}
+  .eyebrow{font-size:8.5px;letter-spacing:.24em}
   .stats{display:none}
-  #sharebtn{flex:none;padding:7px 13px}
+  #sharebtn{flex:none;margin-left:auto;padding:8px 13px}
+  #sharebtn .lbl-share{display:none}
   .opbar{padding:8px 12px}
   .searchwrap{margin-left:4px}
   .searchwrap input{width:150px}
@@ -188,23 +236,26 @@ footer a{color:var(--hover)}
   #mapwrap{height:56vh;min-height:340px}
   aside{border-left:none;border-top:1px solid var(--hair)}
   .legend{display:none}
-  .acgrid{grid-template-columns:1fr 1fr}
+  .bp-ap b{font-size:24px}
 }
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
+<div class="brandline"></div>
 <header>
+  <div class="crest" aria-hidden="true"><span>✈</span></div>
   <div class="titlebox">
+    <div class="eyebrow">WINGS OF JAPAN — DOMESTIC NETWORK</div>
     <h1><span class="jp-red">JAL</span>グループ 国内線ルートマップ</h1>
-    <div class="dateline">2026年7月11日（土）時点・夏ダイヤ ※参考データ</div>
+    <div class="dateline">2026年7月11日（土）時点・夏ダイヤ ※非公式・参考データ</div>
   </div>
   <div class="stats">
     <div class="stat"><b id="st-ap">–</b><span>空港</span></div>
     <div class="stat"><b id="st-rt">–</b><span>路線</span></div>
     <div class="stat"><b id="st-fl">–</b><span>便/日</span></div>
   </div>
-  <button id="sharebtn" title="このマップのリンクを共有">✈ 共有</button>
+  <button id="sharebtn" title="このマップのリンクを共有">✈<span class="lbl-share"> 共有</span></button>
 </header>
 <div class="opbar">
   <span class="lbl">運航会社</span>
@@ -222,7 +273,8 @@ footer a{color:var(--hover)}
 </main>
 <div id="toast" role="status"></div>
 <footer>
-  本サイトの時刻・便名・機材は公開情報（<a href="https://www.jal.co.jp/jp/ja/dom/route/" target="_blank" rel="noopener">JAL路線・時刻表</a>・<a href="https://press.jal.co.jp/ja/" target="_blank" rel="noopener">2026年度JALグループ路線便数計画</a>ほか）をもとに再構成した<b>参考データ</b>です。実際の運航ダイヤ・機材とは異なる場合があります。ご搭乗の際は必ずJAL公式サイトでご確認ください。
+  本サイトの時刻・便名・機材は公開情報（<a href="https://www.jal.co.jp/jp/ja/dom/route/" target="_blank" rel="noopener">JAL路線・時刻表</a>・<a href="https://press.jal.co.jp/ja/" target="_blank" rel="noopener">2026年度JALグループ路線便数計画</a>ほか）をもとに再構成した<b>参考データ</b>です。実際の運航ダイヤ・機材とは異なる場合があります。ご搭乗の際は必ずJAL公式サイトでご確認ください。<br>
+  <span class="fan">本サイトは個人が作成した非公式のファンサイトであり、日本航空株式会社およびJALグループ各社とは一切関係ありません。</span>
 </footer>
 
 <script>
@@ -261,7 +313,7 @@ const OPS = {
 };
 const OPCOLOR = {JAL:"--c-JAL",JAR:"--c-JAR",JTA:"--c-JTA",JAC:"--c-JAC",RAC:"--c-RAC",HAC:"--c-HAC",SFJ:"--c-CS",AMX:"--c-CS"};
 const AC = {
- A359:["エアバスA350-900","391席・国内線旗艦機"], B788:["ボーイング787-8","291席"],
+ A359:["エアバスA350-900","391席・国内線旗艦機（幹線限定）"], B788:["ボーイング787-8","291席・幹線用"],
  B763:["ボーイング767-300ER","261席"], B738:["ボーイング737-800","165席"],
  A320:["エアバスA320","150席・スターフライヤー"],
  E190:["エンブラエル190","95席・J-AIR"], E170:["エンブラエル170","76席・J-AIR"],
@@ -272,35 +324,37 @@ const ACSHORT = {A359:"A350-900",B788:"787-8",B763:"767-300ER",B738:"737-800",A3
 function R(a,b,op,ac,n,f,of,ol,rf,rl,bo,br,note,season){
  return {a,b,ops:op.split(" "),ac:ac.split(" "),n,f,of,ol,rf,rl,bo,br,note:note||"",season:season||null};
 }
+/* 機材メモ: A350-900/787-8は羽田発着の幹線4路線（新千歳・伊丹・福岡・那覇）のみ。
+   767-300ERは幹線＋需要の大きい地方路線に限定。その他は737-800/Eジェット/プロペラ機。 */
 const ROUTES = [
- R("HND","CTS","JAL","A359 B763 B788",16,501,"06:15","20:00","06:45","20:30",95,100),
+ R("HND","CTS","JAL","A359 B788 B763",16,501,"06:15","20:00","06:45","20:30",95,100),
  R("HND","ITM","JAL","A359 B788 B763",15,101,"06:25","20:00","07:00","20:30",65,70),
- R("HND","FUK","JAL","A359 B788 A359 B763",17,301,"06:15","20:05","06:40","20:30",110,95),
- R("HND","OKA","JAL","A359 B763 B788",13,901,"06:15","19:55","07:25","20:20",165,145),
- R("HND","KIX","JAL","B763 B738",5,221,"06:35","19:10","08:20","20:55",75,70),
+ R("HND","FUK","JAL","A359 B788 B763",17,301,"06:15","20:05","06:40","20:30",110,95),
+ R("HND","OKA","JAL","A359 B788 B763",13,901,"06:15","19:55","07:25","20:20",165,145),
+ R("HND","KIX","JAL","B738",5,221,"06:35","19:10","08:20","20:55",75,70),
  R("HND","AKJ","JAL","B763 B738",4,551,"08:05","18:35","10:30","20:45",95,100),
  R("HND","KUH","JAL","B738",4,541,"06:45","17:45","09:15","20:00",95,105,"夏季期間（8月）増便予定あり"),
- R("HND","OBO","JAL","B738 B763",4,571,"07:00","18:20","09:35","20:35",95,100),
+ R("HND","OBO","JAL","B738",4,571,"07:00","18:20","09:35","20:35",95,100),
  R("HND","HKD","JAL","B763 B738",3,585,"07:20","18:15","09:30","20:25",80,85),
  R("HND","MMB","JAL","B738 B763",3,561,"08:00","17:30","10:35","20:00",105,110),
  R("HND","AOJ","JAL","B738",4,141,"07:10","19:20","09:15","21:00",75,80),
  R("HND","MSJ","JAR","E190",3,151,"07:35","18:45","09:40","20:50",80,85),
- R("HND","AXT","JAL","B763 B738",5,161,"06:55","19:25","08:50","21:00",70,70),
+ R("HND","AXT","JAL","B738",5,161,"06:55","19:25","08:50","21:00",70,70),
  R("HND","GAJ","JAR","E190",2,171,"07:45","17:50","09:35","19:45",65,70),
  R("HND","KMQ","JAL","B763 B738",6,183,"06:55","19:55","08:45","21:20",65,70),
  R("HND","SHM","JAL","B738",3,211,"07:25","17:45","09:20","19:40",70,75),
- R("HND","OKJ","JAL","B738 B763",5,231,"06:50","19:30","08:55","21:15",80,85),
- R("HND","IZO","JAL","B738 B763",5,279,"07:05","19:35","09:20","21:25",90,85),
- R("HND","UBJ","JAL","B738 B763",5,289,"06:45","19:45","09:05","21:35",95,100),
- R("HND","HIJ","JAL","B763 B738 B788",8,251,"06:30","20:00","08:30","21:30",90,85),
+ R("HND","OKJ","JAL","B738",5,231,"06:50","19:30","08:55","21:15",80,85),
+ R("HND","IZO","JAL","B738",5,279,"07:05","19:35","09:20","21:25",90,85),
+ R("HND","UBJ","JAL","B738",5,289,"06:45","19:45","09:05","21:35",95,100),
+ R("HND","HIJ","JAL","B763 B738",8,251,"06:30","20:00","08:30","21:30",90,85),
  R("HND","TAK","JAL","B738 B763",6,471,"06:40","19:50","08:40","21:35",80,75),
- R("HND","TKS","JAL","B738 B763",7,451,"06:30","20:00","08:25","21:40",75,80),
- R("HND","KCZ","JAL","B738 B763",6,491,"06:35","19:45","08:40","21:35",85,90),
+ R("HND","TKS","JAL","B738",7,451,"06:30","20:00","08:25","21:40",75,80),
+ R("HND","KCZ","JAL","B738",6,491,"06:35","19:45","08:40","21:35",85,90),
  R("HND","MYJ","JAL","B763 B738",6,431,"06:40","19:35","08:50","21:30",90,95),
  R("HND","OIT","JAL","B763 B738",6,661,"06:45","19:50","08:55","21:40",95,100),
- R("HND","KMJ","JAL","B763 B788 B738",7,621,"06:25","19:55","08:45","21:45",105,95),
- R("HND","NGS","JAL","B763 B788",6,605,"07:00","19:45","09:30","21:40",110,105),
- R("HND","KOJ","JAL","B763 B738 B788",9,641,"06:30","20:00","08:50","21:45",110,100),
+ R("HND","KMJ","JAL","B763 B738",7,621,"06:25","19:55","08:45","21:45",105,95),
+ R("HND","NGS","JAL","B763 B738",6,605,"07:00","19:45","09:30","21:40",110,105),
+ R("HND","KOJ","JAL","B763 B738",9,641,"06:30","20:00","08:50","21:45",110,100),
  R("HND","KMI","JAL","B738 B763",6,681,"06:55","19:40","09:10","21:35",100,105),
  R("HND","ASJ","JAL","B738",1,659,"11:50","11:50","14:55","14:55",145,140),
  R("HND","ISG","JAL","B763",2,971,"06:35","12:05","10:35","16:00",190,160,"7/17〜8/31はボーイング787-8に機材大型化（ファーストクラス設定）"),
@@ -309,7 +363,7 @@ const ROUTES = [
  R("HND","KKJ","SFJ","A320",5,71,"06:00","19:30","07:55","21:20",95,100,"スターフライヤー運航便へのコードシェア"),
  R("NRT","ITM","JAR","E190",3,3001,"07:20","17:35","09:35","19:45",80,85),
  R("NRT","NGO","JAR","E170",2,3081,"08:10","16:40","10:05","18:35",70,75),
- R("ITM","CTS","JAL","B763 B788",4,2001,"07:35","18:20","10:15","20:45",110,105,"一部便でファーストクラス設定（2026年度新設）"),
+ R("ITM","CTS","JAL","B763",4,2001,"07:35","18:20","10:15","20:45",110,105,"一部便でファーストクラス設定（2026年度新設）"),
  R("ITM","HKD","JAR","E190",1,2751,"10:35","10:35","12:55","12:55",100,105),
  R("ITM","AOJ","JAR","E190 E170",3,2151,"08:00","18:10","10:20","20:25",95,90),
  R("ITM","MSJ","JAR","E170",2,2161,"09:20","16:50","11:45","19:15",100,95),
@@ -338,7 +392,7 @@ const ROUTES = [
  R("KIX","CTS","JAL","B738",1,2503,"10:40","10:40","13:35","13:35",115,110),
  R("NGO","CTS","JAL","B738",2,3101,"09:10","17:20","11:50","19:55",100,95),
  R("NGO","OKA","JTA","B738",2,81,"09:35","14:50","13:05","18:20",145,130),
- R("CTS","FUK","JAL","B763",1,3511,"11:20","11:20","14:35","14:35",135,130),
+ R("CTS","FUK","JAL","B738",1,3511,"11:20","11:20","14:35","14:35",135,130),
  R("OKD","HKD","HAC","AT4",6,2741,"07:30","19:30","09:00","20:55",45,45),
  R("OKD","KUH","HAC","AT4",3,2865,"08:20","17:40","09:55","19:10",50,50),
  R("OKD","RIS","HAC","AT4",1,2881,"10:40","10:40","12:10","12:10",55,50),
@@ -415,12 +469,21 @@ function flightsFor(r,dir){
 const svg = document.getElementById("map"), NS="http://www.w3.org/2000/svg";
 const el = (n,at,parent)=>{const e=document.createElementNS(NS,n);for(const k in at)e.setAttribute(k,at[k]);(parent||svg).appendChild(e);return e;};
 el("rect",{x:0,y:0,width:880,height:960,fill:"var(--sea)"});
-const gLand=el("g",{}), gRoutes=el("g",{}), gFx=el("g",{}), gAp=el("g",{});
+const gGrat=el("g",{}), gLand=el("g",{}), gRoutes=el("g",{}), gFx=el("g",{}), gAp=el("g",{});
+/* 経緯線（航空図風） */
+for(let lon=125;lon<=145;lon+=5) el("line",{x1:PX(lon),y1:0,x2:PX(lon),y2:960,class:"grat"},gGrat);
+for(let lat=25;lat<=45;lat+=5) el("line",{x1:0,y1:PY(lat),x2:880,y2:PY(lat),class:"grat"},gGrat);
 POLYS.forEach(p=>{
  const d = p.map((q,i)=>(i?"L":"M")+PX(q[0]).toFixed(1)+" "+PY(q[1]).toFixed(1)).join("")+"Z";
  el("path",{d,fill:"var(--land)",stroke:"var(--coast)","stroke-width":1,"stroke-linejoin":"round"},gLand);
 });
 ISLES.forEach(([lon,lat,rx,ry])=>el("ellipse",{cx:PX(lon),cy:PY(lat),rx,ry,fill:"var(--land)",stroke:"var(--coast)","stroke-width":.8},gLand));
+/* チャートキャプション・方位 */
+el("text",{x:866,y:942,"text-anchor":"end",class:"chartcap"},gGrat).textContent="JAL GROUP DOMESTIC NETWORK · JULY 2026";
+const compass=el("g",{transform:"translate(842,44)"},gGrat);
+el("circle",{r:14,fill:"none",stroke:"var(--coast)","stroke-width":1},compass);
+el("path",{d:"M0 -10L4 6L0 3L-4 6Z",fill:"var(--red)"},compass);
+el("text",{y:-18,"text-anchor":"middle","font-size":9,fill:"var(--sub)","letter-spacing":2},compass).textContent="N";
 
 const apRoutes = {}; ROUTES.forEach((r,i)=>{(apRoutes[r.a]??=[]).push(i);(apRoutes[r.b]??=[]).push(i);});
 const state = {sel:null, selAp:null, selAc:null, ops:Object.fromEntries(Object.keys(OPS).map(k=>[k,true]))};
@@ -428,13 +491,13 @@ const tooltip=document.getElementById("tooltip"), wrap=document.getElementById("
 function showTip(evt,html){tooltip.innerHTML=html;tooltip.style.display="block";
  const r=wrap.getBoundingClientRect();
  let x=evt.clientX-r.left+14,y=evt.clientY-r.top+10;
- if(x>r.width-270)x-=290; if(y>r.height-90)y-=76;
+ if(x>r.width-275)x-=295; if(y>r.height-95)y-=80;
  tooltip.style.left=x+"px";tooltip.style.top=y+"px";}
 const hideTip=()=>tooltip.style.display="none";
 
 function routePath(r){
  const x1=PX(AP[r.a][1]),y1=PY(AP[r.a][2]),x2=PX(AP[r.b][1]),y2=PY(AP[r.b][2]);
- const mx=(x1+x2)/2,my=(y1+y2)/2,dx=x2-x1,dy=y2-y1,L=Math.hypot(dx,dy)||1;
+ const mx=(x1+x2)/2,my=(y1+y2)/2,dx=x2-x1,dy=y2-y1;
  return `M${x1} ${y1}Q${mx-dy*.12} ${my+dx*.12} ${x2} ${y2}`;
 }
 const baseW = r => (0.8+Math.min(r.n,16)*.18);
@@ -462,7 +525,7 @@ if(!REDUCED){
   ln.style.transition=`stroke-dashoffset .9s ease ${(i*9)}ms, opacity .15s, stroke-width .15s`;
  });
  setTimeout(()=>routeEls.forEach(ln=>{ln.style.strokeDashoffset=0;}),30);
- setTimeout(()=>routeEls.forEach((ln,i)=>{ // 描画完了後にダッシュ設定を後始末（季節運航の破線はCSSに戻す）
+ setTimeout(()=>routeEls.forEach(ln=>{
   ln.style.strokeDasharray=""; ln.style.strokeDashoffset=""; ln.style.transition="";
  }),2400);
 }
@@ -471,8 +534,8 @@ Object.keys(AP).forEach(code=>{
  const cx=PX(lon),cy=PY(lat),deg=(apRoutes[code]||[]).length;
  const major=deg>=8;
  const dot=el("circle",{cx,cy,r:(2.4+Math.min(deg,20)*.32).toFixed(1),class:"airport-dot",
-  fill: major? "var(--accent)":"var(--sub)","data-ap":code,tabindex:0,role:"button","aria-label":name},gAp);
- el("text",{x:cx+dx,y:cy+dy,class:"ap-label"+(major?" major":""),"data-ap":code},gAp).textContent=name;
+  fill: major? "var(--red)":"var(--sub)","data-ap":code,tabindex:0,role:"button","aria-label":name},gAp);
+ el("text",{x:cx+dx,y:cy+dy,class:"ap-label"+(major?" major":""),"text-anchor":anchor,"data-ap":code},gAp).textContent=name;
  dot.addEventListener("click",()=>selectAirport(code));
  dot.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();selectAirport(code);}});
  dot.addEventListener("mousemove",e=>showTip(e,`<div class="t1">${name} <span class="acode">${code}</span></div><div class="t2">${deg}路線が発着 — クリックで路線一覧</div>`));
@@ -485,7 +548,7 @@ function flyPlane(i){
  if(i==null||REDUCED)return;
  const d=routeEls[i].getAttribute("d");
  planeEl=el("g",{},gFx);
- el("circle",{r:4.2,fill:"var(--accent)",stroke:"var(--panel)","stroke-width":1.5},planeEl);
+ el("circle",{r:4.2,fill:"var(--red)",stroke:"var(--panel)","stroke-width":1.5},planeEl);
  const am=el("animateMotion",{dur:"5s",repeatCount:"indefinite",path:d,rotate:"auto"},planeEl);
  am.beginElement&&am.beginElement();
 }
@@ -543,11 +606,18 @@ function selectRoute(i){
  const r=ROUTES[i], km=hav(r.a,r.b);
  const ops=[...new Set(r.ops)], acs=[...new Set(r.ac)];
  setPanel(`${backBtn()}
-  <h2>${AP[r.a][0]} ⇄ ${AP[r.b][0]}</h2>
-  <div class="sub">${ops.map(o=>OPS[o][1]).join("・")}</div>
+  <div class="bp">
+   <div class="bp-band"><span>FLIGHT INFORMATION</span><span>${ops.map(o=>OPS[o][0]).join(" / ")}</span></div>
+   <div class="bp-main">
+    <div class="bp-ap"><b>${r.a}</b><span>${AP[r.a][0]}</span></div>
+    <div class="bp-mid"><span class="plane">✈</span>約${km.toLocaleString()}km<br>${fmtDur(r.bo)}前後</div>
+    <div class="bp-ap right"><b>${r.b}</b><span>${AP[r.b][0]}</span></div>
+   </div>
+  </div>
   <div class="facts">
-   <span><b>${r.n}</b> 往復/日</span><span>約<b>${km.toLocaleString()}</b> km</span>
-   <span>所要 <b>${fmtDur(r.bo)}</b>前後</span><span>${ops.map(opChipHTML).join(" ")}</span>
+   <span><b>${r.n}</b> 往復/日</span>
+   <span>${ops.map(o=>OPS[o][1]).join("・")}</span>
+   <span>${ops.map(opChipHTML).join(" ")}</span>
   </div>
   ${r.season? `<div class="note season">季節運航（${r.season.txt}）${r.season.active? "・現在運航中":"・<b>7月11日時点は運航期間外</b>"}</div>`:""}
   ${r.note? `<div class="note">${r.note}</div>`:""}
@@ -561,7 +631,7 @@ function selectAirport(code){
  const list=(apRoutes[code]||[]).filter(i=>routeVisible(ROUTES[i])).sort((x,y)=>ROUTES[y].n-ROUTES[x].n);
  const total=list.reduce((s,i)=>s+ROUTES[i].n,0);
  setPanel(`${backBtn()}
-  <h2>${AP[code][0]} <span class="acode">${code}</span></h2>
+  <h2>${AP[code][0]} <span class="acode mono">${code}</span></h2>
   <div class="facts"><span><b>${list.length}</b> 路線</span><span><b>${total*2}</b> 便/日（往復合計）</span></div>
   <ul class="rtlist">${routeListItems(list,"ap")}</ul>
   <p class="hint">行き先をタップすると全便の時刻・機材が表示されます。</p>`);
@@ -590,8 +660,9 @@ function renderHome(){
  const hubs=["HND","ITM","OKA","FUK","CTS","KOJ","OKD","ISG"];
  const acCount=Object.fromEntries(Object.keys(AC).map(a=>[a,ROUTES.filter(r=>r.ac.includes(a)).length]));
  setPanel(`
-  <h2>路線をさがす</h2>
-  <div class="sub">地図の路線・空港をタップ、または下のショートカットからどうぞ。</div>
+  <div class="eyebrow">WELCOME ABOARD</div>
+  <div class="welcome">ようこそ、<em>日本の翼</em>の旅へ。</div>
+  <div class="sub">地図の路線・空港をタップすると、その区間の全便の便名・機材・時刻をご案内します。</div>
   <div class="note">2026年7月11日（土）時点の夏ダイヤをもとにした<b>参考データ</b>です。破線＝季節運航（7/17〜8/31の路線は現在期間外）。羽田=石垣・宮古線は7/17から787-8に大型化。</div>
   <div class="sec">主要空港から探す</div>
   <div class="hubgrid">${hubs.map(h=>`<button class="hub" data-hub="${h}" aria-label="${AP[h][0]}の路線一覧を表示"><b>${AP[h][0]}</b><span>${(apRoutes[h]||[]).length}路線</span></button>`).join("")}</div>
@@ -631,6 +702,7 @@ function refreshAfterFilter(){
  else if(state.sel==null) renderHome();
 }
 document.getElementById("legend").innerHTML =
+ `<div class="lg-title">LEGEND</div>`+
  Object.keys(OPCOLOR).filter(o=>!["SFJ","AMX"].includes(o)).map(o=>
   `<div class="row"><span class="bar" style="background:var(${OPCOLOR[o]})"></span>${OPS[o][0]} <span style="color:var(--sub)">${OPS[o][1]}</span></div>`).join("")+
  `<div class="row"><span class="bar" style="background:var(--c-CS)"></span>コードシェア（SFJ・AMX）</div>
