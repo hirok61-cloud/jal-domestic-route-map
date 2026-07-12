@@ -12,7 +12,7 @@
   --bg:#faf9f7; --sea:#e7edf2; --land:#f3f0ea; --coast:#c6d2da;
   --ink:#1b1e24; --sub:#6b7480; --panel:#ffffff; --panel-edge:#e2e0da; --hair:#eceae5; --chipbg:#f4f2ee;
   --hover:#0d55a0;
-  --c-JAL:#c8102e; --c-OW:#123f95; --c-OTHER:#2f9e57;
+  --c-JAL:#c8102e; --c-OW:#123f95; --c-OTHER:#2f9e57; --c-PT:#8a3fb0;
   --shadow:0 10px 30px rgba(30,20,20,.12); --card-shadow:0 2px 10px rgba(30,20,20,.06);
 }
 @media (prefers-color-scheme: dark){:root{
@@ -20,7 +20,7 @@
   --bg:#0e1216; --sea:#0a1218; --land:#1b242d; --coast:#2c3b47;
   --ink:#eceff3; --sub:#95a1ad; --panel:#141a21; --panel-edge:#27303a; --hair:#20272f; --chipbg:#1b222b;
   --hover:#5ab0ff;
-  --c-JAL:#ff4d5e; --c-OW:#5b8fe6; --c-OTHER:#4cc077;
+  --c-JAL:#ff4d5e; --c-OW:#5b8fe6; --c-OTHER:#4cc077; --c-PT:#c79cec;
   --shadow:0 10px 30px rgba(0,0,0,.55); --card-shadow:0 2px 10px rgba(0,0,0,.4);
 }}
 :root[data-theme="light"]{
@@ -29,7 +29,7 @@
   --bg:#faf9f7; --sea:#e7edf2; --land:#f3f0ea; --coast:#c6d2da;
   --ink:#1b1e24; --sub:#6b7480; --panel:#ffffff; --panel-edge:#e2e0da; --hair:#eceae5; --chipbg:#f4f2ee;
   --hover:#0d55a0;
-  --c-JAL:#c8102e; --c-OW:#123f95; --c-OTHER:#2f9e57;
+  --c-JAL:#c8102e; --c-OW:#123f95; --c-OTHER:#2f9e57; --c-PT:#8a3fb0;
   --shadow:0 10px 30px rgba(30,20,20,.12); --card-shadow:0 2px 10px rgba(30,20,20,.06);
 }
 :root[data-theme="dark"]{
@@ -38,7 +38,7 @@
   --bg:#0e1216; --sea:#0a1218; --land:#1b242d; --coast:#2c3b47;
   --ink:#eceff3; --sub:#95a1ad; --panel:#141a21; --panel-edge:#27303a; --hair:#20272f; --chipbg:#1b222b;
   --hover:#5ab0ff;
-  --c-JAL:#ff4d5e; --c-OW:#5b8fe6; --c-OTHER:#4cc077;
+  --c-JAL:#ff4d5e; --c-OW:#5b8fe6; --c-OTHER:#4cc077; --c-PT:#c79cec;
   --shadow:0 10px 30px rgba(0,0,0,.55); --card-shadow:0 2px 10px rgba(0,0,0,.4);
 }
 *{box-sizing:border-box}
@@ -116,11 +116,11 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 420px;height:calc(100vh - 
 #mapwrap svg{width:100%;height:100%;display:block}
 aside{border-left:1px solid var(--hair);background:var(--panel);overflow-y:auto;padding:18px 20px 34px}
 /* ---------- 地図 ---------- */
-.route-line{fill:none;cursor:pointer;transition:opacity .15s,stroke-width .15s}
+.route-line{fill:none;cursor:pointer;transition:opacity .15s,stroke-width .15s;vector-effect:non-scaling-stroke}
 .route-line.dim{opacity:.05;pointer-events:none}
-.route-hit{fill:none;stroke:transparent;stroke-width:13;cursor:pointer}
+.route-hit{fill:none;stroke:transparent;stroke-width:13;cursor:pointer;vector-effect:non-scaling-stroke}
 .route-hit.dim{pointer-events:none}
-.airport-dot{cursor:pointer;stroke:var(--panel);stroke-width:1.1;transition:opacity .15s}
+.airport-dot{cursor:pointer;stroke:var(--panel);stroke-width:1.1;transition:opacity .15s;vector-effect:non-scaling-stroke}
 .airport-dot.dim{opacity:.12}
 .ap-label{font-size:8.5px;fill:var(--sub);pointer-events:none;
   paint-order:stroke;stroke:var(--sea);stroke-width:2.4px;stroke-linejoin:round;transition:opacity .15s}
@@ -216,6 +216,24 @@ tr.flight:hover td{background:var(--chipbg)}
 .regcard:hover{transform:translateY(-2px);box-shadow:0 6px 16px color-mix(in srgb,var(--red) 18%,transparent)}
 .regcard b{display:block;font-size:13px}
 .regcard span{font-size:10.5px;color:var(--sub)}
+.opgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:8px 0}
+.opcard{display:flex;align-items:center;gap:7px;border:1px solid var(--panel-edge);background:var(--panel);border-radius:10px;
+  padding:8px 10px;cursor:pointer;text-align:left;box-shadow:var(--card-shadow);transition:transform .15s,border-color .15s;overflow:hidden}
+.opcard:hover{transform:translateY(-2px);border-color:var(--red);box-shadow:0 6px 16px color-mix(in srgb,var(--red) 16%,transparent)}
+.opcard .opdot{width:9px;height:9px;border-radius:2px;flex:none;margin:0}
+.opcard b{font-size:12px;font-family:ui-monospace,Menlo,monospace;flex:none}
+.opcard .onm{font-size:10.5px;color:var(--sub);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.opcard .oct{font-size:10.5px;color:var(--red);font-weight:700;flex:none}
+.opcard:focus-visible{outline:2px solid var(--hover);outline-offset:2px}
+/* ズームコントロール */
+.zoomctl{position:absolute;right:14px;top:14px;display:flex;flex-direction:column;gap:5px;z-index:4}
+.zoomctl button{width:32px;height:32px;border:1px solid var(--panel-edge);background:color-mix(in srgb,var(--panel) 92%,transparent);
+  backdrop-filter:blur(5px);border-radius:9px;color:var(--ink);font-size:17px;font-weight:700;cursor:pointer;
+  box-shadow:var(--card-shadow);display:flex;align-items:center;justify-content:center;line-height:1;transition:all .15s}
+.zoomctl button:hover{border-color:var(--red);color:var(--red)}
+.zoomctl button:focus-visible{outline:2px solid var(--hover);outline-offset:2px}
+#mapwrap{touch-action:none}
+#map.grabbing{cursor:grabbing}
 .acgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
 .accard{border:1px solid var(--panel-edge);background:var(--panel);border-radius:12px;
   padding:10px 12px;cursor:pointer;text-align:left;box-shadow:var(--card-shadow);
@@ -290,6 +308,11 @@ footer .fan{color:var(--sub);letter-spacing:.04em}
   <div id="mapwrap">
     <svg id="map" viewBox="0 0 976 397" role="img" aria-label="世界地図上のJALグループ国際線路線図"></svg>
     <div class="legend" id="legend"></div>
+    <div class="zoomctl" id="zoomctl">
+      <button id="zin" aria-label="拡大">＋</button>
+      <button id="zout" aria-label="縮小">－</button>
+      <button id="zreset" aria-label="全体表示に戻す" title="全体表示に戻す">⟲</button>
+    </div>
     <div id="tooltip"></div>
   </div>
   <aside id="panel"></aside>
@@ -359,7 +382,7 @@ const AP = {
  SGN:["ホーチミン", 106.652, 10.819, "Asia/Ho_Chi_Minh", "SEA", -7, 7, "end"],
  SIN:["シンガポール", 103.987, 1.356, "Asia/Singapore", "SEA", -7, 7, "end"],
 };
-const OPS = {"JAL": ["JL", "日本航空", "self"], "AAL": ["AA", "アメリカン航空", "oneworld"], "BAW": ["BA", "ブリティッシュ・エアウェイズ", "oneworld"], "CPA": ["CX", "キャセイパシフィック航空", "oneworld"], "QFA": ["QF", "カンタス航空", "oneworld"], "QTR": ["QR", "カタール航空", "oneworld"], "FIN": ["AY", "フィンエアー", "oneworld"], "MAS": ["MH", "マレーシア航空", "oneworld"], "ALK": ["UL", "スリランカ航空", "oneworld"], "KAL": ["KE", "大韓航空", "other"], "AAR": ["OZ", "アシアナ航空", "other"], "EVA": ["BR", "エバー航空", "other"]};
+const OPS = {"JAL": ["JL", "日本航空", "self"], "AAL": ["AA", "アメリカン航空", "oneworld"], "BAW": ["BA", "ブリティッシュ・エアウェイズ", "oneworld"], "CPA": ["CX", "キャセイパシフィック航空", "oneworld"], "QFA": ["QF", "カンタス航空", "oneworld"], "QTR": ["QR", "カタール航空", "oneworld"], "FIN": ["AY", "フィンエアー", "oneworld"], "MAS": ["MH", "マレーシア航空", "oneworld"], "ALK": ["UL", "スリランカ航空", "oneworld"], "KAL": ["KE", "大韓航空", "other"], "AAR": ["OZ", "アシアナ航空", "other"], "EVA": ["BR", "エバー航空", "other"], "HAL": ["HA", "ハワイアン航空", "partner"]};
 const AC = {"A21N": ["エアバス A321neo", "A321neo"], "A321": ["エアバス A321", "A321"], "A330": ["エアバス A330", "A330"], "A332": ["エアバス A330-200", "A330-200"], "A333": ["エアバス A330-300", "A330-300"], "A339": ["エアバス A330-900neo", "A330-900"], "A359": ["エアバス A350-900", "A350-900"], "A35K": ["エアバス A350-1000", "A350-1000"], "B38M": ["ボーイング 737 MAX 8", "737 MAX8"], "B738": ["ボーイング 737-800", "737-800"], "B739": ["ボーイング 737-900", "737-900"], "B741": ["ボーイング 747-100", "747SP/旧型"], "B744": ["ボーイング 747-400", "747-400"], "B763": ["ボーイング 767-300ER", "767-300ER"], "B772": ["ボーイング 777-200", "777-200"], "B773": ["ボーイング 777-300", "777-300"], "B77L": ["ボーイング 777-200LR", "777-200LR"], "B77W": ["ボーイング 777-300ER", "777-300ER"], "B788": ["ボーイング 787-8", "787-8"], "B789": ["ボーイング 787-9", "787-9"], "B78X": ["ボーイング 787-10", "787-10"], "BCS3": ["エアバス A220-300", "A220-300"], "UNK": ["UNK", "UNK"]};
 const ROUTES = [
  {"a": "NRT", "b": "ICN", "region": "EA", "F0": [["OZ107", "09:00", "11:30", 0, "A333", "AAR"], ["KE706", "09:20", "11:45", 0, "B78X", "KAL"], ["JL6717", "11:15", "14:00", 0, "B763", "JAL"], ["OZ101", "12:50", "15:25", 0, "A333", "AAR"], ["KE712", "17:20", "20:00", 0, "A21N", "KAL"], ["KE708", "19:00", "21:30", 0, "BCS3", "KAL"], ["OZ105", "19:45", "22:15", 0, "A333", "AAR"], ["KE224", "19:46", "21:36", 0, "B77L", "KAL"], ["KE714", "20:55", "23:25", 0, "B38M", "KAL"]], "F1": [["JL6750", "07:30", "10:00", 0, "B763", "JAL"], ["OZ102", "08:25", "10:50", 0, "A333", "AAR"], ["KE703", "10:10", "12:40", 0, "A333", "KAL"], ["KE711", "13:00", "15:35", 0, "A21N", "KAL"], ["KE551", "13:45", "15:44", 0, "B744", "KAL"], ["KE707", "14:45", "17:15", 0, "BCS3", "KAL"], ["OZ106", "15:45", "18:25", 0, "A333", "AAR"], ["KE713", "17:15", "19:45", 0, "B38M", "KAL"], ["OZ108", "18:30", "21:00", 0, "A333", "AAR"], ["KE705", "18:35", "21:05", 0, "B78X", "KAL"]]},
@@ -370,6 +393,7 @@ const ROUTES = [
  {"a": "FUK", "b": "ICN", "region": "EA", "F0": [["KE788", "10:35", "12:00", 0, "A333", "KAL"], ["KE792", "14:50", "16:30", 0, "A21N", "KAL"], ["OZ133", "16:25", "18:05", 0, "A21N", "AAR"], ["KE796", "20:00", "21:35", 0, "B38M", "KAL"], ["KE782", "21:05", "22:35", 0, "B38M", "KAL"]], "F1": [["KE787", "08:00", "09:25", 0, "A333", "KAL"], ["KE791", "11:05", "12:30", 0, "A21N", "KAL"], ["OZ134", "13:55", "15:25", 0, "A21N", "AAR"], ["KE795", "16:25", "17:55", 0, "B38M", "KAL"], ["KE781", "18:35", "20:00", 0, "B38M", "KAL"]]},
  {"a": "NGO", "b": "ICN", "region": "EA", "F0": [["JL6749", "02:20", "04:10", 0, "B763", "JAL"], ["KE744", "09:15", "11:20", 0, "B739", "KAL"], ["OZ121", "11:55", "13:55", 0, "A321", "AAR"], ["KE742", "13:40", "15:40", 0, "B38M", "KAL"], ["OZ123", "19:00", "20:55", 0, "A321", "AAR"]], "F1": [["OZ122", "09:10", "10:55", 0, "A321", "AAR"], ["KE741", "10:35", "12:30", 0, "B38M", "KAL"], ["OZ124", "16:10", "18:00", 0, "A321", "AAR"], ["KE743", "19:00", "21:00", 0, "B739", "KAL"]]},
  {"a": "HND", "b": "LHR", "region": "EU", "F0": [["JL41", "00:15", "06:25", 0, "B788", "JAL"], ["BA8", "08:55", "15:45", 0, "A35K", "BAW"], ["JL43", "09:45", "15:55", 0, "A35K", "JAL"], ["BA6", "13:05", "19:50", 0, "B789", "BAW"]], "F1": [["JL42", "09:10", "06:45", 1, "B788", "JAL"], ["BA7", "09:25", "07:00", 1, "A35K", "BAW"], ["BA5", "13:05", "10:55", 1, "B789", "BAW"], ["JL44", "19:20", "17:20", 1, "B77W", "JAL"]]},
+ {"a": "HND", "b": "HNL", "region": "NA", "F0": [["HA864", "20:15", "09:10", 0, "A332", "HAL"], ["JL74", "21:05", "09:45", 0, "B789", "JAL"], ["HA832", "21:20", "10:15", 0, "A332", "HAL"], ["JL72", "21:55", "10:35", 0, "B789", "JAL"]], "F1": [["JL73", "12:45", "15:55", 1, "B789", "JAL"], ["HA863", "13:35", "17:10", 1, "A332", "HAL"], ["HA831", "16:00", "19:25", 1, "A332", "HAL"], ["JL71", "16:35", "19:45", 1, "B789", "JAL"]]},
  {"a": "HND", "b": "TSA", "region": "EA", "F0": [["JL97", "08:55", "11:15", 0, "B789", "JAL"], ["BR189", "10:50", "13:30", 0, "B78X", "EVA"], ["BR191", "12:40", "15:05", 0, "B78X", "EVA"], ["JL99", "18:25", "20:50", 0, "B788", "JAL"]], "F1": [["BR192", "07:20", "11:30", 0, "B78X", "EVA"], ["JL96", "11:35", "15:45", 0, "B788", "JAL"], ["JL98", "14:20", "18:30", 0, "B789", "JAL"], ["BR190", "16:20", "20:20", 0, "B78X", "EVA"]]},
  {"a": "KIX", "b": "GMP", "region": "EA", "F0": [["OZ1135", "11:10", "13:10", 0, "A321", "AAR"], ["KE2118", "12:25", "14:20", 0, "A333", "KAL"], ["KE2120", "19:35", "21:25", 0, "A21N", "KAL"], ["OZ1155", "20:30", "22:25", 0, "A333", "AAR"]], "F1": [["OZ1145", "08:10", "09:50", 0, "A321", "AAR"], ["KE2117", "09:15", "10:55", 0, "A333", "KAL"], ["KE2119", "16:30", "18:25", 0, "A21N", "KAL"], ["OZ1165", "17:40", "19:20", 0, "A333", "AAR"]]},
  {"a": "OKA", "b": "ICN", "region": "EA", "F0": [["OZ1791", "10:11", "11:52", 0, "A21N", "AAR"], ["KE2148", "12:50", "15:10", 0, "A333", "KAL"], ["OZ171", "18:15", "20:35", 0, "A21N", "AAR"], ["OZ1719", "20:42", "22:25", 0, "A333", "AAR"]], "F1": [["KE2147", "09:20", "11:50", 0, "A21N", "KAL"], ["KE8147", "11:00", "12:50", 0, "A21N", "KAL"], ["OZ172", "14:45", "17:15", 0, "A21N", "AAR"], ["OZ1729", "17:02", "18:54", 0, "A333", "AAR"]]},
@@ -387,7 +411,6 @@ const ROUTES = [
  {"a": "HND", "b": "BKK", "region": "SEA", "F0": [["JL33", "01:20", "05:45", 0, "B789", "JAL"], ["JL31", "10:40", "15:10", 0, "B77W", "JAL"]], "F1": [["JL32", "09:40", "18:00", 0, "B789", "JAL"], ["JL34", "21:40", "05:55", 1, "B773", "JAL"]]},
  {"a": "HND", "b": "HEL", "region": "EU", "F0": [["JL47", "07:50", "15:10", 0, "B77W", "JAL"], ["AY62", "21:50", "04:40", 1, "A359", "FIN"]], "F1": [["JL48", "17:55", "13:55", 1, "B773", "JAL"], ["AY61", "18:30", "13:50", 1, "A359", "FIN"]]},
  {"a": "NRT", "b": "HAN", "region": "SEA", "F0": [["JL751", "18:20", "21:50", 0, "B763", "JAL"], ["JL6739", "21:10", "01:00", 1, "B763", "JAL"]], "F1": [["JL6740", "02:50", "10:05", 0, "B763", "JAL"], ["JL752", "23:20", "06:40", 1, "B763", "JAL"]]},
- {"a": "HND", "b": "HNL", "region": "NA", "F0": [["JL74", "21:05", "09:45", 0, "B789", "JAL"], ["JL72", "21:55", "10:35", 0, "B789", "JAL"]], "F1": [["JL73", "12:45", "15:55", 1, "B789", "JAL"], ["JL71", "16:35", "19:45", 1, "B789", "JAL"]]},
  {"a": "NRT", "b": "CGK", "region": "SEA", "F0": [["JL725", "11:15", "17:05", 0, "B763", "JAL"], ["JL729", "18:05", "23:55", 0, "B788", "JAL"]], "F1": [["JL720", "06:30", "16:05", 0, "B788", "JAL"], ["JL726", "21:50", "07:25", 1, "B763", "JAL"]]},
  {"a": "NRT", "b": "MEL", "region": "OC", "F0": [["JL773", "18:40", "05:45", 1, "B788", "JAL"], ["QF80", "20:25", "07:40", 1, "A333", "QFA"]], "F1": [["JL774", "07:25", "16:20", 0, "B788", "JAL"], ["QF79", "09:35", "19:00", 0, "A333", "QFA"]]},
  {"a": "HND", "b": "PVG", "region": "EA", "F0": [["JL85", "11:40", "14:00", 0, "B763", "JAL"], ["JL89", "17:20", "19:45", 0, "B738", "JAL"]], "F1": [["JL80", "09:05", "13:00", 0, "B763", "JAL"], ["JL86", "16:00", "19:55", 0, "B763", "JAL"]]},
@@ -448,6 +471,7 @@ const ROUTES = [
  {"a": "NRT", "b": "BNE", "region": "OC", "F0": [["QF62", "21:45", "07:45", 1, "A333", "QFA"]], "F1": [["QF61", "10:35", "18:50", 0, "A333", "QFA"]]},
  {"a": "KIX", "b": "LAX", "region": "NA", "F0": [["JL60", "17:45", "12:35", 0, "B789", "JAL"]], "F1": [["JL69", "15:00", "18:45", 1, "B789", "JAL"]]},
  {"a": "KIX", "b": "DOH", "region": "ME", "F0": [["QR803", "18:55", "23:30", 0, "A359", "QTR"]], "F1": [["QR802", "01:40", "17:25", 0, "A359", "QTR"]]},
+ {"a": "KIX", "b": "HNL", "region": "NA", "F0": [["HA850", "20:45", "10:15", 0, "A332", "HAL"]], "F1": [["HA849", "14:40", "18:45", 1, "A332", "HAL"]]},
  {"a": "NRT", "b": "PVG", "region": "EA", "F0": [["JL6721", "23:30", "02:00", 1, "B763", "JAL"]], "F1": []},
  {"a": "NRT", "b": "TSN", "region": "EA", "F0": [["JL6777", "10:05", "12:45", 0, "B763", "JAL"]], "F1": []},
  {"a": "NRT", "b": "CMB", "region": "SA", "F0": [], "F1": [["UL454", "19:50", "08:10", 1, "A332", "ALK"]]},
@@ -572,7 +596,9 @@ const LAND=[
 [[141.5,83.1],[148.1,82.6],[142.3,81.5],[144.5,81.5],[138.8,79.8],[133.1,79.3],[134.6,78.5],[130.2,77.2],[132.1,76.8],[129.4,76.2],[120.5,76.5],[122.2,77.2],[121.7,77.9],[125.0,77.5],[122.0,78.4],[124.9,79.3],[123.1,80.3],[128.2,80.5],[122.4,80.5],[118.4,81.9],[130.7,83.1],[141.5,83.1]]
 ];
 /* ================= 派生 ================= */
-const ALLY = {self:["JAL自社","--c-JAL"], oneworld:["oneworld","--c-OW"], other:["提携外","--c-OTHER"]};
+const ALLY = {self:["JAL自社","--c-JAL"], oneworld:["oneworld","--c-OW"], partner:["提携(JV)","--c-PT"], other:["提携外","--c-OTHER"]};
+const ALLY_BADGE = {self:"JAL", oneworld:"oneworld", partner:"提携", other:"提携外"};
+const ALLY_ORDER = {self:0, oneworld:1, partner:2, other:3};
 const REGIONS = {EA:"東アジア",SEA:"東南アジア",SA:"南アジア",OC:"オセアニア",NA:"北米",EU:"欧州",ME:"中東"};
 const allianceOf = op => (OPS[op]?OPS[op][2]:"other");
 const opColorVar = op => ALLY[allianceOf(op)][1];
@@ -584,8 +610,8 @@ ROUTES.forEach(r=>{
   r.acs=[...new Set(all.map(f=>f[4]))];
   r.ops=[...new Set(all.map(f=>f[5]))];
   r.allies=[...new Set(r.ops.map(allianceOf))];
-  // 路線の主アライアンス: self > oneworld > other
-  r.prim = r.allies.includes("self")?"self":(r.allies.includes("oneworld")?"oneworld":"other");
+  // 路線の主アライアンス: self > oneworld > partner > other
+  r.prim = r.allies.slice().sort((a,b)=>ALLY_ORDER[a]-ALLY_ORDER[b])[0];
   const cnt={}; all.forEach(f=>cnt[f[5]]=(cnt[f[5]]||0)+1);
   r.op0 = r.ops.slice().sort((x,y)=>(cnt[y]||0)-(cnt[x]||0))[0];
 });
@@ -617,8 +643,8 @@ LAND.forEach(ring=>{
 el("text",{x:VW-14,y:VH-12,"text-anchor":"end",class:"chartcap"},gGrat).textContent="JAL GROUP INTERNATIONAL NETWORK · 2026";
 
 const apRoutes = {}; ROUTES.forEach((r,i)=>{(apRoutes[r.a]??=[]).push(i);(apRoutes[r.b]??=[]).push(i);});
-const state = {sel:null, selAp:null, selAc:null, selOp:null, region:null,
-  ally:{self:true,oneworld:true,other:true}};
+const state = {sel:null, selAp:null, selAc:null, selOp:null, region:null, zoomedIn:false,
+  ally:{self:true,oneworld:true,partner:true,other:true}};
 const tooltip=document.getElementById("tooltip"), wrap=document.getElementById("mapwrap");
 function showTip(evt,html){tooltip.innerHTML=html;tooltip.style.display="block";
  const r=wrap.getBoundingClientRect();
@@ -663,18 +689,34 @@ if(!REDUCED){
 }
 // 全体表示では密集する近接空港のラベルを隠す（選択・地域絞り込み時に表示）
 const MINOR_HIDE = new Set(["GMP","PUS","CJU","TSA","KHH","SHA","TSN","DLC","NKG","UKB","OKJ","KMJ","KMI","KMQ","TAK","KKJ","MFM","SDJ"]);
+const apEls=[];
 Object.keys(AP).forEach(code=>{
  const [name,lon,lat,tz,region,dx=7,dy=3,anchor="start"]=AP[code];
  const cx=PX(lon),cy=PY(lat),deg=(apRoutes[code]||[]).length;
  const isJP=region==="JP", big=deg>=6, minor=MINOR_HIDE.has(code);
- const dot=el("circle",{cx,cy,r:(2.2+Math.min(deg,22)*.24).toFixed(1),class:"airport-dot",
+ const baseR=+(2.2+Math.min(deg,22)*.24).toFixed(2);
+ const dot=el("circle",{cx,cy,r:baseR,class:"airport-dot",
   fill: isJP? "var(--red)":(big?"var(--ink)":"var(--sub)"),"data-ap":code,tabindex:0,role:"button","aria-label":name},gAp);
- el("text",{x:cx+dx,y:cy+dy,class:"ap-label"+(isJP?" jp":big?" major":"")+(minor?" minor":""),"text-anchor":anchor,"data-ap":code},gAp).textContent=name;
+ const t=el("text",{x:cx+dx,y:cy+dy,class:"ap-label"+(isJP?" jp":big?" major":"")+(minor?" minor":""),"text-anchor":anchor,"data-ap":code},gAp);
+ t.textContent=name;
+ dot._r=baseR; t._cx=cx; t._cy=cy; t._dx=dx; t._dy=dy; t._fs=(big&&!isJP)?10:8.5;
+ apEls.push({dot,t});
  dot.addEventListener("click",()=>selectAirport(code));
  dot.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();selectAirport(code);}});
  dot.addEventListener("mousemove",e=>showTip(e,`<div class="t1">${name} <span class="acode">${code}</span></div><div class="t2">${deg}路線が発着 — クリックで一覧</div>`));
  dot.addEventListener("mouseleave",hideTip);
 });
+// ズーム時にマーカー/ラベルを逆スケールし、位置だけ広がるようにする
+function updateZoomScale(){
+ const k=view.w/VW;
+ apEls.forEach(({dot,t})=>{
+  dot.setAttribute("r",(dot._r*k).toFixed(2));
+  t.setAttribute("x",(t._cx+t._dx*k).toFixed(1));
+  t.setAttribute("y",(t._cy+t._dy*k).toFixed(1));
+  t.style.fontSize=(t._fs*k).toFixed(2)+"px";
+  t.style.strokeWidth=(2.4*k).toFixed(2)+"px";
+ });
+}
 let planeEl=null;
 function flyPlane(i){
  if(planeEl){planeEl.remove();planeEl=null;}
@@ -685,6 +727,62 @@ function flyPlane(i){
  const am=el("animateMotion",{dur:"6s",repeatCount:"indefinite",path:d,rotate:"auto"},planeEl);
  am.beginElement&&am.beginElement();
 }
+/* ============ ズーム・パン ============ */
+let view={x:0,y:0,w:VW,h:VH};
+function applyView(){
+ svg.setAttribute("viewBox",`${view.x.toFixed(1)} ${view.y.toFixed(1)} ${view.w.toFixed(1)} ${view.h.toFixed(1)}`);
+ updateZoomScale();
+ const zi=view.w < VW*0.62; if(zi!==state.zoomedIn){state.zoomedIn=zi; applyDim();}
+}
+function clampView(){
+ view.w=Math.min(VW, view.w); view.h=view.w*(VH/VW);
+ view.x=Math.max(0, Math.min(VW-view.w, view.x));
+ view.y=Math.max(0, Math.min(VH-view.h, view.y));
+}
+function client2view(cx,cy){
+ const rect=svg.getBoundingClientRect();
+ const scale=Math.min(rect.width/view.w, rect.height/view.h);
+ const offX=(rect.width-view.w*scale)/2, offY=(rect.height-view.h*scale)/2;
+ return {vx:view.x+(cx-rect.left-offX)/scale, vy:view.y+(cy-rect.top-offY)/scale, scale};
+}
+function zoomAt(cx,cy,factor){
+ const {vx,vy}=client2view(cx,cy);
+ let nw=view.w/factor; nw=Math.max(VW*0.09, Math.min(VW, nw));
+ const k=nw/view.w; view.w=nw; view.h=nw*(VH/VW);
+ view.x=vx-(vx-view.x)*k; view.y=vy-(vy-view.y)*k;
+ clampView(); applyView();
+}
+wrap.addEventListener("wheel",e=>{e.preventDefault(); zoomAt(e.clientX,e.clientY, e.deltaY<0?1.2:1/1.2);},{passive:false});
+document.getElementById("zin").onclick=()=>{const r=svg.getBoundingClientRect();zoomAt(r.left+r.width/2,r.top+r.height/2,1.6);};
+document.getElementById("zout").onclick=()=>{const r=svg.getBoundingClientRect();zoomAt(r.left+r.width/2,r.top+r.height/2,1/1.6);};
+document.getElementById("zreset").onclick=()=>{view={x:0,y:0,w:VW,h:VH};applyView();};
+const ptrs=new Map(); let dragMoved=false, pinchDist=0;
+wrap.addEventListener("pointerdown",e=>{
+ if(e.target.closest(".zoomctl"))return;
+ ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY}); dragMoved=false;
+ if(ptrs.size===2){const p=[...ptrs.values()];pinchDist=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);
+  ptrs.forEach((_,id)=>{try{wrap.setPointerCapture(id);}catch(_){}});}
+});
+wrap.addEventListener("pointermove",e=>{
+ if(!ptrs.has(e.pointerId))return;
+ const prev=ptrs.get(e.pointerId);
+ if(ptrs.size===2){
+  ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY,x0:prev.x0,y0:prev.y0});
+  const p=[...ptrs.values()]; const d=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);
+  if(pinchDist)zoomAt((p[0].x+p[1].x)/2,(p[0].y+p[1].y)/2, d/pinchDist);
+  pinchDist=d; dragMoved=true; return;
+ }
+ if(Math.abs(e.clientX-prev.x0)+Math.abs(e.clientY-prev.y0)<=4){return;} // まだドラッグではない=クリック扱い
+ if(!dragMoved){dragMoved=true; try{wrap.setPointerCapture(e.pointerId);}catch(_){}}
+ const scale=client2view(e.clientX,e.clientY).scale;
+ view.x-=(e.clientX-prev.x)/scale; view.y-=(e.clientY-prev.y)/scale;
+ clampView(); applyView(); svg.classList.add("grabbing"); hideTip();
+ ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY,x0:prev.x0,y0:prev.y0});
+});
+function endPtr(e){ptrs.delete(e.pointerId); if(ptrs.size<2)pinchDist=0; if(ptrs.size===0)svg.classList.remove("grabbing"); setTimeout(()=>{dragMoved=false;},0);}
+wrap.addEventListener("pointerup",endPtr); wrap.addEventListener("pointercancel",endPtr);
+wrap.addEventListener("click",e=>{if(dragMoved){e.stopPropagation();e.preventDefault();}},true);
+wrap.addEventListener("dblclick",e=>{e.preventDefault();zoomAt(e.clientX,e.clientY,1.8);});
 /* ============ 表示状態 ============ */
 function routeVisible(r){
  if(!r.allies.some(a=>state.ally[a])) return false;
@@ -711,14 +809,14 @@ function applyDim(){
   else if(selAp) vis=code===selAp||(apRoutes[code]||[]).some(i=>{const r=ROUTES[i];return (r.a===selAp||r.b===selAp)&&routeVisible(r);});
   else vis=(apRoutes[code]||[]).some(i=>routeVisible(ROUTES[i]));
   if(vis && n.classList.contains("minor")){
-   const zoomed = sel!=null||selAp||state.region||state.selAc||state.selOp;
+   const zoomed = state.zoomedIn||sel!=null||selAp||state.region||state.selAc||state.selOp;
    if(!zoomed) vis=false;
   }
   n.classList.toggle("dim",!vis);
  });
 }
 const opChipHTML = o => `<span class="opchip" style="--oc:var(${opColorVar(o)})">${OPS[o][0]}</span>`;
-const allyBadge = a => `<span class="allybadge" style="color:var(${ALLY[a][1]})">${a==="self"?"JAL":a==="oneworld"?"oneworld":"提携外"}</span>`;
+const allyBadge = a => `<span class="allybadge" style="color:var(${ALLY[a][1]})">${ALLY_BADGE[a]}</span>`;
 function flightRow(f){
  const [no,dep,arr,plus,ac,op]=f;
  const plusTag = plus>0?`<span class="plus1">+${plus}</span>`:"";
@@ -744,7 +842,7 @@ function routeListItems(list,ctx){
   const other = ctx==="ap"? (r.a===state.selAp?r.b:r.a) : r.b;
   const dest = ctx==="ap"? `${AP[other][0]} <small>${other}</small>` : `${AP[r.a][0]} ⇄ ${AP[r.b][0]}`;
   const meta = `${r.n}便`;
-  return `<li data-i="${i}"><span class="dest">${dest}</span>${r.allies.map(a=>`<span class="opchip" style="--oc:var(${ALLY[a][1]})">${a==="self"?"JAL":a==="oneworld"?"oneworld":"提携外"}</span>`).join("")}<span class="meta mono">${meta}</span></li>`;}).join("");
+  return `<li data-i="${i}"><span class="dest">${dest}</span>${r.allies.slice().sort((a,b)=>ALLY_ORDER[a]-ALLY_ORDER[b]).map(a=>`<span class="opchip" style="--oc:var(${ALLY[a][1]})">${ALLY_BADGE[a]}</span>`).join("")}<span class="meta mono">${meta}</span></li>`;}).join("");
 }
 function bindRouteList(){panel.querySelectorAll("li[data-i]").forEach(li=>li.onclick=()=>selectRoute(+li.dataset.i));}
 
@@ -820,20 +918,25 @@ function renderHome(){
  const cities=["LHR","LAX","JFK","SIN","HKG","ICN","SYD","BKK","HNL","TPE","SFO","PVG"].filter(c=>AP[c]);
  const acCount=Object.fromEntries(Object.keys(AC).map(a=>[a,ROUTES.filter(r=>r.acs.includes(a)).length]));
  const acList=Object.keys(AC).filter(a=>acCount[a]>0).sort((x,y)=>acCount[y]-acCount[x]);
+ const opCount=Object.fromEntries(Object.keys(OPS).map(o=>[o,ROUTES.filter(r=>r.ops.includes(o)).length]));
+ const opList=Object.keys(OPS).filter(o=>opCount[o]>0).sort((a,b)=>(ALLY_ORDER[allianceOf(a)]-ALLY_ORDER[allianceOf(b)])||(opCount[b]-opCount[a]));
  setPanel(`
   <div class="eyebrow">WELCOME ABOARD</div>
   <div class="welcome">ようこそ、<em>世界へ翔ける翼</em>の旅へ。</div>
   <div class="sub">地図の路線・都市をタップすると、その区間の全便の便名・機材・時刻（現地時刻）・運航会社をご案内します。</div>
-  <div class="note">JAL自社便（<span style="color:var(--c-JAL);font-weight:700">赤</span>）・oneworldパートナー運航便（<span style="color:var(--c-OW);font-weight:700">青</span>）・提携外の大韓/アシアナ/エバー航空（<span style="color:var(--c-OTHER);font-weight:700">緑</span>）を色分け表示。上部でアライアンス・地域の絞り込みができます。</div>
+  <div class="note">JAL自社（<span style="color:var(--c-JAL);font-weight:700">赤</span>）・oneworld運航便（<span style="color:var(--c-OW);font-weight:700">青</span>）・提携/JVのハワイアン航空（<span style="color:var(--c-PT);font-weight:700">紫</span>）・提携外の大韓/アシアナ/エバー航空（<span style="color:var(--c-OTHER);font-weight:700">緑</span>）を色分け表示。<br>地図は<b>ドラッグで移動・ホイール/ピンチや＋−ボタンで拡大</b>できます（韓国・台湾など密集地は拡大すると選びやすくなります）。</div>
   <div class="sec">地域から探す</div>
   <div class="reggrid">${Object.keys(REGIONS).map(rg=>`<button class="regcard" data-reg="${rg}"><b>${REGIONS[rg]}</b><span>${regCounts[rg]}路線</span></button>`).join("")}</div>
   <div class="sec">主要都市から探す</div>
-  <div class="hubgrid">${hubs.concat(cities).map(h=>`<button class="hub" data-hub="${h}" aria-label="${AP[h][0]}の路線一覧"><b>${AP[h][0].replace(/\(.*/,"")}</b><span>${(apRoutes[h]||[]).length}路線</span></button>`).join("")}</div>
+  <div class="hubgrid">${hubs.concat(cities).map(h=>`<button class="hub" data-hub="${h}" aria-label="${AP[h][0]}の路線一覧"><b>${AP[h][0]}</b><span>${(apRoutes[h]||[]).length}路線</span></button>`).join("")}</div>
+  <div class="sec">航空会社から探す</div>
+  <div class="opgrid">${opList.map(o=>`<button class="opcard" data-op="${o}"><span class="opdot" style="--oc:var(${opColorVar(o)})"></span><b>${OPS[o][0]}</b><span class="onm">${OPS[o][1]}</span><span class="oct">${opCount[o]}</span></button>`).join("")}</div>
   <div class="sec">機材から探す</div>
   <div class="acgrid">${acList.map(a=>`<button class="accard${state.selAc===a?" sel":""}" data-ac="${a}"><span class="cd">${acShort(a)}</span> <span class="ct">${acCount[a]}路線</span><span class="nm">${acName(a)}</span></button>`).join("")}</div>
-  <p class="hint">検索ボックスでは都市名・空港コード・航空会社名でジャンプできます。</p>`);
+  <p class="hint">検索ボックスでは都市名・空港コード・航空会社名でもジャンプできます。</p>`);
  panel.querySelectorAll("[data-hub]").forEach(b=>b.onclick=()=>selectAirport(b.dataset.hub));
  panel.querySelectorAll("[data-reg]").forEach(b=>b.onclick=()=>{setRegion(b.dataset.reg);});
+ panel.querySelectorAll("[data-op]").forEach(b=>b.onclick=()=>selectOp(b.dataset.op));
  bindAcButtons(panel);
 }
 /* ============ フィルタUI ============ */
@@ -875,7 +978,7 @@ function refreshAfterFilter(){
 }
 document.getElementById("legend").innerHTML =
  `<div class="lg-title">凡例 LEGEND</div>`+
- Object.keys(ALLY).map(a=>`<div class="row"><span class="bar" style="background:var(${ALLY[a][1]})"></span>${ALLY[a][0]}${a==="other"?"（大韓/アシアナ/エバー）":a==="oneworld"?"（AA/BA/CX/QF等）":""}</div>`).join("")+
+ Object.keys(ALLY).map(a=>`<div class="row"><span class="bar" style="background:var(${ALLY[a][1]})"></span>${ALLY[a][0]}${a==="other"?"（大韓/アシアナ/エバー）":a==="oneworld"?"（AA/BA/CX/QF等）":a==="partner"?"（ハワイアン）":""}</div>`).join("")+
  `<div class="row" style="color:var(--sub);margin-top:2px">線の太さ＝便数／現地時刻表示</div>`;
 // 検索候補: 空港 + 航空会社
 const dl=document.getElementById("aplist");
