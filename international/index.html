@@ -1,0 +1,909 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>JAL国際線ルートマップ 2026</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="JALグループ国際線の全路線を世界地図で。区間・都市・機材・運航会社/アライアンスから便名/時刻を調べられる非公式ファンサイト">
+<style>
+:root{
+  color-scheme: light dark;
+  --red:#b7001e; --red-deep:#8c0017; --red-soft:#fbeef0; --gold:#a98e5e;
+  --bg:#faf9f7; --sea:#e7edf2; --land:#f3f0ea; --coast:#c6d2da;
+  --ink:#1b1e24; --sub:#6b7480; --panel:#ffffff; --panel-edge:#e2e0da; --hair:#eceae5; --chipbg:#f4f2ee;
+  --hover:#0d55a0;
+  --c-JAL:#c8102e; --c-OW:#123f95; --c-OTHER:#2f9e57;
+  --shadow:0 10px 30px rgba(30,20,20,.12); --card-shadow:0 2px 10px rgba(30,20,20,.06);
+}
+@media (prefers-color-scheme: dark){:root{
+  --red:#ff4256; --red-deep:#c2182e; --red-soft:#39141a; --gold:#d7bc85;
+  --bg:#0e1216; --sea:#0a1218; --land:#1b242d; --coast:#2c3b47;
+  --ink:#eceff3; --sub:#95a1ad; --panel:#141a21; --panel-edge:#27303a; --hair:#20272f; --chipbg:#1b222b;
+  --hover:#5ab0ff;
+  --c-JAL:#ff4d5e; --c-OW:#5b8fe6; --c-OTHER:#4cc077;
+  --shadow:0 10px 30px rgba(0,0,0,.55); --card-shadow:0 2px 10px rgba(0,0,0,.4);
+}}
+:root[data-theme="light"]{
+  color-scheme: light;
+  --red:#b7001e; --red-deep:#8c0017; --red-soft:#fbeef0; --gold:#a98e5e;
+  --bg:#faf9f7; --sea:#e7edf2; --land:#f3f0ea; --coast:#c6d2da;
+  --ink:#1b1e24; --sub:#6b7480; --panel:#ffffff; --panel-edge:#e2e0da; --hair:#eceae5; --chipbg:#f4f2ee;
+  --hover:#0d55a0;
+  --c-JAL:#c8102e; --c-OW:#123f95; --c-OTHER:#2f9e57;
+  --shadow:0 10px 30px rgba(30,20,20,.12); --card-shadow:0 2px 10px rgba(30,20,20,.06);
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --red:#ff4256; --red-deep:#c2182e; --red-soft:#39141a; --gold:#d7bc85;
+  --bg:#0e1216; --sea:#0a1218; --land:#1b242d; --coast:#2c3b47;
+  --ink:#eceff3; --sub:#95a1ad; --panel:#141a21; --panel-edge:#27303a; --hair:#20272f; --chipbg:#1b222b;
+  --hover:#5ab0ff;
+  --c-JAL:#ff4d5e; --c-OW:#5b8fe6; --c-OTHER:#4cc077;
+  --shadow:0 10px 30px rgba(0,0,0,.55); --card-shadow:0 2px 10px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);
+  font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP",-apple-system,sans-serif;
+  font-size:14px;line-height:1.6;-webkit-text-size-adjust:100%}
+button{font-family:inherit;color:inherit}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
+/* ---------- ヘッダー ---------- */
+.brandline{height:4px;background:linear-gradient(90deg,var(--red-deep),var(--red) 30%,var(--red) 70%,var(--red-deep))}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
+  padding:16px 22px 12px;border-bottom:1px solid var(--hair);
+  background:linear-gradient(180deg,var(--panel),var(--bg))}
+.crest{width:44px;height:44px;border-radius:50%;flex:none;
+  background:radial-gradient(circle at 34% 30%, var(--red) 0%, var(--red-deep) 90%);
+  box-shadow:0 4px 14px color-mix(in srgb,var(--red) 45%,transparent);
+  display:flex;align-items:center;justify-content:center}
+.crest span{color:#fff;font-size:21px;transform:rotate(-45deg) translate(1px,1px)}
+.titlebox{min-width:0}
+.eyebrow{font-size:10px;letter-spacing:.32em;color:var(--red);font-weight:700;line-height:1.4}
+.titlebox h1{margin:0;font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
+  font-size:22px;font-weight:600;letter-spacing:.06em;line-height:1.25}
+.titlebox h1 .jp-red{color:var(--red)}
+.dateline{color:var(--sub);font-size:11px;letter-spacing:.06em}
+.navtabs{display:flex;gap:0;margin-left:auto;align-items:center}
+.navtab{font-size:12px;font-weight:700;letter-spacing:.05em;text-decoration:none;color:var(--sub);
+  padding:7px 15px;border:1px solid var(--panel-edge);background:var(--panel);transition:all .15s;white-space:nowrap}
+.navtab:first-child{border-radius:999px 0 0 999px;border-right:none}
+.navtab:last-child{border-radius:0 999px 999px 0}
+.navtab.active{background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff;border-color:var(--red)}
+.navtab:not(.active):hover{color:var(--red);border-color:var(--red)}
+.stats{display:flex;gap:8px;margin-left:14px}
+.stat{background:var(--panel);border:1px solid var(--panel-edge);border-radius:12px;
+  padding:5px 13px;text-align:center;line-height:1.25;box-shadow:var(--card-shadow)}
+.stat b{display:block;font-size:16px;color:var(--red);font-variant-numeric:tabular-nums}
+.stat span{font-size:9px;color:var(--sub);letter-spacing:.12em}
+#sharebtn{display:inline-flex;align-items:center;gap:7px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff;border-radius:999px;
+  padding:9px 16px;font-size:12.5px;font-weight:700;letter-spacing:.06em;margin-left:12px;
+  box-shadow:0 4px 14px color-mix(in srgb,var(--red) 40%,transparent);transition:transform .15s,box-shadow .15s}
+#sharebtn:hover{transform:translateY(-1px);box-shadow:0 6px 18px color-mix(in srgb,var(--red) 50%,transparent)}
+#sharebtn:focus-visible{outline:2px solid var(--hover);outline-offset:2px}
+/* ---------- フィルタバー ---------- */
+.opbar{display:flex;align-items:center;gap:10px;padding:9px 22px;border-bottom:1px solid var(--hair);
+  overflow-x:auto;scrollbar-width:thin;background:var(--bg)}
+.opbar .lbl{font-size:10px;color:var(--sub);letter-spacing:.2em;white-space:nowrap;flex:none;font-weight:600}
+.ally{display:flex;gap:6px;flex:none}
+.ally-pill{--oc:#888;display:inline-flex;align-items:center;gap:7px;flex:none;
+  border:1px solid var(--panel-edge);background:var(--panel);border-radius:999px;
+  padding:5px 14px 5px 10px;cursor:pointer;transition:all .18s;box-shadow:var(--card-shadow)}
+.ally-pill .sw{width:11px;height:11px;border-radius:3px;background:var(--oc);flex:none;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--oc) 20%, transparent)}
+.ally-pill .nm{font-weight:700;font-size:12px;letter-spacing:.02em}
+.ally-pill .ct{font-size:10px;color:var(--sub);font-variant-numeric:tabular-nums}
+.ally-pill:hover{border-color:var(--oc);transform:translateY(-1px)}
+.ally-pill.off{opacity:.35;filter:saturate(.15);box-shadow:none;transform:none}
+.ally-pill:focus-visible{outline:2px solid var(--hover);outline-offset:2px}
+.regbar{display:flex;gap:5px;flex:none}
+.reg-pill{flex:none;border:1px solid var(--panel-edge);background:var(--panel);border-radius:999px;
+  padding:5px 12px;font-size:11.5px;cursor:pointer;transition:all .15s;box-shadow:var(--card-shadow);white-space:nowrap}
+.reg-pill:hover{border-color:var(--red);color:var(--red)}
+.reg-pill.on{background:var(--red);color:#fff;border-color:var(--red)}
+.op-reset{flex:none;border:none;background:none;color:var(--hover);font-size:11.5px;cursor:pointer;
+  white-space:nowrap;padding:4px 6px;border-radius:6px}
+.op-reset:hover{text-decoration:underline}
+.searchwrap{margin-left:auto;flex:none}
+.searchwrap input{background:var(--panel);border:1px solid var(--panel-edge);border-radius:999px;
+  padding:6px 15px;font-size:12px;color:var(--ink);width:200px;font-family:inherit;box-shadow:var(--card-shadow)}
+.searchwrap input::placeholder{color:var(--sub)}
+.searchwrap input:focus-visible{outline:2px solid var(--red);outline-offset:1px}
+/* ---------- レイアウト ---------- */
+main{display:grid;grid-template-columns:minmax(0,1fr) 420px;height:calc(100vh - 150px);min-height:520px}
+#mapwrap{position:relative;overflow:hidden;background:linear-gradient(180deg,var(--sea),color-mix(in srgb,var(--sea) 85%, var(--bg)))}
+#mapwrap svg{width:100%;height:100%;display:block}
+aside{border-left:1px solid var(--hair);background:var(--panel);overflow-y:auto;padding:18px 20px 34px}
+/* ---------- 地図 ---------- */
+.route-line{fill:none;cursor:pointer;transition:opacity .15s,stroke-width .15s}
+.route-line.dim{opacity:.05;pointer-events:none}
+.route-hit{fill:none;stroke:transparent;stroke-width:13;cursor:pointer}
+.route-hit.dim{pointer-events:none}
+.airport-dot{cursor:pointer;stroke:var(--panel);stroke-width:1.1;transition:opacity .15s}
+.airport-dot.dim{opacity:.12}
+.ap-label{font-size:8.5px;fill:var(--sub);pointer-events:none;
+  paint-order:stroke;stroke:var(--sea);stroke-width:2.4px;stroke-linejoin:round;transition:opacity .15s}
+.ap-label.major{font-size:10px;font-weight:600;fill:var(--ink)}
+.ap-label.jp{fill:var(--red);font-weight:700}
+.ap-label.dim{opacity:.08}
+.grat{stroke:var(--coast);stroke-width:.5;opacity:.28;stroke-dasharray:2 7}
+.chartcap{fill:var(--sub);opacity:.5;font-size:11px;letter-spacing:.28em}
+#tooltip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--panel-edge);
+  border-top:3px solid var(--red);border-radius:10px;padding:8px 12px;font-size:12px;
+  box-shadow:var(--shadow);display:none;z-index:5;max-width:270px}
+#tooltip .t1{font-weight:700}
+#tooltip .t2{color:var(--sub);font-size:11px}
+.legend{position:absolute;left:14px;bottom:14px;background:color-mix(in srgb,var(--panel) 92%,transparent);
+  backdrop-filter:blur(5px);border:1px solid var(--panel-edge);border-radius:14px;
+  padding:10px 14px;font-size:10.5px;line-height:1.8;box-shadow:var(--card-shadow)}
+.legend .lg-title{font-size:9px;letter-spacing:.24em;color:var(--red);font-weight:700;margin-bottom:3px}
+.legend .row{display:flex;align-items:center;gap:7px}
+.legend .bar{width:20px;height:3px;border-radius:2px;flex:none}
+/* ---------- パネル共通 ---------- */
+aside h2{font-size:17px;margin:0 0 2px;letter-spacing:.02em}
+aside .sub{color:var(--sub);font-size:12px}
+.welcome{font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
+  font-size:19px;letter-spacing:.08em;margin:2px 0 4px;line-height:1.5}
+.welcome em{color:var(--red);font-style:normal}
+.acode{color:var(--sub);font-size:11px;font-weight:400}
+.facts{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;margin:12px 0;
+  padding:11px 15px;background:var(--chipbg);border-radius:12px;font-size:12px}
+.facts b{font-size:15px;color:var(--red)}
+.opchip{display:inline-flex;align-items:center;gap:4px;padding:1px 9px;border-radius:999px;font-size:10.5px;color:#fff;
+  background:var(--oc,#888);letter-spacing:.02em;font-weight:600}
+.allybadge{font-size:8.5px;padding:0 5px;border-radius:999px;letter-spacing:.04em;font-weight:700;
+  border:1px solid currentColor;background:transparent}
+.backlink{display:inline-flex;align-items:center;gap:5px;margin-bottom:12px;font-size:12px;
+  color:var(--red);cursor:pointer;background:var(--panel);border:1px solid var(--panel-edge);
+  padding:5px 13px;border-radius:999px;box-shadow:var(--card-shadow);transition:all .15s}
+.backlink:hover{border-color:var(--red);transform:translateX(-2px)}
+.note{margin:10px 0;padding:9px 13px;border-left:3px solid var(--red);background:var(--chipbg);
+  border-radius:0 10px 10px 0;font-size:12px}
+.note.blue{border-left-color:var(--c-OW)}
+.sec{margin:22px 0 8px;font-size:10.5px;color:var(--sub);letter-spacing:.22em;font-weight:700;
+  display:flex;align-items:center;gap:8px}
+.sec::before{content:"";width:14px;height:3px;background:var(--red);border-radius:2px}
+.hint{color:var(--sub);font-size:12px;margin-top:12px}
+.fade{animation:fadein .25s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+/* 搭乗券風の区間ヘッダー */
+.bp{border:1px solid var(--panel-edge);border-radius:14px;overflow:hidden;background:var(--panel);
+  box-shadow:var(--card-shadow);margin-bottom:4px}
+.bp-band{background:linear-gradient(90deg,var(--red),var(--red-deep));color:#fff;
+  display:flex;justify-content:space-between;gap:8px;padding:5px 14px;
+  font-size:9.5px;letter-spacing:.18em;font-weight:700}
+.bp-main{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:13px 16px 11px;gap:6px}
+.bp-ap b{display:block;font-size:27px;line-height:1.1;font-family:ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.03em}
+.bp-ap span{font-size:11px;color:var(--sub)}
+.bp-ap.right{text-align:right}
+.bp-mid{text-align:center;color:var(--sub);font-size:10.5px;line-height:1.5;padding:0 6px}
+.bp-mid .plane{display:block;color:var(--red);font-size:16px}
+/* 時刻表 */
+.dirhead{margin:20px 0 6px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px}
+.dirhead .arr{color:var(--red)}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{font-size:9.5px;color:var(--sub);text-align:left;font-weight:600;letter-spacing:.08em;
+  padding:3px 7px;border-bottom:2px solid var(--red)}
+td{padding:6px 7px;border-bottom:1px solid var(--hair);white-space:nowrap;vertical-align:middle}
+td.fno{font-weight:700}
+.plus1{color:#fff;background:var(--red);font-size:8.5px;padding:0 4px;border-radius:4px;margin-left:3px;vertical-align:top;font-weight:700}
+tr.flight:hover td{background:var(--chipbg)}
+.acbtn{background:none;border:none;color:var(--hover);cursor:pointer;font-size:12px;padding:0}
+.acbtn:hover{text-decoration:underline}
+.opdot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:baseline;background:var(--oc,#888)}
+/* リスト */
+.rtlist{list-style:none;margin:8px 0;padding:0}
+.rtlist li{display:flex;align-items:center;gap:8px;padding:9px 10px;
+  border-bottom:1px solid var(--hair);cursor:pointer;border-radius:10px;
+  border-left:3px solid transparent;transition:background .12s,border-color .12s}
+.rtlist li:hover{background:var(--chipbg);border-left-color:var(--red)}
+.rtlist .dest{font-weight:600;flex:1;min-width:0}
+.rtlist .dest small{color:var(--sub);font-weight:400;font-size:10.5px}
+.rtlist .meta{color:var(--sub);font-size:11px;white-space:nowrap}
+/* カード類 */
+.hubgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;margin:8px 0}
+.hub{border:1px solid var(--panel-edge);background:var(--panel);border-radius:12px;padding:9px 6px 7px;
+  cursor:pointer;text-align:center;box-shadow:var(--card-shadow);transition:transform .15s,border-color .15s,box-shadow .15s}
+.hub:hover{transform:translateY(-2px);border-color:var(--red);box-shadow:0 6px 16px color-mix(in srgb,var(--red) 18%,transparent)}
+.hub b{display:block;font-size:12px}
+.hub span{font-size:10px;color:var(--sub)}
+.reggrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+.regcard{border:1px solid var(--panel-edge);background:var(--panel);border-radius:12px;padding:10px 12px;
+  cursor:pointer;text-align:left;box-shadow:var(--card-shadow);transition:transform .15s,border-color .15s,box-shadow .15s;
+  border-left:3px solid var(--red)}
+.regcard:hover{transform:translateY(-2px);box-shadow:0 6px 16px color-mix(in srgb,var(--red) 18%,transparent)}
+.regcard b{display:block;font-size:13px}
+.regcard span{font-size:10.5px;color:var(--sub)}
+.acgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+.accard{border:1px solid var(--panel-edge);background:var(--panel);border-radius:12px;
+  padding:10px 12px;cursor:pointer;text-align:left;box-shadow:var(--card-shadow);
+  transition:transform .15s,border-color .15s,box-shadow .15s;line-height:1.45;position:relative;overflow:hidden}
+.accard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--red);opacity:0;transition:opacity .15s}
+.accard:hover{transform:translateY(-2px);border-color:var(--red);box-shadow:0 6px 16px color-mix(in srgb,var(--red) 18%,transparent)}
+.accard:hover::before{opacity:1}
+.accard .cd{font-weight:700;font-size:12.5px;font-family:ui-monospace,Menlo,monospace}
+.accard .nm{font-size:10.5px;color:var(--sub);display:block}
+.accard .ct{font-size:10.5px;color:var(--red);font-weight:700}
+.accard.sel{border-color:var(--red);background:var(--red-soft)}
+.accard.sel::before{opacity:1}
+.hub:focus-visible,.accard:focus-visible,.regcard:focus-visible{outline:2px solid var(--hover);outline-offset:2px}
+/* トースト */
+#toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);
+  background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff;
+  padding:10px 22px;border-radius:999px;font-size:12.5px;font-weight:600;opacity:0;
+  pointer-events:none;transition:all .3s;z-index:50;box-shadow:var(--shadow)}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+footer{padding:12px 22px 18px;color:var(--sub);font-size:11px;border-top:1px solid var(--hair);line-height:1.75;background:var(--bg)}
+footer a{color:var(--hover)}
+footer .fan{color:var(--sub);letter-spacing:.04em}
+/* ---------- モバイル ---------- */
+@media (max-width:920px){
+  header{padding:12px 14px 10px;gap:8px 12px}
+  .crest{width:36px;height:36px}.crest span{font-size:17px}
+  .titlebox h1{font-size:15px}
+  .eyebrow{font-size:8px;letter-spacing:.2em}
+  .stats{display:none}
+  .navtabs{order:3;margin-left:0}
+  #sharebtn{margin-left:auto;padding:8px 12px}#sharebtn .lbl-share{display:none}
+  .opbar{padding:8px 12px}
+  .regbar{display:none}
+  .searchwrap input{width:150px}
+  main{grid-template-columns:1fr;height:auto;min-height:0}
+  #mapwrap{height:52vh;min-height:320px}
+  aside{border-left:none;border-top:1px solid var(--hair);max-height:none}
+  .legend{left:10px;bottom:10px;padding:8px 11px}
+  .bp-ap b{font-size:23px}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="brandline"></div>
+<header>
+  <div class="crest" aria-hidden="true"><span>✈</span></div>
+  <div class="titlebox">
+    <div class="eyebrow">WINGS OF JAPAN — INTERNATIONAL NETWORK</div>
+    <h1><span class="jp-red">JAL</span>グループ 国際線ルートマップ</h1>
+    <div class="dateline" id="dateline">2026年7月12日時点・夏ダイヤ ※非公式・参考データ</div>
+  </div>
+  <nav class="navtabs" aria-label="路線マップ切替">
+    <a class="navtab" href="../">国内線</a>
+    <a class="navtab active" href="./" aria-current="page">国際線</a>
+  </nav>
+  <div class="stats">
+    <div class="stat"><b id="st-ap">–</b><span>都市</span></div>
+    <div class="stat"><b id="st-rt">–</b><span>路線</span></div>
+    <div class="stat"><b id="st-fl">–</b><span>便/日</span></div>
+  </div>
+  <button id="sharebtn" title="このマップのリンクを共有">✈<span class="lbl-share"> 共有</span></button>
+</header>
+<div class="opbar">
+  <span class="lbl">アライアンス</span>
+  <div class="ally" id="ally"></div>
+  <div class="regbar" id="regbar"></div>
+  <button class="op-reset" id="opreset">すべて表示</button>
+  <div class="searchwrap"><input id="apsearch" list="aplist" placeholder="都市・空港・航空会社で検索" aria-label="検索"><datalist id="aplist"></datalist></div>
+</div>
+<main>
+  <div id="mapwrap">
+    <svg id="map" viewBox="0 0 976 397" role="img" aria-label="世界地図上のJALグループ国際線路線図"></svg>
+    <div class="legend" id="legend"></div>
+    <div id="tooltip"></div>
+  </div>
+  <aside id="panel"></aside>
+</main>
+<div id="toast" role="status"></div>
+<footer>
+  本サイトの便名・時刻・運航会社・機材は、2026年7月時点の<a href="https://ja.flightaware.com/" target="_blank" rel="noopener">FlightAware</a>の運航スケジュール実績（各空港ペアの定期便を照合）に基づく参考データです。表示時刻は<b>各空港の現地時刻</b>、<span class="plus1" style="position:static">+1</span>は翌日着を表します。コードシェア／共同運航便は運航会社とアライアンス（oneworld／提携外）を明示しています。ダイヤ改正・季節運航・機材変更・欠航等により実際とは異なる場合があります。ご搭乗の際は必ず<a href="https://www.jal.co.jp/jp/ja/inter/" target="_blank" rel="noopener">JAL公式サイト</a>でご確認ください。<br>
+  <span class="fan">本サイトは個人が作成した非公式のファンサイトであり、日本航空株式会社およびJALグループ各社、oneworld、記載の各航空会社とは一切関係ありません。</span>
+</footer>
+<script>
+"use strict";
+const AP = {
+ CAN:["広州", 113.299, 23.392, "Asia/Shanghai", "EA", 6, 10, "start"],
+ CJU:["済州", 126.493, 33.511, "Asia/Seoul", "EA", -7, 8, "end"],
+ DLC:["大連", 121.539, 38.966, "Asia/Shanghai", "EA", 8, -4, "start"],
+ GMP:["ソウル(金浦)", 126.791, 37.558, "Asia/Seoul", "EA", -8, 8, "end"],
+ HKG:["香港", 113.915, 22.309, "Asia/Hong_Kong", "EA", 7, 10, "start"],
+ ICN:["ソウル(仁川)", 126.44, 37.463, "Asia/Seoul", "EA", -8, -6, "end"],
+ KHH:["高雄", 120.35, 22.577, "Asia/Taipei", "EA", -7, 7, "end"],
+ PEK:["北京(首都)", 116.585, 40.08, "Asia/Shanghai", "EA", -8, -5, "end"],
+ PUS:["釜山", 128.938, 35.179, "Asia/Seoul", "EA", 8, 8, "start"],
+ PVG:["上海(浦東)", 121.792, 31.143, "Asia/Shanghai", "EA", 8, 8, "start"],
+ SHA:["上海(虹橋)", 121.336, 31.198, "Asia/Shanghai", "EA", -8, -6, "end"],
+ TPE:["台北(桃園)", 121.233, 25.078, "Asia/Taipei", "EA", -7, 5, "end"],
+ TSA:["台北(松山)", 121.552, 25.069, "Asia/Taipei", "EA", 7, -5, "start"],
+ TSN:["天津", 117.346, 39.124, "Asia/Shanghai", "EA", 9, 3, "start"],
+ CDG:["パリ", 2.55, 49.013, "Europe/Paris", "EU", -7, 8, "end"],
+ FRA:["フランクフルト", 8.543, 50.026, "Europe/Berlin", "EU", 7, 8, "start"],
+ HEL:["ヘルシンキ", 24.963, 60.317, "Europe/Helsinki", "EU", 7, -4, "start"],
+ LHR:["ロンドン", -0.461, 51.477, "Europe/London", "EU", 8, -4, "start"],
+ CTS:["札幌(新千歳)", 141.692, 42.775, "Asia/Tokyo", "JP", 8, -6, "start"],
+ FUK:["福岡", 130.45, 33.587, "Asia/Tokyo", "JP", -8, 2, "end"],
+ HND:["東京(羽田)", 139.78, 35.552, "Asia/Tokyo", "JP", 8, -6, "start"],
+ KIX:["大阪(関西)", 135.244, 34.427, "Asia/Tokyo", "JP", -8, 12, "end"],
+ KMI:["宮崎", 131.449, 31.877, "Asia/Tokyo", "JP", -8, 7, "end"],
+ KMJ:["熊本", 130.855, 32.837, "Asia/Tokyo", "JP", -8, 6, "end"],
+ KMQ:["小松", 136.408, 36.394, "Asia/Tokyo", "JP", 8, -4, "start"],
+ NGO:["名古屋(中部)", 136.805, 34.858, "Asia/Tokyo", "JP", -8, -6, "end"],
+ NRT:["東京(成田)", 140.386, 35.765, "Asia/Tokyo", "JP", 8, 14, "start"],
+ OKA:["沖縄(那覇)", 127.639, 26.195, "Asia/Tokyo", "JP", 8, 10, "start"],
+ OKJ:["岡山", 133.855, 34.757, "Asia/Tokyo", "JP", -9, -4, "end"],
+ SDJ:["仙台", 140.917, 38.14, "Asia/Tokyo", "JP", 9, 2, "start"],
+ UKB:["神戸", 135.224, 34.633, "Asia/Tokyo", "JP", -8, 10, "end"],
+ DOH:["ドーハ", 51.608, 25.273, "Asia/Qatar", "ME", -6, 6, "end"],
+ BOS:["ボストン", -71.006, 42.363, "America/New_York", "NA", 7, -4, "start"],
+ DFW:["ダラス", -97.038, 32.897, "America/Chicago", "NA", 6, 10, "start"],
+ HNL:["ホノルル", -157.92, 21.318, "Pacific/Honolulu", "NA", 7, 4, "start"],
+ JFK:["ニューヨーク", -73.779, 40.64, "America/New_York", "NA", -7, -4, "end"],
+ LAX:["ロサンゼルス", -118.408, 33.943, "America/Los_Angeles", "NA", -7, 8, "end"],
+ ORD:["シカゴ", -87.908, 41.977, "America/Chicago", "NA", 7, -4, "start"],
+ SAN:["サンディエゴ", -117.19, 32.734, "America/Los_Angeles", "NA", -6, 10, "end"],
+ SEA:["シアトル", -122.312, 47.45, "America/Los_Angeles", "NA", -7, -4, "end"],
+ SFO:["サンフランシスコ", -122.375, 37.619, "America/Los_Angeles", "NA", -7, -4, "end"],
+ YVR:["バンクーバー", -123.184, 49.194, "America/Vancouver", "NA", -7, -5, "end"],
+ BNE:["ブリスベン", 153.118, -27.384, "Australia/Brisbane", "OC", 7, -4, "start"],
+ GUM:["グアム", 144.797, 13.484, "Pacific/Guam", "OC", 7, 6, "start"],
+ MEL:["メルボルン", 144.843, -37.673, "Australia/Melbourne", "OC", -6, 6, "end"],
+ SYD:["シドニー", 151.177, -33.946, "Australia/Sydney", "OC", 7, 4, "start"],
+ BLR:["ベンガルール", 77.704, 13.207, "Asia/Kolkata", "SA", -7, 6, "end"],
+ CMB:["コロンボ", 79.884, 7.181, "Asia/Colombo", "SA", -7, 7, "end"],
+ DEL:["デリー", 77.103, 28.567, "Asia/Kolkata", "SA", -7, -4, "end"],
+ BKK:["バンコク", 100.747, 13.681, "Asia/Bangkok", "SEA", -7, 4, "end"],
+ CGK:["ジャカルタ", 106.656, -6.126, "Asia/Jakarta", "SEA", -6, 10, "end"],
+ HAN:["ハノイ", 105.806, 21.222, "Asia/Ho_Chi_Minh", "SEA", -7, -4, "end"],
+ KUL:["クアラルンプール", 101.698, 2.743, "Asia/Kuala_Lumpur", "SEA", -7, -4, "end"],
+ MNL:["マニラ", 121.02, 14.508, "Asia/Manila", "SEA", 7, 4, "start"],
+ SGN:["ホーチミン", 106.652, 10.819, "Asia/Ho_Chi_Minh", "SEA", -7, 7, "end"],
+ SIN:["シンガポール", 103.987, 1.356, "Asia/Singapore", "SEA", -7, 7, "end"],
+};
+const OPS = {"JAL": ["JL", "日本航空", "self"], "AAL": ["AA", "アメリカン航空", "oneworld"], "BAW": ["BA", "ブリティッシュ・エアウェイズ", "oneworld"], "CPA": ["CX", "キャセイパシフィック航空", "oneworld"], "QFA": ["QF", "カンタス航空", "oneworld"], "QTR": ["QR", "カタール航空", "oneworld"], "FIN": ["AY", "フィンエアー", "oneworld"], "MAS": ["MH", "マレーシア航空", "oneworld"], "ALK": ["UL", "スリランカ航空", "oneworld"], "KAL": ["KE", "大韓航空", "other"], "AAR": ["OZ", "アシアナ航空", "other"], "EVA": ["BR", "エバー航空", "other"]};
+const AC = {"A21N": ["エアバス A321neo", "A321neo"], "A321": ["エアバス A321", "A321"], "A330": ["エアバス A330", "A330"], "A332": ["エアバス A330-200", "A330-200"], "A333": ["エアバス A330-300", "A330-300"], "A339": ["エアバス A330-900neo", "A330-900"], "A359": ["エアバス A350-900", "A350-900"], "A35K": ["エアバス A350-1000", "A350-1000"], "B38M": ["ボーイング 737 MAX 8", "737 MAX8"], "B738": ["ボーイング 737-800", "737-800"], "B739": ["ボーイング 737-900", "737-900"], "B741": ["ボーイング 747-100", "747SP/旧型"], "B744": ["ボーイング 747-400", "747-400"], "B763": ["ボーイング 767-300ER", "767-300ER"], "B772": ["ボーイング 777-200", "777-200"], "B773": ["ボーイング 777-300", "777-300"], "B77L": ["ボーイング 777-200LR", "777-200LR"], "B77W": ["ボーイング 777-300ER", "777-300ER"], "B788": ["ボーイング 787-8", "787-8"], "B789": ["ボーイング 787-9", "787-9"], "B78X": ["ボーイング 787-10", "787-10"], "BCS3": ["エアバス A220-300", "A220-300"], "UNK": ["UNK", "UNK"]};
+const ROUTES = [
+ {"a": "NRT", "b": "ICN", "region": "EA", "F0": [["OZ107", "09:00", "11:30", 0, "A333", "AAR"], ["KE706", "09:20", "11:45", 0, "B78X", "KAL"], ["JL6717", "11:15", "14:00", 0, "B763", "JAL"], ["OZ101", "12:50", "15:25", 0, "A333", "AAR"], ["KE712", "17:20", "20:00", 0, "A21N", "KAL"], ["KE708", "19:00", "21:30", 0, "BCS3", "KAL"], ["OZ105", "19:45", "22:15", 0, "A333", "AAR"], ["KE224", "19:46", "21:36", 0, "B77L", "KAL"], ["KE714", "20:55", "23:25", 0, "B38M", "KAL"]], "F1": [["JL6750", "07:30", "10:00", 0, "B763", "JAL"], ["OZ102", "08:25", "10:50", 0, "A333", "AAR"], ["KE703", "10:10", "12:40", 0, "A333", "KAL"], ["KE711", "13:00", "15:35", 0, "A21N", "KAL"], ["KE551", "13:45", "15:44", 0, "B744", "KAL"], ["KE707", "14:45", "17:15", 0, "BCS3", "KAL"], ["OZ106", "15:45", "18:25", 0, "A333", "AAR"], ["KE713", "17:15", "19:45", 0, "B38M", "KAL"], ["OZ108", "18:30", "21:00", 0, "A333", "AAR"], ["KE705", "18:35", "21:05", 0, "B78X", "KAL"]]},
+ {"a": "HND", "b": "GMP", "region": "EA", "F0": [["JL91", "08:20", "10:40", 0, "B788", "JAL"], ["OZ1055", "09:00", "11:20", 0, "A333", "AAR"], ["KE2106", "09:20", "11:45", 0, "A333", "KAL"], ["OZ1075", "12:05", "14:25", 0, "A333", "AAR"], ["KE2102", "12:35", "14:55", 0, "B78X", "KAL"], ["JL93", "17:05", "19:25", 0, "B788", "JAL"], ["JL95", "18:55", "21:15", 0, "B789", "JAL"], ["KE2104", "19:55", "22:15", 0, "B78X", "KAL"], ["OZ1035", "20:05", "22:25", 0, "A333", "AAR"]], "F1": [["JL90", "08:00", "10:15", 0, "B789", "JAL"], ["OZ1085", "08:40", "10:45", 0, "A333", "AAR"], ["KE2101", "09:00", "11:20", 0, "B78X", "KAL"], ["JL92", "12:05", "14:20", 0, "B788", "JAL"], ["OZ1045", "15:45", "17:50", 0, "A333", "AAR"], ["KE2103", "16:20", "18:35", 0, "B78X", "KAL"], ["KE2105", "18:40", "21:00", 0, "A333", "KAL"], ["OZ1065", "19:50", "22:00", 0, "A333", "AAR"], ["JL94", "20:30", "22:45", 0, "B788", "JAL"]]},
+ {"a": "KIX", "b": "ICN", "region": "EA", "F0": [["OZ117", "00:15", "02:15", 0, "A321", "AAR"], ["KE738", "02:15", "04:05", 0, "A21N", "KAL"], ["KE722", "09:05", "10:55", 0, "B38M", "KAL"], ["OZ115", "09:30", "11:35", 0, "A21N", "AAR"], ["OZ111", "10:30", "12:40", 0, "A21N", "AAR"], ["KE724", "12:35", "14:25", 0, "B78X", "KAL"], ["KE726", "18:15", "20:05", 0, "A21N", "KAL"], ["OZ113", "19:45", "21:40", 0, "A321", "AAR"]], "F1": [["OZ112", "06:55", "09:00", 0, "A21N", "AAR"], ["KE723", "09:35", "11:20", 0, "B78X", "KAL"], ["KE725", "15:05", "17:05", 0, "A21N", "KAL"], ["OZ114", "16:40", "18:30", 0, "A321", "AAR"], ["KE721", "18:45", "20:45", 0, "B38M", "KAL"], ["OZ116", "19:35", "21:35", 0, "A21N", "AAR"], ["OZ118", "20:40", "22:30", 0, "A321", "AAR"], ["KE737", "20:50", "22:40", 0, "A21N", "KAL"]]},
+ {"a": "NRT", "b": "TPE", "region": "EA", "F0": [["JL8663", "08:55", "11:35", 0, "B763", "JAL"], ["JL6787", "10:40", "13:20", 0, "B763", "JAL"], ["BR183", "13:25", "16:05", 0, "B77W", "EVA"], ["BR197", "14:25", "17:05", 0, "B78X", "EVA"], ["JL6719", "16:30", "19:25", 0, "B763", "JAL"], ["JL809", "18:05", "20:45", 0, "B738", "JAL"], ["BR195", "20:40", "23:20", 0, "B78X", "EVA"]], "F1": [["BR184", "07:55", "12:25", 0, "B77W", "EVA"], ["BR198", "09:00", "13:25", 0, "B78X", "EVA"], ["JL8664", "12:45", "17:15", 0, "B763", "JAL"], ["JL802", "13:20", "17:50", 0, "B788", "JAL"], ["BR196", "15:20", "19:40", 0, "B78X", "EVA"], ["JL6788", "15:20", "19:50", 0, "B763", "JAL"]]},
+ {"a": "NRT", "b": "HKG", "region": "EA", "F0": [["CX509", "09:25", "13:15", 0, "A333", "CPA"], ["CX527", "14:50", "18:50", 0, "A359", "CPA"], ["CX521", "17:15", "21:10", 0, "B773", "CPA"], ["JL735", "18:20", "22:05", 0, "B788", "JAL"], ["CX505", "18:30", "22:20", 0, "B773", "CPA"], ["CX501", "22:00", "01:55", 1, "A333", "CPA"]], "F1": [["CX524", "01:20", "06:50", 0, "A333", "CPA"], ["CX6", "01:30", "06:20", 0, "B744", "CPA"], ["CX526", "08:15", "13:40", 0, "A359", "CPA"], ["CX504", "09:05", "14:30", 0, "B773", "CPA"], ["JL736", "10:30", "15:55", 0, "B788", "JAL"], ["CX520", "10:40", "16:05", 0, "B773", "CPA"], ["CX500", "15:20", "20:50", 0, "A333", "CPA"]]},
+ {"a": "FUK", "b": "ICN", "region": "EA", "F0": [["KE788", "10:35", "12:00", 0, "A333", "KAL"], ["KE792", "14:50", "16:30", 0, "A21N", "KAL"], ["OZ133", "16:25", "18:05", 0, "A21N", "AAR"], ["KE796", "20:00", "21:35", 0, "B38M", "KAL"], ["KE782", "21:05", "22:35", 0, "B38M", "KAL"]], "F1": [["KE787", "08:00", "09:25", 0, "A333", "KAL"], ["KE791", "11:05", "12:30", 0, "A21N", "KAL"], ["OZ134", "13:55", "15:25", 0, "A21N", "AAR"], ["KE795", "16:25", "17:55", 0, "B38M", "KAL"], ["KE781", "18:35", "20:00", 0, "B38M", "KAL"]]},
+ {"a": "NGO", "b": "ICN", "region": "EA", "F0": [["JL6749", "02:20", "04:10", 0, "B763", "JAL"], ["KE744", "09:15", "11:20", 0, "B739", "KAL"], ["OZ121", "11:55", "13:55", 0, "A321", "AAR"], ["KE742", "13:40", "15:40", 0, "B38M", "KAL"], ["OZ123", "19:00", "20:55", 0, "A321", "AAR"]], "F1": [["OZ122", "09:10", "10:55", 0, "A321", "AAR"], ["KE741", "10:35", "12:30", 0, "B38M", "KAL"], ["OZ124", "16:10", "18:00", 0, "A321", "AAR"], ["KE743", "19:00", "21:00", 0, "B739", "KAL"]]},
+ {"a": "HND", "b": "LHR", "region": "EU", "F0": [["JL41", "00:15", "06:25", 0, "B788", "JAL"], ["BA8", "08:55", "15:45", 0, "A35K", "BAW"], ["JL43", "09:45", "15:55", 0, "A35K", "JAL"], ["BA6", "13:05", "19:50", 0, "B789", "BAW"]], "F1": [["JL42", "09:10", "06:45", 1, "B788", "JAL"], ["BA7", "09:25", "07:00", 1, "A35K", "BAW"], ["BA5", "13:05", "10:55", 1, "B789", "BAW"], ["JL44", "19:20", "17:20", 1, "B77W", "JAL"]]},
+ {"a": "HND", "b": "TSA", "region": "EA", "F0": [["JL97", "08:55", "11:15", 0, "B789", "JAL"], ["BR189", "10:50", "13:30", 0, "B78X", "EVA"], ["BR191", "12:40", "15:05", 0, "B78X", "EVA"], ["JL99", "18:25", "20:50", 0, "B788", "JAL"]], "F1": [["BR192", "07:20", "11:30", 0, "B78X", "EVA"], ["JL96", "11:35", "15:45", 0, "B788", "JAL"], ["JL98", "14:20", "18:30", 0, "B789", "JAL"], ["BR190", "16:20", "20:20", 0, "B78X", "EVA"]]},
+ {"a": "KIX", "b": "GMP", "region": "EA", "F0": [["OZ1135", "11:10", "13:10", 0, "A321", "AAR"], ["KE2118", "12:25", "14:20", 0, "A333", "KAL"], ["KE2120", "19:35", "21:25", 0, "A21N", "KAL"], ["OZ1155", "20:30", "22:25", 0, "A333", "AAR"]], "F1": [["OZ1145", "08:10", "09:50", 0, "A321", "AAR"], ["KE2117", "09:15", "10:55", 0, "A333", "KAL"], ["KE2119", "16:30", "18:25", 0, "A21N", "KAL"], ["OZ1165", "17:40", "19:20", 0, "A333", "AAR"]]},
+ {"a": "OKA", "b": "ICN", "region": "EA", "F0": [["OZ1791", "10:11", "11:52", 0, "A21N", "AAR"], ["KE2148", "12:50", "15:10", 0, "A333", "KAL"], ["OZ171", "18:15", "20:35", 0, "A21N", "AAR"], ["OZ1719", "20:42", "22:25", 0, "A333", "AAR"]], "F1": [["KE2147", "09:20", "11:50", 0, "A21N", "KAL"], ["KE8147", "11:00", "12:50", 0, "A21N", "KAL"], ["OZ172", "14:45", "17:15", 0, "A21N", "AAR"], ["OZ1729", "17:02", "18:54", 0, "A333", "AAR"]]},
+ {"a": "CTS", "b": "ICN", "region": "EA", "F0": [["OZ173", "14:30", "17:45", 0, "A333", "AAR"], ["KE766", "14:50", "17:55", 0, "B77W", "KAL"], ["KE770", "16:20", "19:30", 0, "A21N", "KAL"], ["KE772", "20:50", "23:55", 0, "A21N", "KAL"]], "F1": [["OZ174", "10:15", "13:00", 0, "A333", "AAR"], ["KE765", "10:35", "13:25", 0, "B77W", "KAL"], ["KE769", "12:35", "15:20", 0, "A21N", "KAL"], ["KE771", "17:05", "19:50", 0, "A21N", "KAL"]]},
+ {"a": "KIX", "b": "TPE", "region": "EA", "F0": [["BR667", "04:53", "06:03", 0, "B77L", "EVA"], ["BR177", "11:10", "13:05", 0, "B77W", "EVA"], ["BR131", "13:10", "15:05", 0, "B77W", "EVA"], ["BR129", "18:30", "20:30", 0, "B773", "EVA"], ["BR607", "18:42", "19:50", 0, "B77L", "EVA"]], "F1": [["BR178", "06:30", "10:10", 0, "B77W", "EVA"], ["BR132", "08:20", "12:10", 0, "B77W", "EVA"], ["BR130", "13:35", "17:15", 0, "B78X", "EVA"]]},
+ {"a": "HND", "b": "LAX", "region": "NA", "F0": [["AA170", "11:55", "06:25", 0, "B789", "AAL"], ["JL16", "17:25", "11:45", 0, "A35K", "JAL"], ["AA26", "19:45", "14:15", 0, "B789", "AAL"]], "F1": [["AA169", "01:10", "04:45", 1, "B789", "AAL"], ["AA27", "12:30", "15:50", 1, "B789", "AAL"], ["JL15", "14:00", "17:25", 1, "A35K", "JAL"]]},
+ {"a": "HND", "b": "HKG", "region": "EA", "F0": [["JL29", "09:55", "13:30", 0, "B789", "JAL"], ["CX543", "10:05", "13:50", 0, "B773", "CPA"], ["CX549", "16:20", "20:00", 0, "B77W", "CPA"]], "F1": [["CX548", "08:40", "13:55", 0, "B77W", "CPA"], ["JL26", "15:15", "20:25", 0, "B789", "JAL"], ["CX542", "16:20", "21:35", 0, "B773", "CPA"]]},
+ {"a": "HND", "b": "SIN", "region": "SEA", "F0": [["JL35", "00:05", "06:10", 0, "B763", "JAL"], ["JL8155", "09:08", "14:51", 0, "A35K", "JAL"], ["JL37", "11:40", "17:45", 0, "B789", "JAL"]], "F1": [["JL38", "01:55", "09:50", 0, "B763", "JAL"], ["JL8158", "16:39", "00:02", 1, "A35K", "JAL"], ["JL36", "21:50", "05:45", 1, "B789", "JAL"]]},
+ {"a": "HND", "b": "JFK", "region": "NA", "F0": [["JL6", "11:05", "11:05", 0, "A35K", "JAL"], ["AA168", "17:45", "18:00", 0, "B789", "AAL"], ["JL4", "19:30", "19:30", 0, "B77W", "JAL"]], "F1": [["JL3", "01:30", "04:35", 1, "A35K", "JAL"], ["AA167", "10:30", "13:55", 1, "B789", "AAL"], ["JL5", "13:35", "16:40", 1, "A35K", "JAL"]]},
+ {"a": "HND", "b": "SYD", "region": "OC", "F0": [["QF26", "06:55", "18:00", 0, "A333", "QFA"], ["JL51", "19:40", "06:20", 1, "B788", "JAL"], ["QF60", "22:00", "08:55", 1, "A333", "QFA"]], "F1": [["JL52", "08:55", "17:45", 0, "B788", "JAL"], ["QF59", "11:15", "20:10", 0, "A333", "QFA"], ["QF25", "20:30", "05:25", 1, "A333", "QFA"]]},
+ {"a": "NRT", "b": "KUL", "region": "SEA", "F0": [["MH89", "10:05", "16:45", 0, "A339", "MAS"], ["JL723", "11:25", "17:55", 0, "B788", "JAL"], ["MH71", "21:45", "04:30", 1, "A333", "MAS"]], "F1": [["MH70", "09:50", "18:05", 0, "A333", "MAS"], ["JL724", "22:50", "06:55", 1, "B788", "JAL"], ["MH88", "23:30", "07:40", 1, "A359", "MAS"]]},
+ {"a": "KIX", "b": "HKG", "region": "EA", "F0": [["CX597", "09:05", "12:15", 0, "A333", "CPA"], ["CX503", "09:45", "13:05", 0, "A333", "CPA"], ["CX507", "17:35", "20:50", 0, "B773", "CPA"], ["CX595", "18:30", "21:40", 0, "A35K", "CPA"], ["CX569", "19:25", "22:40", 0, "A21N", "CPA"]], "F1": [["CX506", "10:25", "15:10", 0, "B773", "CPA"]]},
+ {"a": "HND", "b": "DFW", "region": "NA", "F0": [["JL12", "10:45", "08:35", 0, "A35K", "JAL"], ["AA176", "16:30", "14:25", 0, "B77W", "AAL"]], "F1": [["AA175", "11:10", "14:20", 1, "B77W", "AAL"], ["JL11", "12:05", "15:20", 1, "A35K", "JAL"]]},
+ {"a": "HND", "b": "PEK", "region": "EA", "F0": [["JL21", "08:50", "12:00", 0, "B788", "JAL"], ["JL25", "16:35", "19:45", 0, "B738", "JAL"]], "F1": [["JL20", "08:25", "12:55", 0, "B738", "JAL"], ["JL22", "16:20", "20:50", 0, "B788", "JAL"]]},
+ {"a": "HND", "b": "BKK", "region": "SEA", "F0": [["JL33", "01:20", "05:45", 0, "B789", "JAL"], ["JL31", "10:40", "15:10", 0, "B77W", "JAL"]], "F1": [["JL32", "09:40", "18:00", 0, "B789", "JAL"], ["JL34", "21:40", "05:55", 1, "B773", "JAL"]]},
+ {"a": "HND", "b": "HEL", "region": "EU", "F0": [["JL47", "07:50", "15:10", 0, "B77W", "JAL"], ["AY62", "21:50", "04:40", 1, "A359", "FIN"]], "F1": [["JL48", "17:55", "13:55", 1, "B773", "JAL"], ["AY61", "18:30", "13:50", 1, "A359", "FIN"]]},
+ {"a": "NRT", "b": "HAN", "region": "SEA", "F0": [["JL751", "18:20", "21:50", 0, "B763", "JAL"], ["JL6739", "21:10", "01:00", 1, "B763", "JAL"]], "F1": [["JL6740", "02:50", "10:05", 0, "B763", "JAL"], ["JL752", "23:20", "06:40", 1, "B763", "JAL"]]},
+ {"a": "HND", "b": "HNL", "region": "NA", "F0": [["JL74", "21:05", "09:45", 0, "B789", "JAL"], ["JL72", "21:55", "10:35", 0, "B789", "JAL"]], "F1": [["JL73", "12:45", "15:55", 1, "B789", "JAL"], ["JL71", "16:35", "19:45", 1, "B789", "JAL"]]},
+ {"a": "NRT", "b": "CGK", "region": "SEA", "F0": [["JL725", "11:15", "17:05", 0, "B763", "JAL"], ["JL729", "18:05", "23:55", 0, "B788", "JAL"]], "F1": [["JL720", "06:30", "16:05", 0, "B788", "JAL"], ["JL726", "21:50", "07:25", 1, "B763", "JAL"]]},
+ {"a": "NRT", "b": "MEL", "region": "OC", "F0": [["JL773", "18:40", "05:45", 1, "B788", "JAL"], ["QF80", "20:25", "07:40", 1, "A333", "QFA"]], "F1": [["JL774", "07:25", "16:20", 0, "B788", "JAL"], ["QF79", "09:35", "19:00", 0, "A333", "QFA"]]},
+ {"a": "HND", "b": "PVG", "region": "EA", "F0": [["JL85", "11:40", "14:00", 0, "B763", "JAL"], ["JL89", "17:20", "19:45", 0, "B738", "JAL"]], "F1": [["JL80", "09:05", "13:00", 0, "B763", "JAL"], ["JL86", "16:00", "19:55", 0, "B763", "JAL"]]},
+ {"a": "HND", "b": "ICN", "region": "EA", "F0": [["OZ177", "01:30", "04:10", 0, "A333", "AAR"], ["KE752", "02:00", "04:35", 0, "A333", "KAL"]], "F1": [["KE751", "20:30", "22:50", 0, "A333", "KAL"], ["OZ178", "21:10", "23:30", 0, "A333", "AAR"]]},
+ {"a": "FUK", "b": "TPE", "region": "EA", "F0": [["BR105", "12:20", "13:45", 0, "B77W", "EVA"], ["BR101", "19:20", "20:45", 0, "A321", "EVA"]], "F1": [["BR106", "08:00", "11:20", 0, "B77W", "EVA"], ["BR102", "15:10", "18:20", 0, "A321", "EVA"]]},
+ {"a": "OKA", "b": "TPE", "region": "EA", "F0": [["BR113", "10:15", "10:55", 0, "A321", "EVA"], ["BR185", "20:20", "20:55", 0, "A321", "EVA"]], "F1": [["BR112", "06:45", "09:15", 0, "A321", "EVA"], ["BR186", "16:50", "19:20", 0, "A321", "EVA"]]},
+ {"a": "CTS", "b": "TPE", "region": "EA", "F0": [["BR165", "13:00", "16:20", 0, "A321", "EVA"], ["BR115", "16:15", "19:15", 0, "B78X", "EVA"]], "F1": [["BR166", "06:55", "11:55", 0, "A321", "EVA"], ["BR116", "10:10", "15:00", 0, "B78X", "EVA"]]},
+ {"a": "KIX", "b": "KHH", "region": "EA", "F0": [["BR181", "12:10", "14:30", 0, "A321", "EVA"], ["BR147", "20:35", "22:55", 0, "A321", "EVA"]], "F1": [["BR182", "07:05", "11:10", 0, "A321", "EVA"], ["BR148", "15:25", "19:35", 0, "A321", "EVA"]]},
+ {"a": "NRT", "b": "PUS", "region": "EA", "F0": [["KE2130", "12:45", "14:55", 0, "A21N", "KAL"], ["KE2132", "19:20", "21:35", 0, "A21N", "KAL"]], "F1": [["KE2129", "09:20", "11:35", 0, "A21N", "KAL"], ["KE2131", "16:00", "18:15", 0, "A21N", "KAL"]]},
+ {"a": "NRT", "b": "ORD", "region": "NA", "F0": [["JL56", "09:45", "07:45", 0, "B788", "JAL"], ["JL6747", "22:00", "23:59", 0, "B741", "JAL"]], "F1": [["JL55", "10:40", "13:25", 1, "B788", "JAL"]]},
+ {"a": "NRT", "b": "BKK", "region": "SEA", "F0": [["JL707", "18:25", "23:00", 0, "B788", "JAL"], ["JL6771", "20:55", "01:30", 1, "B763", "JAL"]], "F1": [["JL708", "07:55", "16:05", 0, "B788", "JAL"]]},
+ {"a": "NRT", "b": "SIN", "region": "SEA", "F0": [["JL711", "18:05", "00:20", 1, "B763", "JAL"]], "F1": [["JL6722", "05:17", "12:35", 0, "UNK", "JAL"], ["JL712", "08:05", "16:10", 0, "B763", "JAL"]]},
+ {"a": "NGO", "b": "TPE", "region": "EA", "F0": [["JL8671", "10:40", "12:45", 0, "B738", "JAL"]], "F1": [["JL8670", "14:05", "17:55", 0, "B738", "JAL"], ["JL6718", "21:10", "00:50", 1, "B763", "JAL"]]},
+ {"a": "KIX", "b": "HEL", "region": "EU", "F0": [["AY70", "07:30", "14:35", 0, "A359", "FIN"], ["AY68", "22:15", "05:20", 1, "A359", "FIN"]], "F1": [["AY67", "17:45", "12:35", 1, "A359", "FIN"]]},
+ {"a": "NRT", "b": "DOH", "region": "ME", "F0": [["QR809", "17:25", "22:20", 0, "B77W", "QTR"]], "F1": [["QR806", "02:50", "19:10", 0, "B77W", "QTR"], ["QR808", "20:35", "12:55", 1, "B77W", "QTR"]]},
+ {"a": "HND", "b": "ORD", "region": "NA", "F0": [["JL10", "13:00", "11:00", 0, "B77W", "JAL"]], "F1": [["JL9", "14:30", "17:30", 1, "B77W", "JAL"]]},
+ {"a": "NRT", "b": "YVR", "region": "NA", "F0": [["JL18", "18:55", "11:45", 0, "B789", "JAL"]], "F1": [["JL17", "14:00", "15:55", 1, "B789", "JAL"]]},
+ {"a": "HND", "b": "SFO", "region": "NA", "F0": [["JL2", "16:20", "10:05", 0, "B773", "JAL"]], "F1": [["JL1", "12:25", "15:05", 1, "B77W", "JAL"]]},
+ {"a": "HND", "b": "DLC", "region": "EA", "F0": [["JL23", "09:25", "11:45", 0, "B788", "JAL"]], "F1": [["JL24", "13:00", "16:55", 0, "B788", "JAL"]]},
+ {"a": "HND", "b": "DEL", "region": "SA", "F0": [["JL39", "10:55", "16:10", 0, "B789", "JAL"]], "F1": [["JL30", "19:05", "06:45", 1, "B789", "JAL"]]},
+ {"a": "NRT", "b": "FRA", "region": "EU", "F0": [["JL407", "10:35", "17:45", 0, "B789", "JAL"]], "F1": [["JL408", "20:10", "16:15", 1, "B789", "JAL"]]},
+ {"a": "HND", "b": "CDG", "region": "EU", "F0": [["JL45", "10:20", "17:55", 0, "A35K", "JAL"]], "F1": [["JL46", "20:25", "17:20", 1, "B77W", "JAL"]]},
+ {"a": "NRT", "b": "SFO", "region": "NA", "F0": [["JL58", "18:15", "11:55", 0, "B789", "JAL"]], "F1": [["JL57", "13:55", "16:30", 1, "B789", "JAL"]]},
+ {"a": "NRT", "b": "LAX", "region": "NA", "F0": [["JL62", "17:20", "11:30", 0, "B789", "JAL"]], "F1": [["JL61", "13:30", "16:30", 1, "B789", "JAL"]]},
+ {"a": "NRT", "b": "SAN", "region": "NA", "F0": [["JL66", "17:15", "11:35", 0, "B789", "JAL"]], "F1": [["JL65", "13:35", "16:45", 1, "B789", "JAL"]]},
+ {"a": "NRT", "b": "SEA", "region": "NA", "F0": [["JL68", "17:45", "10:50", 0, "B789", "JAL"]], "F1": [["JL67", "13:25", "15:30", 1, "B789", "JAL"]]},
+ {"a": "KIX", "b": "BKK", "region": "SEA", "F0": [["JL727", "00:55", "04:40", 0, "B788", "JAL"]], "F1": [["JL728", "00:30", "07:55", 0, "B788", "JAL"]]},
+ {"a": "NRT", "b": "MNL", "region": "SEA", "F0": [["JL745", "18:00", "21:40", 0, "B788", "JAL"]], "F1": [["JL746", "10:05", "15:30", 0, "B788", "JAL"]]},
+ {"a": "NRT", "b": "DEL", "region": "SA", "F0": [["JL749", "21:45", "03:00", 1, "B788", "JAL"]], "F1": [["JL740", "04:35", "16:15", 0, "B788", "JAL"]]},
+ {"a": "NRT", "b": "BLR", "region": "SA", "F0": [["JL753", "18:55", "00:15", 1, "B789", "JAL"]], "F1": [["JL754", "02:20", "14:35", 0, "B789", "JAL"]]},
+ {"a": "NRT", "b": "SGN", "region": "SEA", "F0": [["JL759", "17:45", "21:45", 0, "B788", "JAL"]], "F1": [["JL750", "08:00", "16:00", 0, "B788", "JAL"]]},
+ {"a": "HND", "b": "MNL", "region": "SEA", "F0": [["JL77", "01:55", "05:35", 0, "B788", "JAL"]], "F1": [["JL78", "23:25", "04:45", 1, "B788", "JAL"]]},
+ {"a": "NRT", "b": "HNL", "region": "NA", "F0": [["JL786", "20:30", "09:20", 0, "B763", "JAL"]], "F1": [["JL785", "13:35", "16:45", 1, "B763", "JAL"]]},
+ {"a": "HND", "b": "SGN", "region": "SEA", "F0": [["JL79", "01:50", "05:25", 0, "B788", "JAL"]], "F1": [["JL70", "23:15", "06:55", 1, "B788", "JAL"]]},
+ {"a": "NRT", "b": "BOS", "region": "NA", "F0": [["JL8", "18:25", "18:15", 0, "B789", "JAL"]], "F1": [["JL7", "13:15", "16:00", 1, "B789", "JAL"]]},
+ {"a": "HND", "b": "SHA", "region": "EA", "F0": [["JL81", "09:15", "11:20", 0, "B789", "JAL"]], "F1": [["JL82", "12:45", "16:50", 0, "B789", "JAL"]]},
+ {"a": "HND", "b": "GUM", "region": "OC", "F0": [["JL8171", "08:35", "12:44", 0, "B738", "JAL"]], "F1": [["JL8172", "10:00", "12:29", 0, "B738", "JAL"]]},
+ {"a": "NGO", "b": "TSN", "region": "EA", "F0": [["JL841", "10:35", "12:50", 0, "B738", "JAL"]], "F1": [["JL840", "14:00", "17:45", 0, "B738", "JAL"]]},
+ {"a": "HND", "b": "CAN", "region": "EA", "F0": [["JL87", "08:40", "12:30", 0, "B789", "JAL"]], "F1": [["JL88", "14:10", "19:30", 0, "B789", "JAL"]]},
+ {"a": "KIX", "b": "PVG", "region": "EA", "F0": [["JL891", "10:15", "11:45", 0, "B788", "JAL"]], "F1": [["JL894", "13:15", "16:35", 0, "B788", "JAL"]]},
+ {"a": "NRT", "b": "GUM", "region": "OC", "F0": [["JL941", "09:50", "14:35", 0, "B763", "JAL"]], "F1": [["JL942", "16:35", "19:20", 0, "B763", "JAL"]]},
+ {"a": "NRT", "b": "DFW", "region": "NA", "F0": [["AA60", "18:30", "16:50", 0, "B772", "AAL"]], "F1": [["AA61", "11:55", "15:00", 1, "B772", "AAL"]]},
+ {"a": "SDJ", "b": "ICN", "region": "EA", "F0": [["OZ151", "12:45", "15:10", 0, "A321", "AAR"]], "F1": [["OZ152", "09:35", "11:45", 0, "A321", "AAR"]]},
+ {"a": "KMI", "b": "ICN", "region": "EA", "F0": [["OZ157", "19:10", "20:50", 0, "A21N", "AAR"]], "F1": [["OZ158", "16:20", "18:10", 0, "A21N", "AAR"]]},
+ {"a": "CTS", "b": "HKG", "region": "EA", "F0": [["CX581", "16:40", "20:55", 0, "B77W", "CPA"]], "F1": [["CX582", "10:00", "16:05", 0, "B77W", "CPA"]]},
+ {"a": "NRT", "b": "KHH", "region": "EA", "F0": [["BR107", "12:45", "15:40", 0, "A330", "EVA"]], "F1": [["BR108", "07:00", "11:45", 0, "A330", "EVA"]]},
+ {"a": "SDJ", "b": "TPE", "region": "EA", "F0": [["BR117", "16:05", "18:55", 0, "A321", "EVA"]], "F1": [["BR118", "10:05", "14:35", 0, "A321", "EVA"]]},
+ {"a": "FUK", "b": "KHH", "region": "EA", "F0": [["BR119", "20:20", "22:10", 0, "A321", "EVA"]], "F1": [["BR120", "15:30", "19:20", 0, "A321", "EVA"]]},
+ {"a": "UKB", "b": "TPE", "region": "EA", "F0": [["BR133", "11:00", "12:55", 0, "A321", "EVA"]], "F1": [["BR176", "14:20", "18:00", 0, "A321", "EVA"]]},
+ {"a": "KMQ", "b": "TPE", "region": "EA", "F0": [["BR157", "11:45", "13:55", 0, "A321", "EVA"]], "F1": [["BR158", "06:35", "10:25", 0, "A321", "EVA"]]},
+ {"a": "NRT", "b": "HEL", "region": "EU", "F0": [["AY74", "23:05", "05:55", 1, "A359", "FIN"]], "F1": [["AY73", "17:45", "13:05", 1, "A359", "FIN"]]},
+ {"a": "NGO", "b": "HEL", "region": "EU", "F0": [["AY80", "22:50", "05:55", 1, "A359", "FIN"]], "F1": [["AY79", "00:45", "19:35", 0, "A359", "FIN"]]},
+ {"a": "NRT", "b": "CJU", "region": "EA", "F0": [["KE2126", "16:35", "19:05", 0, "B739", "KAL"]], "F1": [["KE2125", "12:55", "15:25", 0, "B739", "KAL"]]},
+ {"a": "NGO", "b": "PUS", "region": "EA", "F0": [["KE2134", "19:55", "21:30", 0, "B739", "KAL"]], "F1": [["KE2133", "17:30", "18:55", 0, "B739", "KAL"]]},
+ {"a": "KMJ", "b": "ICN", "region": "EA", "F0": [["KE2156", "19:35", "21:20", 0, "BCS3", "KAL"]], "F1": [["KE2155", "17:05", "18:35", 0, "BCS3", "KAL"]]},
+ {"a": "OKJ", "b": "ICN", "region": "EA", "F0": [["KE2186", "13:15", "14:55", 0, "BCS3", "KAL"]], "F1": [["KE2185", "10:35", "12:15", 0, "BCS3", "KAL"]]},
+ {"a": "KMQ", "b": "ICN", "region": "EA", "F0": [["KE2190", "10:15", "12:10", 0, "BCS3", "KAL"]], "F1": [["KE2189", "07:30", "09:15", 0, "BCS3", "KAL"]]},
+ {"a": "NRT", "b": "BNE", "region": "OC", "F0": [["QF62", "21:45", "07:45", 1, "A333", "QFA"]], "F1": [["QF61", "10:35", "18:50", 0, "A333", "QFA"]]},
+ {"a": "KIX", "b": "LAX", "region": "NA", "F0": [["JL60", "17:45", "12:35", 0, "B789", "JAL"]], "F1": [["JL69", "15:00", "18:45", 1, "B789", "JAL"]]},
+ {"a": "KIX", "b": "DOH", "region": "ME", "F0": [["QR803", "18:55", "23:30", 0, "A359", "QTR"]], "F1": [["QR802", "01:40", "17:25", 0, "A359", "QTR"]]},
+ {"a": "NRT", "b": "PVG", "region": "EA", "F0": [["JL6721", "23:30", "02:00", 1, "B763", "JAL"]], "F1": []},
+ {"a": "NRT", "b": "TSN", "region": "EA", "F0": [["JL6777", "10:05", "12:45", 0, "B763", "JAL"]], "F1": []},
+ {"a": "NRT", "b": "CMB", "region": "SA", "F0": [], "F1": [["UL454", "19:50", "08:10", 1, "A332", "ALK"]]},
+];
+const LAND=[
+[[142.2,-53.9],[144.9,-54.7],[140.8,-55.5],[135.3,-52.8],[138.9,-54.1],[140.7,-52.5],[142.2,-53.9]],
+[[151.4,-51.1],[151.9,-51.9],[148.8,-51.9],[151.4,-51.1]],
+[[-79.7,-49.7],[-81.3,-49.8],[-81.1,-48.6],[-79.5,-49.1],[-79.7,-49.7]],
+[[-4.6,-40.8],[-1.7,-40.9],[-2.1,-43.2],[-4.0,-43.5],[-5.3,-41.2],[-4.6,-40.8]],
+[[23.0,-40.9],[24.2,-41.3],[23.1,-43.9],[21.5,-44.2],[19.3,-46.6],[16.7,-46.2],[17.0,-45.1],[23.0,-40.9]],
+[[24.6,-36.2],[26.8,-37.9],[28.5,-37.7],[25.2,-41.7],[24.9,-39.9],[23.8,-39.5],[24.7,-37.4],[22.6,-34.5],[24.6,-36.2]],
+[[17.1,-22.2],[14.0,-20.1],[17.1,-22.2]],
+[[28.4,-17.3],[28.6,-18.2],[27.4,-18.2],[28.4,-17.3]],
+[[29.4,-16.8],[28.6,-16.6],[30.0,-16.1],[29.4,-16.8]],
+[[17.8,-16.5],[17.2,-15.9],[17.8,-16.5]],
+[[17.1,-14.9],[17.3,-15.7],[16.6,-14.6],[17.1,-14.9]],
+[[-99.9,-13.6],[-99.6,-15.7],[-100.3,-15.7],[-102.9,-24.9],[-104.6,-25.6],[-106.0,-25.0],[-106.7,-22.1],[-105.6,-20.1],[-105.6,-16.2],[-102.3,-14.6],[-100.8,-12.0],[-99.9,-13.6]],
+[[-6.4,-13.8],[-4.6,-15.0],[-3.6,-19.0],[-1.2,-20.4],[3.1,-26.1],[2.9,-31.6],[-0.0,-37.4],[-3.7,-39.0],[-5.0,-37.9],[-6.4,-38.8],[-9.4,-38.0],[-10.4,-36.1],[-11.9,-35.6],[-11.8,-34.4],[-13.2,-35.3],[-12.2,-32.9],[-14.0,-34.9],[-15.7,-32.6],[-18.7,-31.5],[-23.9,-32.2],[-26.3,-33.9],[-30.1,-34.0],[-32.0,-35.1],[-35.0,-34.2],[-34.3,-31.6],[-36.7,-26.1],[-35.8,-26.3],[-36.6,-24.4],[-35.9,-21.8],[-35.8,-22.5],[-33.3,-20.7],[-29.1,-19.7],[-27.0,-16.4],[-26.1,-17.1],[-26.5,-16.6],[-24.3,-14.2],[-22.9,-13.8],[-20.4,-15.0],[-19.4,-12.5],[-17.4,-12.1],[-18.2,-11.3],[-17.6,-11.1],[-14.7,-12.2],[-13.5,-11.9],[-13.0,-12.4],[-14.5,-15.0],[-9.8,-17.7],[-8.7,-16.4],[-7.5,-10.7],[-6.4,-13.8]],
+[[12.1,-10.5],[11.3,-10.2],[12.1,-10.5]],
+[[-29.3,-10.2],[-31.0,-9.6],[-29.3,-10.2]],
+[[10.9,-9.9],[9.7,-9.2],[10.9,-9.9]],
+[[11.7,-9.6],[10.6,-8.3],[11.7,-9.6]],
+[[-25.6,-10.1],[-26.5,-10.2],[-24.9,-8.7],[-22.7,-8.4],[-25.6,-10.1]],
+[[-32.1,-8.1],[-30.9,-8.7],[-33.3,-9.0],[-32.1,-8.1]],
+[[-27.1,-8.1],[-30.1,-8.8],[-27.1,-8.1]],
+[[9.9,-8.3],[8.2,-7.4],[9.9,-8.3]],
+[[7.5,-7.3],[6.5,-6.6],[7.5,-7.3]],
+[[-41.4,-6.8],[-39.2,-6.5],[-34.3,-8.4],[-44.6,-6.9],[-43.9,-5.9],[-41.4,-6.8]],
+[[-15.3,-6.2],[-15.8,-6.9],[-15.5,-5.4],[-15.3,-6.2]],
+[[5.9,-6.8],[4.5,-5.1],[5.9,-6.8]],
+[[2.0,-5.5],[0.2,-6.3],[-1.7,-5.7],[0.8,-5.5],[1.5,-4.2],[2.3,-4.3],[2.0,-5.5]],
+[[-22.8,-3.5],[-24.0,-3.2],[-22.8,-3.5]],
+[[-19.5,-3.1],[-19.2,-3.9],[-22.1,-3.4],[-19.5,-3.1]],
+[[3.1,-4.5],[0.7,-2.7],[3.1,-4.5]],
+[[-15.9,-1.2],[-15.6,-2.8],[-14.5,-3.4],[-11.7,-1.7],[-5.4,-3.9],[-2.4,-6.1],[-2.8,-7.4],[0.7,-10.6],[-2.1,-10.1],[-5.3,-7.6],[-7.4,-9.3],[-10.9,-8.1],[-12.4,-8.4],[-11.3,-7.3],[-12.1,-5.4],[-16.3,-3.5],[-17.0,-4.1],[-18.0,-2.8],[-16.3,-2.2],[-19.5,-0.9],[-17.6,-0.4],[-15.9,-1.2]],
+[[-24.8,1.4],[-26.3,0.2],[-29.8,0.2],[-29.1,-1.4],[-26.7,-0.6],[-28.5,-1.9],[-26.8,-5.3],[-27.8,-5.3],[-27.3,-4.5],[-28.5,-4.6],[-29.0,-2.6],[-29.7,-2.9],[-29.6,-5.5],[-30.6,-5.4],[-30.5,-3.5],[-31.2,-2.8],[-30.0,0.6],[-29.1,1.3],[-24.8,1.4]],
+[[-21.3,1.1],[-21.9,-0.9],[-22.6,1.0],[-22.1,2.2],[-21.3,1.1]],
+[[-44.2,-5.9],[-47.4,-4.2],[-54.7,5.5],[-52.5,5.2],[-46.2,0.1],[-46.6,-0.7],[-43.9,-3.1],[-44.2,-5.9]],
+[[-32.1,1.8],[-31.0,0.9],[-32.2,0.8],[-33.9,-4.0],[-39.8,-2.9],[-40.9,-0.5],[-40.3,2.0],[-38.8,1.9],[-38.6,2.7],[-37.0,3.1],[-33.3,6.9],[-30.8,5.4],[-32.7,3.2],[-32.1,1.8]],
+[[-23.6,8.4],[-23.5,7.2],[-23.8,6.3],[-24.2,7.3],[-24.6,6.8],[-24.6,5.6],[-25.8,6.2],[-26.4,7.8],[-28.1,7.2],[-26.5,8.7],[-24.5,9.0],[-24.6,9.8],[-23.6,8.4]],
+[[-68.8,6.2],[-70.1,6.8],[-69.9,9.8],[-68.2,7.5],[-68.8,6.2]],
+[[149.1,10.1],[148.1,10.1],[148.9,10.9],[149.1,10.1]],
+[[-26.0,10.3],[-27.0,9.0],[-27.6,9.7],[-25.9,11.2],[-26.0,10.3]],
+[[-31.5,9.3],[-32.8,8.4],[-30.5,11.4],[-31.5,9.3]],
+[[-28.1,11.9],[-26.9,11.6],[-28.0,10.4],[-28.1,11.9]],
+[[-24.5,12.2],[-24.2,11.0],[-25.0,11.3],[-25.2,10.1],[-25.7,12.6],[-24.5,12.2]],
+[[-28.5,13.1],[-28.7,12.2],[-29.7,13.5],[-28.5,13.1]],
+[[-28.7,18.5],[-27.8,18.5],[-27.5,17.1],[-28.3,14.3],[-26.0,13.8],[-25.9,12.5],[-29.4,13.9],[-29.0,14.5],[-29.9,15.0],[-30.1,16.4],[-28.7,18.5]],
+[[144.4,18.2],[142.8,18.4],[144.4,18.2]],
+[[133.1,17.9],[131.7,18.2],[133.8,17.9],[133.1,17.9]],
+[[137.4,19.9],[141.7,18.6],[139.3,18.4],[138.6,17.6],[135.5,18.3],[137.7,18.7],[136.6,19.6],[137.4,19.9]],
+[[-39.7,18.7],[-41.3,18.5],[-41.4,19.4],[-39.2,20.1],[-39.7,18.7]],
+[[54.5,19.1],[54.1,20.3],[55.2,19.5],[54.5,19.1]],
+[[53.9,20.6],[53.3,20.9],[53.9,20.6]],
+[[53.2,21.2],[52.7,21.1],[53.2,21.2]],
+[[52.3,21.3],[51.7,21.6],[52.3,21.3]],
+[[130.3,22.8],[135.8,20.3],[132.2,19.9],[132.9,20.4],[131.3,21.6],[128.2,22.6],[125.0,21.9],[127.7,23.2],[130.3,22.8]],
+[[132.5,23.8],[131.8,25.2],[132.5,23.8]],
+[[-28.8,22.8],[-29.3,22.0],[-29.9,23.6],[-28.5,25.3],[-28.8,22.8]],
+[[132.2,26.6],[131.0,26.8],[132.2,26.6]],
+[[133.0,26.6],[132.8,25.9],[132.2,27.0],[133.0,26.6]],
+[[-15.4,34.1],[-15.8,33.2],[-17.6,33.0],[-17.1,34.1],[-15.4,34.1]],
+[[-115.4,35.7],[-117.0,34.6],[-117.7,35.1],[-115.4,35.7]],
+[[-126.3,35.7],[-123.7,35.3],[-125.3,34.9],[-126.3,35.7]],
+[[-134.5,38.2],[-134.9,36.6],[-137.6,37.6],[-134.5,38.2]],
+[[-140.8,41.2],[-140.3,39.2],[-141.2,38.9],[-141.8,41.0],[-140.8,41.2]],
+[[-9.0,37.1],[-9.7,35.1],[-12.8,34.6],[-14.2,33.5],[-14.9,34.6],[-19.0,33.9],[-18.0,33.1],[-18.7,31.5],[-19.8,31.4],[-19.6,32.3],[-20.6,33.3],[-17.4,35.4],[-14.3,35.5],[-13.3,37.3],[-12.6,36.8],[-10.6,38.2],[-10.1,40.6],[-8.6,41.4],[-8.1,39.2],[-9.0,37.1]],
+[[-140.4,42.2],[-140.8,41.4],[-141.5,42.3],[-140.6,43.0],[-140.4,42.2]],
+[[-6.1,44.2],[-4.7,44.4],[-4.5,43.3],[-6.8,42.0],[-8.4,42.7],[-8.9,41.6],[-10.0,41.6],[-10.2,42.6],[-8.6,43.4],[-8.0,45.6],[-6.1,44.2]],
+[[146.3,46.6],[148.0,46.4],[147.1,46.0],[145.6,46.7],[146.3,46.6]],
+[[148.2,49.1],[145.5,49.9],[148.2,49.1]],
+[[86.5,48.5],[84.3,48.8],[81.6,50.8],[84.2,50.3],[86.5,48.5]],
+[[153.9,50.7],[153.2,49.8],[156.5,49.2],[156.2,48.5],[156.9,48.7],[157.4,47.5],[156.9,46.7],[155.8,46.8],[155.8,47.8],[154.6,46.9],[153.7,47.6],[150.7,47.6],[152.6,50.7],[154.6,51.6],[153.9,50.7]],
+[[77.3,54.0],[78.3,54.1],[78.0,53.0],[78.8,52.2],[76.9,53.4],[77.3,54.0]],
+[[-6.4,50.7],[-5.3,49.0],[-6.8,49.3],[-7.4,47.9],[-6.5,46.1],[-7.3,46.7],[-7.9,46.0],[-8.4,51.9],[-7.8,54.2],[-6.4,50.7]],
+[[-156.8,52.3],[-160.0,51.8],[-159.2,52.9],[-159.7,53.9],[-156.7,55.2],[-155.7,54.6],[-156.8,52.3]],
+[[-137.3,55.6],[-137.9,54.8],[-139.1,55.8],[-137.3,55.6]],
+[[57.0,57.1],[56.0,56.7],[55.3,57.5],[57.9,57.6],[57.0,57.1]],
+[[-153.0,58.6],[-154.1,57.6],[-152.0,57.7],[-153.1,56.0],[-148.3,52.7],[-148.6,51.3],[-155.2,50.0],[-155.8,50.2],[-153.4,51.4],[-155.3,52.0],[-154.2,52.3],[-154.6,53.5],[-152.9,54.0],[-154.8,54.8],[-155.0,55.8],[-155.6,55.3],[-156.1,56.8],[-155.0,58.6],[-153.0,58.6]],
+[[44.4,59.9],[42.5,60.2],[44.4,59.9]],
+[[130.7,62.2],[129.6,62.0],[130.7,62.2]],
+[[128.1,62.7],[126.0,62.5],[128.1,62.7]],
+[[38.3,63.8],[41.3,63.3],[38.3,63.8]],
+[[124.8,65.7],[129.9,63.7],[122.8,63.5],[124.1,65.7],[124.8,65.7]],
+[[-164.5,66.5],[-164.7,65.8],[-163.6,65.1],[-168.7,63.5],[-172.8,64.0],[-171.8,64.4],[-174.0,64.9],[-172.2,65.4],[-174.3,65.6],[-172.1,66.4],[-170.6,65.7],[-164.5,66.5]],
+[[134.1,67.1],[132.8,67.6],[134.9,68.0],[134.1,67.1]],
+[[35.0,66.6],[38.1,66.9],[40.1,66.0],[37.5,65.4],[37.0,64.3],[31.6,65.4],[31.3,66.1],[30.1,65.9],[30.0,65.0],[30.0,69.0],[35.1,67.2],[35.0,66.6]],
+[[114.4,69.1],[110.2,69.4],[111.8,70.1],[114.4,69.1]],
+[[30.0,70.8],[28.7,71.1],[30.0,71.5],[30.0,70.8]],
+[[31.3,70.9],[30.0,70.8],[30.0,71.5],[32.4,71.3],[31.3,70.9]],
+[[119.5,69.5],[119.4,68.5],[120.8,69.3],[122.6,67.2],[124.4,68.8],[124.5,69.9],[127.4,69.7],[128.7,69.2],[128.0,68.1],[128.7,67.6],[126.7,66.4],[124.2,66.6],[122.7,64.8],[116.8,62.0],[115.3,58.9],[116.8,58.8],[117.7,57.1],[127.7,55.1],[127.9,53.3],[130.1,51.2],[131.4,52.6],[130.2,54.7],[133.5,56.5],[131.5,58.8],[132.7,59.9],[131.9,62.3],[136.2,62.4],[140.4,61.1],[140.7,59.0],[142.4,58.2],[145.4,60.3],[148.6,57.0],[148.2,56.3],[152.7,54.6],[154.2,53.3],[154.3,52.1],[150.0,50.2],[143.6,50.2],[138.9,46.8],[144.9,49.2],[145.8,48.7],[144.9,48.1],[145.5,46.2],[148.5,45.9],[149.5,47.0],[150.2,45.9],[144.6,43.5],[143.8,44.5],[145.6,45.3],[142.9,45.1],[139.3,43.0],[140.0,41.6],[136.3,40.9],[138.1,40.9],[136.0,40.8],[135.1,38.9],[134.5,39.5],[134.9,38.4],[134.1,37.2],[133.7,39.2],[133.7,38.1],[133.0,38.2],[134.3,35.6],[128.7,31.4],[129.9,26.9],[129.6,25.2],[128.3,25.9],[125.9,30.1],[120.8,30.3],[120.8,29.3],[119.8,29.1],[116.2,29.7],[113.4,28.3],[112.6,27.4],[112.1,22.4],[113.7,19.3],[115.6,18.1],[118.0,18.7],[119.2,19.3],[119.7,21.0],[122.9,21.5],[121.1,15.9],[126.6,15.3],[126.2,11.1],[128.6,8.8],[130.4,9.6],[133.2,8.6],[135.1,11.1],[138.2,12.4],[138.9,12.1],[138.1,11.4],[138.3,9.1],[138.6,11.0],[140.1,12.2],[141.8,10.6],[145.1,10.1],[148.1,10.7],[147.6,9.9],[152.9,6.0],[156.0,5.8],[158.7,4.2],[160.0,1.7],[159.6,-0.1],[161.4,-0.2],[161.4,-1.2],[162.2,-0.6],[165.1,-1.6],[165.4,-2.7],[170.0,-2.9],[174.4,-5.1],[175.3,-7.3],[174.9,-9.0],[171.3,-13.1],[170.7,-17.9],[169.1,-21.9],[162.4,-24.9],[161.1,-28.7],[156.2,-34.4],[153.8,-34.9],[151.6,-33.9],[153.2,-36.9],[150.8,-38.7],[147.7,-38.8],[147.3,-41.0],[144.9,-41.1],[145.0,-42.1],[146.5,-42.6],[144.8,-43.5],[144.4,-45.0],[142.7,-45.6],[142.4,-46.3],[144.4,-47.2],[144.0,-48.1],[140.9,-50.7],[141.8,-52.3],[139.2,-52.9],[139.0,-53.8],[135.1,-52.3],[134.4,-48.7],[135.9,-46.9],[134.4,-46.6],[135.6,-44.1],[136.8,-44.5],[137.3,-42.4],[135.7,-43.2],[136.8,-39.3],[136.4,-37.2],[138.6,-32.4],[139.8,-19.8],[138.5,-17.4],[134.0,-14.6],[130.2,-7.2],[128.8,-6.1],[128.6,-4.7],[130.2,-2.7],[129.0,-2.2],[129.1,-1.1],[132.9,3.8],[131.8,8.3],[130.4,8.9],[129.1,7.2],[124.3,9.9],[122.5,13.3],[118.8,13.9],[115.3,16.2],[113.4,15.7],[106.5,18.3],[104.5,19.9],[104.0,22.8],[97.8,29.0],[96.9,31.2],[95.2,31.8],[95.3,30.2],[100.6,23.2],[100.0,22.8],[97.8,24.7],[97.7,26.0],[94.9,27.7],[95.8,28.6],[92.7,33.0],[89.4,34.6],[85.6,40.3],[86.1,45.5],[85.3,48.2],[86.9,48.0],[87.4,47.1],[87.2,49.0],[82.6,50.8],[82.1,52.3],[80.9,52.8],[75.9,58.1],[62.9,60.9],[58.3,59.2],[59.4,61.3],[56.0,59.4],[56.7,58.9],[55.8,58.1],[51.6,56.0],[45.2,54.4],[52.3,57.6],[53.0,58.9],[48.0,58.7],[48.1,59.6],[46.2,59.8],[43.9,61.5],[45.4,63.1],[49.2,63.8],[48.5,64.4],[49.2,64.8],[45.0,64.4],[41.9,65.7],[45.5,66.6],[48.3,66.1],[43.2,68.4],[53.4,71.4],[73.5,68.9],[81.9,70.5],[84.2,69.5],[85.6,70.2],[85.7,69.4],[88.5,69.8],[96.1,68.4],[94.7,67.9],[101.1,67.4],[102.2,67.9],[101.2,68.3],[101.8,68.7],[103.8,68.8],[108.5,67.6],[111.6,67.8],[112.3,68.6],[113.9,68.2],[113.9,67.3],[115.8,69.1],[113.5,70.1],[113.6,71.2],[114.8,71.9],[118.5,70.2],[117.6,69.7],[119.5,69.5]],
+[[95.8,73.1],[95.3,72.7],[100.1,73.0],[101.8,71.7],[102.3,72.1],[101.6,73.1],[103.5,73.1],[105.5,71.0],[108.9,69.6],[107.3,69.5],[107.6,68.8],[96.7,68.5],[92.7,70.0],[97.6,70.4],[92.1,70.5],[91.6,70.9],[93.9,71.3],[90.6,71.6],[92.1,72.7],[95.8,73.1]],
+[[105.5,73.4],[104.6,72.8],[103.1,73.5],[105.5,73.4]],
+[[133.7,73.1],[129.1,73.3],[133.7,73.1]],
+[[123.4,73.2],[124.2,72.5],[127.7,73.8],[129.4,72.7],[129.3,72.1],[132.2,72.7],[135.9,71.3],[137.8,71.6],[143.0,69.2],[141.2,68.7],[148.1,66.9],[146.1,65.0],[142.0,66.3],[145.3,63.4],[145.0,62.7],[141.2,63.7],[143.8,61.9],[135.2,64.7],[132.3,64.2],[131.4,64.6],[132.1,65.3],[136.0,65.5],[137.1,67.7],[131.0,70.2],[125.1,70.0],[120.1,71.2],[120.6,73.1],[124.2,73.8],[123.4,73.2]],
+[[109.6,73.8],[112.6,73.8],[111.9,73.0],[113.5,72.6],[113.3,71.7],[110.7,71.4],[107.5,72.5],[109.6,72.7],[108.5,73.4],[109.6,73.8]],
+[[-6.4,73.2],[-10.1,73.4],[-7.9,73.9],[-6.4,73.2]],
+[[116.8,72.8],[114.6,72.1],[114.0,73.4],[115.5,74.1],[119.5,73.9],[116.8,72.8]],
+[[89.5,71.4],[86.9,70.9],[84.1,71.9],[86.1,73.7],[85.1,74.3],[94.5,73.5],[90.8,72.5],[89.5,71.4]],
+[[0.7,75.1],[-3.9,75.2],[0.7,75.1]],
+[[116.4,75.0],[113.2,74.9],[115.1,75.6],[116.4,75.0]],
+[[-4.9,75.6],[-5.7,74.8],[-11.0,74.6],[-13.0,75.3],[-11.2,76.1],[-4.9,75.6]],
+[[111.5,76.7],[112.3,76.3],[111.8,75.0],[107.5,75.6],[107.4,76.3],[111.5,76.7]],
+[[101.8,76.2],[104.3,75.5],[97.8,74.4],[96.1,74.7],[98.2,75.2],[92.3,75.2],[94.6,76.5],[100.9,75.5],[99.5,76.4],[101.8,76.2]],
+[[-92.5,70.7],[-96.3,70.8],[-98.5,72.0],[-94.4,75.1],[-88.8,76.3],[-81.1,76.5],[-91.5,74.3],[-94.6,72.4],[-92.5,70.7]],
+[[115.3,77.1],[120.8,75.6],[128.9,75.7],[130.2,74.9],[120.2,74.5],[112.9,76.8],[115.3,77.1]],
+[[93.8,77.6],[92.9,76.5],[87.1,76.1],[93.8,77.6]],
+[[-43.0,77.0],[-35.9,75.8],[-40.6,74.2],[-26.8,73.0],[-26.7,73.7],[-23.0,73.6],[-18.7,70.8],[-17.7,71.8],[-10.1,71.5],[-10.9,72.4],[-9.5,72.8],[-0.5,72.2],[3.0,70.8],[9.0,70.9],[10.9,69.4],[17.8,69.6],[19.6,68.7],[20.8,69.0],[20.0,69.7],[20.5,70.1],[25.7,69.9],[30.0,69.0],[30.0,65.0],[27.4,64.6],[29.2,62.3],[23.7,61.7],[20.3,59.9],[18.9,60.6],[13.5,59.9],[12.0,58.2],[13.2,57.6],[12.1,54.9],[10.4,54.3],[10.0,53.2],[8.5,53.0],[6.8,51.0],[5.4,55.4],[5.9,56.8],[13.7,61.1],[14.5,62.6],[10.1,60.5],[9.3,61.8],[6.7,61.4],[4.2,59.8],[5.0,59.1],[1.3,58.8],[1.3,59.5],[-0.2,59.7],[-7.8,59.0],[-14.9,54.7],[-11.8,53.8],[-10.1,54.2],[-8.6,52.2],[-9.9,48.4],[-11.8,46.3],[-15.1,43.4],[-17.7,43.3],[-22.5,39.8],[-20.5,36.8],[-20.9,35.1],[-23.5,34.4],[-23.9,36.7],[-23.1,36.9],[-25.3,38.1],[-24.7,39.6],[-28.9,38.9],[-27.8,40.4],[-28.4,40.9],[-32.0,39.2],[-32.5,38.7],[-31.1,37.4],[-27.6,37.5],[-30.8,34.9],[-28.1,31.7],[-28.7,30.7],[-27.9,29.8],[-28.3,28.2],[-31.3,24.5],[-34.1,22.8],[-39.2,21.4],[-39.6,20.3],[-41.5,21.7],[-44.1,19.8],[-40.7,13.4],[-40.8,11.7],[-44.8,8.6],[-44.9,9.9],[-49.9,13.4],[-50.8,9.2],[-47.0,5.5],[-45.8,1.3],[-48.6,2.8],[-49.9,6.5],[-51.5,8.4],[-51.7,7.8],[-51.2,11.4],[-52.8,16.9],[-54.6,15.7],[-55.8,16.0],[-55.7,18.2],[-58.6,22.8],[-59.5,22.8],[-59.7,21.8],[-63.0,21.5],[-63.5,20.2],[-69.7,15.9],[-70.1,10.4],[-72.5,8.0],[-76.5,16.0],[-77.4,21.4],[-79.5,20.9],[-83.6,25.4],[-92.6,25.7],[-93.5,27.1],[-95.3,26.5],[-98.5,27.9],[-99.9,30.1],[-102.0,30.0],[-99.2,24.8],[-99.0,26.0],[-98.4,25.8],[-98.2,24.0],[-96.0,24.1],[-93.6,26.4],[-93.2,24.2],[-90.2,22.3],[-92.2,20.2],[-92.3,18.9],[-94.7,17.2],[-101.3,14.0],[-106.5,12.6],[-107.4,16.8],[-110.9,21.3],[-111.5,23.7],[-115.4,28.1],[-115.1,29.5],[-116.1,27.6],[-117.6,29.9],[-114.5,23.1],[-113.1,22.0],[-112.5,18.6],[-106.7,12.4],[-107.3,11.7],[-105.4,10.4],[-98.9,12.0],[-99.0,10.6],[-102.3,4.2],[-109.7,-2.6],[-110.8,-4.7],[-111.2,-6.5],[-109.5,-10.8],[-109.2,-14.7],[-110.5,-16.7],[-115.2,-19.8],[-114.4,-23.7],[-117.4,-25.7],[-117.8,-28.8],[-121.8,-32.8],[-124.2,-33.9],[-130.4,-34.8],[-131.6,-34.1],[-131.8,-31.7],[-134.8,-27.1],[-135.7,-22.1],[-138.2,-18.1],[-138.2,-15.8],[-136.3,-10.7],[-138.1,-5.0],[-141.2,-1.1],[-140.6,3.7],[-141.5,4.8],[-144.1,4.3],[-145.7,6.3],[-152.0,4.7],[-159.0,4.8],[-162.4,7.3],[-166.6,12.2],[-167.6,14.7],[-166.1,18.1],[-167.0,21.9],[-164.4,26.3],[-159.6,29.9],[-159.3,32.6],[-155.9,35.8],[-152.2,35.2],[-148.5,36.6],[-140.5,37.4],[-138.9,36.9],[-139.7,33.8],[-130.9,30.3],[-129.9,32.2],[-128.5,32.8],[-121.1,30.9],[-119.0,31.6],[-116.2,31.0],[-114.0,34.6],[-113.8,36.7],[-122.4,36.7],[-123.8,39.5],[-120.8,41.2],[-116.5,42.0],[-111.7,40.9],[-108.3,42.0],[-113.3,45.2],[-110.9,47.3],[-115.0,46.3],[-113.7,45.1],[-116.1,44.4],[-117.5,45.3],[-116.7,46.1],[-119.3,46.6],[-122.3,42.6],[-121.2,41.1],[-123.6,40.2],[-125.1,40.9],[-126.3,40.7],[-126.1,40.0],[-127.4,40.3],[-126.0,37.7],[-126.9,37.9],[-126.8,36.4],[-127.5,36.4],[-130.6,40.3],[-130.5,41.7],[-136.9,45.7],[-137.7,45.4],[-137.4,44.1],[-131.5,40.2],[-133.1,40.4],[-132.9,38.9],[-133.9,38.0],[-134.6,40.0],[-141.1,44.4],[-143.5,43.1],[-146.9,43.1],[-147.0,41.9],[-149.2,41.0],[-149.9,38.7],[-152.1,36.7],[-155.4,35.9],[-156.5,36.9],[-158.9,36.9],[-159.4,43.0],[-151.4,44.0],[-151.2,46.0],[-154.6,48.7],[-151.6,48.6],[-151.9,49.8],[-148.7,50.1],[-145.3,53.1],[-141.9,53.5],[-141.2,54.0],[-141.9,55.5],[-141.5,57.1],[-139.4,57.7],[-139.1,56.5],[-140.3,55.5],[-139.1,54.0],[-130.3,54.4],[-128.7,55.2],[-128.4,57.4],[-125.9,57.0],[-125.6,58.4],[-126.7,59.2],[-120.9,60.0],[-127.1,59.8],[-128.7,60.7],[-128.5,63.2],[-124.6,65.1],[-126.1,66.0],[-127.8,65.7],[-128.6,64.4],[-132.2,62.7],[-132.9,61.3],[-131.2,60.1],[-133.2,58.7],[-134.1,56.1],[-137.1,55.4],[-139.6,59.5],[-141.6,58.3],[-144.3,58.6],[-145.0,62.0],[-139.5,64.5],[-135.2,67.8],[-125.5,71.0],[-121.8,71.2],[-118.7,70.5],[-120.0,70.2],[-118.9,69.6],[-113.5,69.1],[-108.9,67.5],[-108.9,66.8],[-111.6,66.0],[-116.8,66.6],[-115.2,65.9],[-115.1,64.4],[-113.0,63.8],[-113.5,64.8],[-112.8,65.1],[-110.4,64.5],[-109.6,64.8],[-110.2,65.5],[-107.9,66.5],[-106.1,66.1],[-105.5,66.8],[-106.5,68.6],[-103.7,68.3],[-103.2,67.7],[-104.4,67.0],[-103.7,66.7],[-96.3,68.9],[-95.5,68.8],[-96.5,68.2],[-91.2,68.9],[-90.1,68.3],[-88.9,68.9],[-90.0,69.5],[-89.4,69.9],[-81.5,68.1],[-80.8,68.6],[-83.1,69.5],[-83.3,71.0],[-80.8,72.8],[-77.4,72.8],[-78.2,71.4],[-77.2,70.4],[-77.4,69.0],[-76.3,68.4],[-78.7,66.3],[-77.6,66.2],[-74.9,67.8],[-75.1,69.0],[-76.4,69.6],[-75.6,70.6],[-76.9,71.4],[-75.1,72.1],[-75.3,72.8],[-74.3,72.3],[-74.7,71.3],[-73.6,71.2],[-74.1,71.9],[-72.4,72.3],[-68.5,71.8],[-69.5,73.6],[-63.2,73.9],[-64.0,74.5],[-62.8,75.1],[-49.2,76.4],[-45.6,77.7],[-43.0,77.0]],
+[[-100.9,41.3],[-99.6,40.3],[-101.1,38.8],[-100.8,37.6],[-96.2,37.0],[-96.1,39.0],[-97.3,40.0],[-97.1,40.9],[-95.3,41.0],[-96.3,42.1],[-97.2,41.1],[-97.5,42.8],[-99.7,44.6],[-97.0,45.3],[-97.0,46.9],[-100.9,46.4],[-103.3,44.6],[-100.9,41.3]],
+[[116.2,77.5],[113.6,77.8],[116.2,77.5]],
+[[99.8,77.7],[96.5,77.7],[99.8,77.7]],
+[[-125.3,77.9],[-129.3,77.7],[-127.1,78.5],[-125.3,77.9]],
+[[100.3,78.6],[97.5,78.4],[100.3,78.6]],
+[[114.2,78.1],[111.9,78.1],[111.4,78.9],[114.2,78.1]],
+[[109.9,78.3],[110.3,77.9],[104.8,78.4],[105.8,78.7],[104.5,79.3],[109.9,78.3]],
+[[-44.9,78.3],[-50.6,77.9],[-47.9,79.3],[-44.9,78.3]],
+[[-131.7,79.7],[-128.5,79.0],[-134.1,76.8],[-139.6,79.7],[-131.7,79.7]],
+[[-124.6,80.4],[-122.6,80.1],[-127.0,79.4],[-132.6,80.3],[-124.6,80.4]],
+[[-98.9,80.5],[-102.4,80.0],[-105.2,80.6],[-98.9,80.5]],
+[[-50.1,78.9],[-55.0,79.0],[-58.8,80.3],[-54.1,81.3],[-49.8,79.8],[-50.1,78.9]],
+[[123.0,79.7],[124.2,79.3],[119.2,78.2],[113.3,80.2],[117.6,81.3],[123.0,79.7]],
+[[141.5,83.1],[148.1,82.6],[142.3,81.5],[144.5,81.5],[138.8,79.8],[133.1,79.3],[134.6,78.5],[130.2,77.2],[132.1,76.8],[129.4,76.2],[120.5,76.5],[122.2,77.2],[121.7,77.9],[125.0,77.5],[122.0,78.4],[124.9,79.3],[123.1,80.3],[128.2,80.5],[122.4,80.5],[118.4,81.9],[130.7,83.1],[141.5,83.1]]
+];
+/* ================= 派生 ================= */
+const ALLY = {self:["JAL自社","--c-JAL"], oneworld:["oneworld","--c-OW"], other:["提携外","--c-OTHER"]};
+const REGIONS = {EA:"東アジア",SEA:"東南アジア",SA:"南アジア",OC:"オセアニア",NA:"北米",EU:"欧州",ME:"中東"};
+const allianceOf = op => (OPS[op]?OPS[op][2]:"other");
+const opColorVar = op => ALLY[allianceOf(op)][1];
+const acName = c => AC[c] ? AC[c][0] : c;
+const acShort = c => AC[c] ? AC[c][1] : c;
+ROUTES.forEach(r=>{
+  r.n0=r.F0.length; r.n1=r.F1.length; r.n=r.n0+r.n1;
+  const all=[...r.F0,...r.F1];
+  r.acs=[...new Set(all.map(f=>f[4]))];
+  r.ops=[...new Set(all.map(f=>f[5]))];
+  r.allies=[...new Set(r.ops.map(allianceOf))];
+  // 路線の主アライアンス: self > oneworld > other
+  r.prim = r.allies.includes("self")?"self":(r.allies.includes("oneworld")?"oneworld":"other");
+  const cnt={}; all.forEach(f=>cnt[f[5]]=(cnt[f[5]]||0)+1);
+  r.op0 = r.ops.slice().sort((x,y)=>(cnt[y]||0)-(cnt[x]||0))[0];
+});
+/* ============ 投影 ============ */
+const shift = lon => (((lon-150+180)%360)+360)%360-180;
+const SLON0=-160, SLAT0=74, SC=3.15;
+const PX = lon => (shift(lon)-SLON0)*SC;
+const PY = lat => (SLAT0-lat)*SC;
+const VW = (150-SLON0)*SC, VH = (SLAT0-(-52))*SC;
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const SHARE_URL = location.href.split(/[?#]/)[0];
+function hav(a,b){const R=6371,d=Math.PI/180;
+ const x1=AP[a][1]*d,y1=AP[a][2]*d,x2=AP[b][1]*d,y2=AP[b][2]*d;
+ const h=Math.sin((y2-y1)/2)**2+Math.cos(y1)*Math.cos(y2)*Math.sin((x2-x1)/2)**2;
+ return Math.round(2*R*Math.asin(Math.sqrt(h)));}
+/* ============ 地図描画 ============ */
+const svg = document.getElementById("map"), NS="http://www.w3.org/2000/svg";
+svg.setAttribute("viewBox",`0 0 ${VW.toFixed(0)} ${VH.toFixed(0)}`);
+const el = (n,at,parent)=>{const e=document.createElementNS(NS,n);for(const k in at)e.setAttribute(k,at[k]);(parent||svg).appendChild(e);return e;};
+el("rect",{x:0,y:0,width:VW,height:VH,fill:"var(--sea)"});
+const gGrat=el("g",{}), gLand=el("g",{}), gRoutes=el("g",{}), gFx=el("g",{}), gAp=el("g",{});
+for(let lon=-180;lon<=180;lon+=30){const x=(shift(lon)-SLON0)*SC; if(x>2&&x<VW-2) el("line",{x1:x,y1:0,x2:x,y2:VH,class:"grat"},gGrat);}
+for(let lat=-40;lat<=70;lat+=20) el("line",{x1:0,y1:PY(lat),x2:VW,y2:PY(lat),class:"grat"},gGrat);
+// 陸地
+LAND.forEach(ring=>{
+  const d = ring.map((p,i)=>(i?"L":"M")+((p[0]-SLON0)*SC).toFixed(1)+" "+((SLAT0-p[1])*SC).toFixed(1)).join("")+"Z";
+  el("path",{d,fill:"var(--land)",stroke:"var(--coast)","stroke-width":.7,"stroke-linejoin":"round"},gLand);
+});
+el("text",{x:VW-14,y:VH-12,"text-anchor":"end",class:"chartcap"},gGrat).textContent="JAL GROUP INTERNATIONAL NETWORK · 2026";
+
+const apRoutes = {}; ROUTES.forEach((r,i)=>{(apRoutes[r.a]??=[]).push(i);(apRoutes[r.b]??=[]).push(i);});
+const state = {sel:null, selAp:null, selAc:null, selOp:null, region:null,
+  ally:{self:true,oneworld:true,other:true}};
+const tooltip=document.getElementById("tooltip"), wrap=document.getElementById("mapwrap");
+function showTip(evt,html){tooltip.innerHTML=html;tooltip.style.display="block";
+ const r=wrap.getBoundingClientRect();
+ let x=evt.clientX-r.left+14,y=evt.clientY-r.top+10;
+ if(x>r.width-280)x-=300; if(y>r.height-95)y-=80;
+ tooltip.style.left=x+"px";tooltip.style.top=y+"px";}
+const hideTip=()=>tooltip.style.display="none";
+
+function routePath(r){
+ const x1=PX(AP[r.a][1]),y1=PY(AP[r.a][2]),x2=PX(AP[r.b][1]),y2=PY(AP[r.b][2]);
+ const mx=(x1+x2)/2,my=(y1+y2)/2,dx=x2-x1,dy=y2-y1;
+ const len=Math.hypot(dx,dy);
+ // 大圏航路風: 極側(上)へ膨らませる。法線のうち上向き(-y)を選ぶ
+ let nx=-dy/len, ny=dx/len; if(ny>0){nx=-nx;ny=-ny;}
+ const bow=Math.min(len*0.16, 60);
+ return `M${x1} ${y1}Q${(mx+nx*bow).toFixed(1)} ${(my+ny*bow).toFixed(1)} ${x2} ${y2}`;
+}
+const baseW = r => (0.7+Math.min(r.n,14)*.12);
+const routeEls = ROUTES.map((r,i)=>{
+ const d=routePath(r);
+ const line=el("path",{d,class:"route-line",
+  stroke:`var(${ALLY[r.prim][1]})`,"stroke-width":baseW(r).toFixed(2),
+  "stroke-linecap":"round",opacity:.62},gRoutes);
+ const hit=el("path",{d,class:"route-hit"},gRoutes);
+ hit.addEventListener("click",()=>selectRoute(i));
+ hit.addEventListener("mousemove",e=>{
+  line.setAttribute("opacity",1);line.setAttribute("stroke-width",(baseW(r)*1.9).toFixed(2));
+  const sub=`${r.ops.map(o=>OPS[o][0]).join("・")}／往復計${r.n}便／${r.acs.map(acShort).join("・")}`;
+  showTip(e,`<div class="t1">${AP[r.a][0]} ⇄ ${AP[r.b][0]}</div><div class="t2">${sub}</div>`);});
+ hit.addEventListener("mouseleave",()=>{
+  if(state.sel!==i){line.setAttribute("opacity",.62);line.setAttribute("stroke-width",baseW(r).toFixed(2));}
+  hideTip();});
+ return line;
+});
+const hitEls=[...document.querySelectorAll(".route-hit")];
+if(!REDUCED){
+ routeEls.forEach((ln,i)=>{const L=ln.getTotalLength();
+  ln.style.strokeDasharray=L; ln.style.strokeDashoffset=L;
+  ln.style.transition=`stroke-dashoffset 1s ease ${(i*4)}ms, opacity .15s, stroke-width .15s`;});
+ setTimeout(()=>routeEls.forEach(ln=>{ln.style.strokeDashoffset=0;}),30);
+ setTimeout(()=>routeEls.forEach(ln=>{ln.style.strokeDasharray="";ln.style.strokeDashoffset="";ln.style.transition="";}),2600);
+}
+// 全体表示では密集する近接空港のラベルを隠す（選択・地域絞り込み時に表示）
+const MINOR_HIDE = new Set(["GMP","PUS","CJU","TSA","KHH","SHA","TSN","DLC","NKG","UKB","OKJ","KMJ","KMI","KMQ","TAK","KKJ","MFM","SDJ"]);
+Object.keys(AP).forEach(code=>{
+ const [name,lon,lat,tz,region,dx=7,dy=3,anchor="start"]=AP[code];
+ const cx=PX(lon),cy=PY(lat),deg=(apRoutes[code]||[]).length;
+ const isJP=region==="JP", big=deg>=6, minor=MINOR_HIDE.has(code);
+ const dot=el("circle",{cx,cy,r:(2.2+Math.min(deg,22)*.24).toFixed(1),class:"airport-dot",
+  fill: isJP? "var(--red)":(big?"var(--ink)":"var(--sub)"),"data-ap":code,tabindex:0,role:"button","aria-label":name},gAp);
+ el("text",{x:cx+dx,y:cy+dy,class:"ap-label"+(isJP?" jp":big?" major":"")+(minor?" minor":""),"text-anchor":anchor,"data-ap":code},gAp).textContent=name;
+ dot.addEventListener("click",()=>selectAirport(code));
+ dot.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();selectAirport(code);}});
+ dot.addEventListener("mousemove",e=>showTip(e,`<div class="t1">${name} <span class="acode">${code}</span></div><div class="t2">${deg}路線が発着 — クリックで一覧</div>`));
+ dot.addEventListener("mouseleave",hideTip);
+});
+let planeEl=null;
+function flyPlane(i){
+ if(planeEl){planeEl.remove();planeEl=null;}
+ if(i==null||REDUCED)return;
+ const d=routeEls[i].getAttribute("d");
+ planeEl=el("g",{},gFx);
+ el("circle",{r:3.6,fill:"var(--red)",stroke:"var(--panel)","stroke-width":1.3},planeEl);
+ const am=el("animateMotion",{dur:"6s",repeatCount:"indefinite",path:d,rotate:"auto"},planeEl);
+ am.beginElement&&am.beginElement();
+}
+/* ============ 表示状態 ============ */
+function routeVisible(r){
+ if(!r.allies.some(a=>state.ally[a])) return false;
+ if(state.region && r.region!==state.region) return false;
+ if(state.selAc && !r.acs.includes(state.selAc)) return false;
+ if(state.selOp && !r.ops.includes(state.selOp)) return false;
+ return true;
+}
+function applyDim(){
+ const {sel,selAp}=state;
+ ROUTES.forEach((r,i)=>{
+  let vis=routeVisible(r);
+  if(vis&&sel!=null) vis=i===sel;
+  else if(vis&&selAp) vis=r.a===selAp||r.b===selAp;
+  routeEls[i].classList.toggle("dim",!vis);
+  hitEls[i].classList.toggle("dim",!vis);
+  routeEls[i].setAttribute("opacity", i===sel?1:.62);
+  routeEls[i].setAttribute("stroke-width", i===sel?(baseW(ROUTES[i])*2).toFixed(2):baseW(ROUTES[i]).toFixed(2));
+ });
+ document.querySelectorAll(".airport-dot,.ap-label").forEach(n=>{
+  const code=n.getAttribute("data-ap");
+  let vis;
+  if(sel!=null) vis=ROUTES[sel].a===code||ROUTES[sel].b===code;
+  else if(selAp) vis=code===selAp||(apRoutes[code]||[]).some(i=>{const r=ROUTES[i];return (r.a===selAp||r.b===selAp)&&routeVisible(r);});
+  else vis=(apRoutes[code]||[]).some(i=>routeVisible(ROUTES[i]));
+  if(vis && n.classList.contains("minor")){
+   const zoomed = sel!=null||selAp||state.region||state.selAc||state.selOp;
+   if(!zoomed) vis=false;
+  }
+  n.classList.toggle("dim",!vis);
+ });
+}
+const opChipHTML = o => `<span class="opchip" style="--oc:var(${opColorVar(o)})">${OPS[o][0]}</span>`;
+const allyBadge = a => `<span class="allybadge" style="color:var(${ALLY[a][1]})">${a==="self"?"JAL":a==="oneworld"?"oneworld":"提携外"}</span>`;
+function flightRow(f){
+ const [no,dep,arr,plus,ac,op]=f;
+ const plusTag = plus>0?`<span class="plus1">+${plus}</span>`:"";
+ return `<tr class="flight"><td class="fno mono">${no}</td>`+
+  `<td class="mono">${dep} → ${arr}${plusTag}</td>`+
+  `<td><button class="acbtn" data-ac="${ac}" title="${acName(ac)}の路線を見る">${acShort(ac)}</button></td>`+
+  `<td><span class="opdot" style="--oc:var(${opColorVar(op)})"></span>${OPS[op][0]} ${allyBadge(allianceOf(op))}</td></tr>`;
+}
+function flightTableHTML(list){
+ if(!list.length) return `<p class="hint">この方向の定期便は確認できませんでした。</p>`;
+ return `<div class="tablewrap"><table><thead><tr><th>便名</th><th>出発 → 到着(現地)</th><th>機材</th><th>運航</th></tr></thead><tbody>`+
+  list.map(flightRow).join("")+`</tbody></table></div>`;
+}
+function bindAcButtons(scope){scope.querySelectorAll("[data-ac]").forEach(b=>b.onclick=()=>selectAircraft(b.dataset.ac));}
+/* ============ パネル ============ */
+const panel=document.getElementById("panel");
+function setPanel(html){panel.innerHTML=`<div class="fade">${html}</div>`;panel.scrollTop=0;}
+function scrollToPanel(){if(innerWidth>920)return;setTimeout(()=>panel.scrollIntoView({block:"start"}),30);}
+function backBtn(){return `<button class="backlink" id="back">← 全体マップに戻る</button>`;}
+function bindBack(){const b=document.getElementById("back");if(b)b.onclick=clearSel;}
+function routeListItems(list,ctx){
+ return list.map(i=>{const r=ROUTES[i];
+  const other = ctx==="ap"? (r.a===state.selAp?r.b:r.a) : r.b;
+  const dest = ctx==="ap"? `${AP[other][0]} <small>${other}</small>` : `${AP[r.a][0]} ⇄ ${AP[r.b][0]}`;
+  const meta = `${r.n}便`;
+  return `<li data-i="${i}"><span class="dest">${dest}</span>${r.allies.map(a=>`<span class="opchip" style="--oc:var(${ALLY[a][1]})">${a==="self"?"JAL":a==="oneworld"?"oneworld":"提携外"}</span>`).join("")}<span class="meta mono">${meta}</span></li>`;}).join("");
+}
+function bindRouteList(){panel.querySelectorAll("li[data-i]").forEach(li=>li.onclick=()=>selectRoute(+li.dataset.i));}
+
+function selectRoute(i){
+ state.sel=i; state.selAp=null; applyDim(); flyPlane(i);
+ const r=ROUTES[i], km=hav(r.a,r.b);
+ const carriers=[...new Set([...r.F0,...r.F1].map(f=>f[5]))];
+ setPanel(`${backBtn()}
+  <div class="bp">
+   <div class="bp-band"><span>INTERNATIONAL FLIGHT INFO</span><span>${REGIONS[r.region]||""}</span></div>
+   <div class="bp-main">
+    <div class="bp-ap"><b>${r.a}</b><span>${AP[r.a][0]}</span></div>
+    <div class="bp-mid"><span class="plane">✈</span>約${km.toLocaleString()}km</div>
+    <div class="bp-ap right"><b>${r.b}</b><span>${AP[r.b][0]}</span></div>
+   </div>
+  </div>
+  <div class="facts">
+   <span>往路<b>${r.n0}</b>便・復路<b>${r.n1}</b>便</span>
+   <span>${carriers.map(opChipHTML).join(" ")}</span>
+  </div>
+  ${r.note?`<div class="note">${r.note}</div>`:""}
+  <div class="dirhead">${AP[r.a][0]} <span class="arr">→</span> ${AP[r.b][0]}</div>${flightTableHTML(r.F0)}
+  <div class="dirhead">${AP[r.b][0]} <span class="arr">→</span> ${AP[r.a][0]}</div>${flightTableHTML(r.F1)}
+  <p class="hint">時刻は<b>各空港の現地時刻</b>。<span class="plus1" style="position:static">+1</span>＝翌日着。便名をタップで機材別マップへ。<br>使用機材: ${r.acs.map(a=>`${acName(a)}`).join("／")}<br>※便名・時刻・機材・運航会社はFlightAwareの2026年7月時点スケジュール実績に基づく参考情報です。</p>`);
+ bindBack(); bindAcButtons(panel); scrollToPanel();
+}
+function selectAirport(code){
+ state.selAp=code; state.sel=null; applyDim(); flyPlane(null);
+ const list=(apRoutes[code]||[]).filter(i=>routeVisible(ROUTES[i])).sort((x,y)=>ROUTES[y].n-ROUTES[x].n);
+ const total=list.reduce((s,i)=>s+ROUTES[i].n,0);
+ const [name,lon,lat,tz,region]=AP[code];
+ setPanel(`${backBtn()}
+  <h2>${name} <span class="acode mono">${code}</span></h2>
+  <div class="sub">${region==="JP"?"日本の国際線発着空港":(REGIONS[region]||"")}${tz?` ・ 現地時間帯 ${tz.replace("Asia/","").replace("America/","").replace("Europe/","").replace("Pacific/","").replace("Australia/","").replace("_"," ")}`:""}</div>
+  <div class="facts"><span><b>${list.length}</b> 路線</span><span><b>${total}</b> 便/日</span></div>
+  <ul class="rtlist">${routeListItems(list,"ap")}</ul>
+  <p class="hint">行き先をタップすると全便の時刻・機材・運航会社が表示されます。</p>`);
+ bindBack(); bindRouteList(); scrollToPanel();
+}
+function selectAircraft(ac){
+ if(state.selAc===ac && state.sel==null && state.selAp==null){state.selAc=null;return clearSel();}
+ state.selAc=ac; state.sel=null; state.selAp=null; state.selOp=null; applyDim(); flyPlane(null);
+ const list=ROUTES.map((r,i)=>i).filter(i=>ROUTES[i].acs.includes(ac)&&routeVisible(ROUTES[i])).sort((x,y)=>ROUTES[y].n-ROUTES[x].n);
+ const daily=list.reduce((s,i)=>s+[...ROUTES[i].F0,...ROUTES[i].F1].filter(f=>f[4]===ac).length,0);
+ scrollToPanel();
+ setPanel(`<button class="backlink" id="back">← 機材の絞り込みを解除</button>
+  <h2>${acName(ac)} <span class="acode mono">${acShort(ac)}</span></h2>
+  <div class="facts"><span><b>${list.length}</b> 路線で運航</span><span><b>${daily}</b> 便/日</span></div>
+  <div class="note blue">地図にはこの機材が投入されている路線だけを表示しています。</div>
+  <ul class="rtlist">${routeListItems(list,"ac")}</ul>
+  <p class="hint">※機材はFlightAwareの2026年7月時点の運用実績に基づく参考情報です。</p>`);
+ document.getElementById("back").onclick=()=>{state.selAc=null;clearSel();};
+ bindRouteList();
+}
+function selectOp(op){
+ if(state.selOp===op){state.selOp=null;return clearSel();}
+ state.selOp=op; state.sel=null; state.selAp=null; state.selAc=null; applyDim(); flyPlane(null);
+ const list=ROUTES.map((r,i)=>i).filter(i=>ROUTES[i].ops.includes(op)&&routeVisible(ROUTES[i])).sort((x,y)=>ROUTES[y].n-ROUTES[x].n);
+ const daily=list.reduce((s,i)=>s+[...ROUTES[i].F0,...ROUTES[i].F1].filter(f=>f[5]===op).length,0);
+ scrollToPanel();
+ setPanel(`<button class="backlink" id="back">← 運航会社の絞り込みを解除</button>
+  <h2>${OPS[op][1]} <span class="acode mono">${OPS[op][0]}</span></h2>
+  <div class="sub">${allyBadge(allianceOf(op))} ${ALLY[allianceOf(op)][0]}</div>
+  <div class="facts"><span><b>${list.length}</b> 路線</span><span><b>${daily}</b> 便/日</span></div>
+  <ul class="rtlist">${routeListItems(list,"ac")}</ul>`);
+ document.getElementById("back").onclick=()=>{state.selOp=null;clearSel();};
+ bindRouteList();
+}
+function clearSel(){state.sel=null;state.selAp=null;applyDim();flyPlane(null);renderHome();}
+function renderHome(){
+ const regCounts={}; Object.keys(REGIONS).forEach(rg=>regCounts[rg]=ROUTES.filter(r=>r.region===rg&&routeVisible(r)).length);
+ const hubs=["HND","NRT","KIX","NGO","FUK"].filter(h=>AP[h]);
+ const cities=["LHR","LAX","JFK","SIN","HKG","ICN","SYD","BKK","HNL","TPE","SFO","PVG"].filter(c=>AP[c]);
+ const acCount=Object.fromEntries(Object.keys(AC).map(a=>[a,ROUTES.filter(r=>r.acs.includes(a)).length]));
+ const acList=Object.keys(AC).filter(a=>acCount[a]>0).sort((x,y)=>acCount[y]-acCount[x]);
+ setPanel(`
+  <div class="eyebrow">WELCOME ABOARD</div>
+  <div class="welcome">ようこそ、<em>世界へ翔ける翼</em>の旅へ。</div>
+  <div class="sub">地図の路線・都市をタップすると、その区間の全便の便名・機材・時刻（現地時刻）・運航会社をご案内します。</div>
+  <div class="note">JAL自社便（<span style="color:var(--c-JAL);font-weight:700">赤</span>）・oneworldパートナー運航便（<span style="color:var(--c-OW);font-weight:700">青</span>）・提携外の大韓/アシアナ/エバー航空（<span style="color:var(--c-OTHER);font-weight:700">緑</span>）を色分け表示。上部でアライアンス・地域の絞り込みができます。</div>
+  <div class="sec">地域から探す</div>
+  <div class="reggrid">${Object.keys(REGIONS).map(rg=>`<button class="regcard" data-reg="${rg}"><b>${REGIONS[rg]}</b><span>${regCounts[rg]}路線</span></button>`).join("")}</div>
+  <div class="sec">主要都市から探す</div>
+  <div class="hubgrid">${hubs.concat(cities).map(h=>`<button class="hub" data-hub="${h}" aria-label="${AP[h][0]}の路線一覧"><b>${AP[h][0].replace(/\(.*/,"")}</b><span>${(apRoutes[h]||[]).length}路線</span></button>`).join("")}</div>
+  <div class="sec">機材から探す</div>
+  <div class="acgrid">${acList.map(a=>`<button class="accard${state.selAc===a?" sel":""}" data-ac="${a}"><span class="cd">${acShort(a)}</span> <span class="ct">${acCount[a]}路線</span><span class="nm">${acName(a)}</span></button>`).join("")}</div>
+  <p class="hint">検索ボックスでは都市名・空港コード・航空会社名でジャンプできます。</p>`);
+ panel.querySelectorAll("[data-hub]").forEach(b=>b.onclick=()=>selectAirport(b.dataset.hub));
+ panel.querySelectorAll("[data-reg]").forEach(b=>b.onclick=()=>{setRegion(b.dataset.reg);});
+ bindAcButtons(panel);
+}
+/* ============ フィルタUI ============ */
+const allyBox=document.getElementById("ally");
+Object.keys(ALLY).forEach(a=>{
+ const cnt=ROUTES.filter(r=>r.allies.includes(a)).length;
+ const b=document.createElement("button");
+ b.className="ally-pill"; b.style.setProperty("--oc",`var(${ALLY[a][1]})`); b.setAttribute("aria-pressed","true");
+ b.innerHTML=`<span class="sw"></span><span class="nm">${ALLY[a][0]}</span><span class="ct">${cnt}</span>`;
+ b.onclick=()=>{state.ally[a]=!state.ally[a];b.classList.toggle("off",!state.ally[a]);b.setAttribute("aria-pressed",String(state.ally[a]));refreshAfterFilter();};
+ allyBox.appendChild(b);
+});
+const regBox=document.getElementById("regbar");
+Object.keys(REGIONS).forEach(rg=>{
+ const b=document.createElement("button"); b.className="reg-pill"; b.dataset.reg=rg; b.textContent=REGIONS[rg];
+ b.onclick=()=>setRegion(state.region===rg?null:rg);
+ regBox.appendChild(b);
+});
+function setRegion(rg){
+ state.region=rg;
+ regBox.querySelectorAll(".reg-pill").forEach(b=>b.classList.toggle("on",b.dataset.reg===rg));
+ state.sel=null;state.selAp=null;
+ refreshAfterFilter();
+}
+document.getElementById("opreset").onclick=()=>{
+ Object.keys(state.ally).forEach(a=>state.ally[a]=true);
+ state.region=null;state.selAc=null;state.selOp=null;
+ allyBox.querySelectorAll(".ally-pill").forEach(b=>{b.classList.remove("off");b.setAttribute("aria-pressed","true");});
+ regBox.querySelectorAll(".reg-pill").forEach(b=>b.classList.remove("on"));
+ clearSel();
+};
+function refreshAfterFilter(){
+ if(state.sel!=null && !routeVisible(ROUTES[state.sel])) return clearSel();
+ applyDim();
+ if(state.selAp) selectAirport(state.selAp);
+ else if(state.selAc) selectAircraft(state.selAc);
+ else if(state.selOp) selectOp(state.selOp);
+ else if(state.sel==null) renderHome();
+}
+document.getElementById("legend").innerHTML =
+ `<div class="lg-title">凡例 LEGEND</div>`+
+ Object.keys(ALLY).map(a=>`<div class="row"><span class="bar" style="background:var(${ALLY[a][1]})"></span>${ALLY[a][0]}${a==="other"?"（大韓/アシアナ/エバー）":a==="oneworld"?"（AA/BA/CX/QF等）":""}</div>`).join("")+
+ `<div class="row" style="color:var(--sub);margin-top:2px">線の太さ＝便数／現地時刻表示</div>`;
+// 検索候補: 空港 + 航空会社
+const dl=document.getElementById("aplist");
+Object.entries(AP).forEach(([c,[n]])=>{const o=document.createElement("option");o.value=`${n} (${c})`;dl.appendChild(o);});
+Object.entries(OPS).forEach(([c,[cd,nm]])=>{const o=document.createElement("option");o.value=`${nm} [${cd}]`;dl.appendChild(o);});
+document.getElementById("apsearch").addEventListener("change",e=>{
+ const q=e.target.value.trim(); if(!q)return; e.target.value="";
+ let m=q.match(/\(([A-Z]{3})\)\s*$/); if(m&&AP[m[1]])return selectAirport(m[1]);
+ m=q.match(/\[([A-Z]{2})\]\s*$/); if(m){const op=Object.keys(OPS).find(o=>OPS[o][0]===m[1]);if(op)return selectOp(op);}
+ const apHit=Object.entries(AP).find(([c,[n]])=>n===q||n.includes(q)||c===q.toUpperCase());
+ if(apHit)return selectAirport(apHit[0]);
+ const opHit=Object.entries(OPS).find(([c,[cd,nm]])=>nm.includes(q)||cd===q.toUpperCase());
+ if(opHit)return selectOp(opHit[0]);
+});
+const toast=document.getElementById("toast");let toastTimer=null;
+function showToast(msg){toast.textContent=msg;toast.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove("show"),2400);}
+document.getElementById("sharebtn").onclick=async()=>{
+ try{
+  if(navigator.share){await navigator.share({title:document.title,url:SHARE_URL});return;}
+  await navigator.clipboard.writeText(SHARE_URL);showToast("リンクをコピーしました ✈");
+ }catch(err){if(err&&err.name==="AbortError")return;
+  try{const ta=document.createElement("textarea");ta.value=SHARE_URL;document.body.appendChild(ta);ta.select();document.execCommand("copy");ta.remove();showToast("リンクをコピーしました ✈");}
+  catch(e2){showToast(SHARE_URL);}}
+};
+document.getElementById("st-ap").textContent=Object.keys(AP).length;
+document.getElementById("st-rt").textContent=ROUTES.length;
+document.getElementById("st-fl").textContent=ROUTES.reduce((s,r)=>s+r.n,0);
+applyDim(); renderHome();
+</script>
+</body>
+</html>

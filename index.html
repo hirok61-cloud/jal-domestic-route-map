@@ -66,7 +66,14 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
   font-size:22px;font-weight:600;letter-spacing:.08em;line-height:1.25}
 .titlebox h1 .jp-red{color:var(--red)}
 .dateline{color:var(--sub);font-size:11px;letter-spacing:.06em}
-.stats{margin-left:auto;display:flex;gap:8px}
+.navtabs{display:flex;gap:0;margin-left:auto;align-items:center}
+.navtab{font-size:12px;font-weight:700;letter-spacing:.05em;text-decoration:none;color:var(--sub);
+  padding:7px 15px;border:1px solid var(--panel-edge);background:var(--panel);transition:all .15s;white-space:nowrap}
+.navtab:first-child{border-radius:999px 0 0 999px;border-right:none}
+.navtab:last-child{border-radius:0 999px 999px 0}
+.navtab.active{background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff;border-color:var(--red)}
+.navtab:not(.active):hover{color:var(--red);border-color:var(--red)}
+.stats{margin-left:14px;display:flex;gap:8px}
 .stat{background:var(--panel);border:1px solid var(--panel-edge);border-radius:12px;
   padding:5px 14px;text-align:center;line-height:1.25;box-shadow:var(--card-shadow)}
 .stat b{display:block;font-size:17px;color:var(--red);font-variant-numeric:tabular-nums}
@@ -250,6 +257,10 @@ footer .fan{color:var(--sub);letter-spacing:.04em}
     <h1><span class="jp-red">JAL</span>グループ 国内線ルートマップ</h1>
     <div class="dateline">2026年7月11日（土）時点・夏ダイヤ ※非公式・参考データ</div>
   </div>
+  <nav class="navtabs" aria-label="路線マップ切替">
+    <a class="navtab active" href="./" aria-current="page">国内線</a>
+    <a class="navtab" href="international/">国際線</a>
+  </nav>
   <div class="stats">
     <div class="stat"><b id="st-ap">–</b><span>空港</span></div>
     <div class="stat"><b id="st-rt">–</b><span>路線</span></div>
