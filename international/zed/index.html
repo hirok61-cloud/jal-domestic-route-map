@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>ZED運賃 条件一覧 | JALグループ国際線</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="flyzed.info 掲載263社のZED運賃(航空会社職員割引搭乗)条件を日本語で。IATAコード検索・原文の更新チェック付きの非公式リファレンス">
+<style>
+:root{
+  color-scheme: light dark;
+  --red:#b7001e; --red-deep:#8c0017; --red-soft:#fbeef0; --gold:#a98e5e;
+  --bg:#faf9f7;
+  --ink:#1b1e24; --sub:#6b7480; --panel:#ffffff; --panel-edge:#e2e0da; --hair:#eceae5; --chipbg:#f4f2ee;
+  --hover:#0d55a0;
+  --ok:#2f7d4f; --ok-bg:#e9f5ee; --warn:#9a6a1c; --warn-bg:#fbf1de; --dim:#9aa3ad; --dim-bg:#f1f0ee;
+  --shadow:0 10px 30px rgba(30,20,20,.12); --card-shadow:0 2px 10px rgba(30,20,20,.06);
+}
+@media (prefers-color-scheme: dark){:root{
+  --red:#ff4256; --red-deep:#c2182e; --red-soft:#39141a; --gold:#d7bc85;
+  --bg:#0e1216;
+  --ink:#eceff3; --sub:#95a1ad; --panel:#141a21; --panel-edge:#27303a; --hair:#20272f; --chipbg:#1b222b;
+  --hover:#5ab0ff;
+  --ok:#5fc98c; --ok-bg:#12291d; --warn:#e0ac54; --warn-bg:#31260f; --dim:#6b7783; --dim-bg:#1a2029;
+  --shadow:0 10px 30px rgba(0,0,0,.55); --card-shadow:0 2px 10px rgba(0,0,0,.4);
+}}
+:root[data-theme="light"]{
+  color-scheme: light;
+  --red:#b7001e; --red-deep:#8c0017; --red-soft:#fbeef0; --gold:#a98e5e;
+  --bg:#faf9f7;
+  --ink:#1b1e24; --sub:#6b7480; --panel:#ffffff; --panel-edge:#e2e0da; --hair:#eceae5; --chipbg:#f4f2ee;
+  --hover:#0d55a0;
+  --ok:#2f7d4f; --ok-bg:#e9f5ee; --warn:#9a6a1c; --warn-bg:#fbf1de; --dim:#9aa3ad; --dim-bg:#f1f0ee;
+  --shadow:0 10px 30px rgba(30,20,20,.12); --card-shadow:0 2px 10px rgba(30,20,20,.06);
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --red:#ff4256; --red-deep:#c2182e; --red-soft:#39141a; --gold:#d7bc85;
+  --bg:#0e1216;
+  --ink:#eceff3; --sub:#95a1ad; --panel:#141a21; --panel-edge:#27303a; --hair:#20272f; --chipbg:#1b222b;
+  --hover:#5ab0ff;
+  --ok:#5fc98c; --ok-bg:#12291d; --warn:#e0ac54; --warn-bg:#31260f; --dim:#6b7783; --dim-bg:#1a2029;
+  --shadow:0 10px 30px rgba(0,0,0,.55); --card-shadow:0 2px 10px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);
+  font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP",-apple-system,sans-serif;
+  font-size:14px;line-height:1.6;-webkit-text-size-adjust:100%}
+button{font-family:inherit;color:inherit}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
+/* ---------- ヘッダー ---------- */
+.brandline{height:4px;background:linear-gradient(90deg,var(--red-deep),var(--red) 30%,var(--red) 70%,var(--red-deep))}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
+  padding:16px 22px 12px;border-bottom:1px solid var(--hair);
+  background:linear-gradient(180deg,var(--panel),var(--bg))}
+.crest{width:44px;height:44px;border-radius:50%;flex:none;
+  background:radial-gradient(circle at 34% 30%, var(--red) 0%, var(--red-deep) 90%);
+  box-shadow:0 4px 14px color-mix(in srgb,var(--red) 45%,transparent);
+  display:flex;align-items:center;justify-content:center}
+.crest span{color:#fff;font-size:21px;transform:rotate(-45deg) translate(1px,1px)}
+.titlebox{min-width:0}
+.eyebrow{font-size:10px;letter-spacing:.32em;color:var(--red);font-weight:700;line-height:1.4}
+.titlebox h1{margin:0;font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
+  font-size:22px;font-weight:600;letter-spacing:.06em;line-height:1.25}
+.titlebox h1 .jp-red{color:var(--red)}
+.dateline{color:var(--sub);font-size:11px;letter-spacing:.06em}
+.navtabs{display:flex;gap:0;margin-left:auto;align-items:center}
+.navtab{font-size:12px;font-weight:700;letter-spacing:.05em;text-decoration:none;color:var(--sub);
+  padding:7px 15px;border:1px solid var(--panel-edge);background:var(--panel);transition:all .15s;white-space:nowrap}
+.navtab:first-child{border-radius:999px 0 0 999px;border-right:none}
+.navtab:last-child{border-radius:0 999px 999px 0}
+.navtab.active{background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff;border-color:var(--red)}
+.navtab:not(.active):hover{color:var(--red);border-color:var(--red)}
+.stats{display:flex;gap:8px;margin-left:14px}
+.stat{background:var(--panel);border:1px solid var(--panel-edge);border-radius:12px;
+  padding:5px 13px;text-align:center;line-height:1.25;box-shadow:var(--card-shadow)}
+.stat b{display:block;font-size:16px;color:var(--red);font-variant-numeric:tabular-nums}
+.stat span{font-size:9px;color:var(--sub);letter-spacing:.12em}
+#sharebtn{display:inline-flex;align-items:center;gap:7px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff;border-radius:999px;
+  padding:9px 16px;font-size:12.5px;font-weight:700;letter-spacing:.06em;margin-left:12px;
+  box-shadow:0 4px 14px color-mix(in srgb,var(--red) 40%,transparent);transition:transform .15s,box-shadow .15s}
+#sharebtn:hover{transform:translateY(-1px);box-shadow:0 6px 18px color-mix(in srgb,var(--red) 50%,transparent)}
+#sharebtn:focus-visible{outline:2px solid var(--hover);outline-offset:2px}
+/* ---------- サブタブ ---------- */
+.subtabs{display:flex;gap:22px;padding:0 22px;border-bottom:1px solid var(--hair);background:var(--bg)}
+.subtab{position:relative;text-decoration:none;color:var(--sub);font-size:13px;font-weight:700;
+  letter-spacing:.06em;padding:11px 2px 10px;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s}
+.subtab:hover{color:var(--red)}
+.subtab.active{color:var(--red);border-bottom-color:var(--red)}
+/* ---------- 操作バー ---------- */
+.opbar{display:flex;align-items:center;gap:10px;padding:11px 22px;border-bottom:1px solid var(--hair);
+  flex-wrap:wrap;background:var(--bg);position:sticky;top:0;z-index:20;
+  background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(8px)}
+.searchwrap{flex:1;min-width:200px}
+.searchwrap input{background:var(--panel);border:1px solid var(--panel-edge);border-radius:999px;
+  padding:8px 16px;font-size:13px;color:var(--ink);width:100%;font-family:inherit;box-shadow:var(--card-shadow)}
+.searchwrap input:focus{outline:2px solid var(--red);outline-offset:-1px}
+.filters{display:flex;gap:5px;flex-wrap:wrap}
+.f-pill{flex:none;border:1px solid var(--panel-edge);background:var(--panel);border-radius:999px;
+  padding:6px 13px;font-size:11.5px;cursor:pointer;transition:all .15s;box-shadow:var(--card-shadow);white-space:nowrap}
+.f-pill:hover{border-color:var(--red);color:var(--red)}
+.f-pill.on{background:var(--red);color:#fff;border-color:var(--red)}
+.f-pill:focus-visible{outline:2px solid var(--hover);outline-offset:2px}
+.f-pill .ct{font-variant-numeric:tabular-nums;opacity:.75;margin-left:5px;font-size:10.5px}
+#bulkbtn{flex:none;border:1px solid var(--red);background:var(--panel);color:var(--red);border-radius:999px;
+  padding:6px 14px;font-size:11.5px;font-weight:700;cursor:pointer;transition:all .15s;white-space:nowrap}
+#bulkbtn:hover:not(:disabled){background:var(--red);color:#fff}
+#bulkbtn:disabled{opacity:.5;cursor:default}
+#bulkbtn:focus-visible{outline:2px solid var(--hover);outline-offset:2px}
+/* ---------- 本文 ---------- */
+main{max-width:1000px;margin:0 auto;padding:18px 22px 70px}
+.intro{color:var(--sub);font-size:12.5px;line-height:1.75;margin:0 0 6px;max-width:74ch}
+.intro b{color:var(--ink)}
+.notice{display:flex;gap:9px;align-items:flex-start;background:var(--chipbg);border:1px solid var(--panel-edge);
+  border-left:3px solid var(--gold);border-radius:8px;padding:10px 13px;margin:14px 0 4px;font-size:12px;color:var(--sub);line-height:1.7}
+.notice b{color:var(--ink)}
+.rescount{font-size:11px;color:var(--sub);letter-spacing:.1em;margin:16px 2px 8px;font-variant-numeric:tabular-nums}
+.list{display:flex;flex-direction:column;gap:9px}
+.card{background:var(--panel);border:1px solid var(--panel-edge);border-radius:11px;overflow:hidden;
+  box-shadow:var(--card-shadow)}
+.card-head{display:flex;align-items:center;gap:11px;padding:12px 15px;cursor:pointer;width:100%;
+  background:none;border:none;text-align:left;font-size:inherit}
+.card-head:focus-visible{outline:2px solid var(--red);outline-offset:-2px}
+.dot{width:7px;height:7px;border-radius:50%;flex:none}
+.dot.full{background:var(--red)}
+.dot.thin{background:var(--dim)}
+.code{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12.5px;font-weight:700;
+  background:var(--chipbg);border:1px solid var(--panel-edge);border-radius:6px;padding:3px 8px;
+  min-width:46px;text-align:center;flex:none;letter-spacing:.03em}
+.nm{font-weight:700;font-size:14.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge{font-size:10px;font-weight:700;letter-spacing:.04em;border-radius:5px;padding:2px 7px;flex:none;white-space:nowrap}
+.badge.ok{color:var(--ok);background:var(--ok-bg);border:1px solid color-mix(in srgb,var(--ok) 35%,transparent)}
+.badge.warn{color:var(--warn);background:var(--warn-bg);border:1px solid color-mix(in srgb,var(--warn) 40%,transparent)}
+.badge.dim{color:var(--dim);background:var(--dim-bg);border:1px solid var(--panel-edge)}
+.chev{color:var(--sub);font-size:11px;flex:none;transition:transform .15s}
+.card.open .chev{transform:rotate(90deg)}
+.card-body{display:none;border-top:1px solid var(--hair);padding:4px 15px 15px}
+.card.open .card-body{display:block}
+.sec{padding:12px 0;border-bottom:1px dashed var(--hair)}
+.sec:last-child{border-bottom:none}
+.sec-t{font-size:11px;font-weight:700;letter-spacing:.09em;color:var(--red);margin-bottom:5px}
+.sec-t.emb{color:var(--warn)}
+.sec-x{font-size:13.5px;margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.notefield{font-size:13px;color:var(--sub);padding:12px 0 4px;margin:0}
+/* 更新チェック */
+.chk{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:11px 0 3px;border-top:1px solid var(--hair);margin-top:4px}
+.chkbtn{border:1px solid var(--panel-edge);background:var(--chipbg);border-radius:999px;padding:5px 13px;
+  font-size:11.5px;font-weight:700;cursor:pointer;transition:all .15s;white-space:nowrap}
+.chkbtn:hover:not(:disabled){border-color:var(--red);color:var(--red)}
+.chkbtn:disabled{opacity:.55;cursor:default}
+.chkbtn:focus-visible{outline:2px solid var(--hover);outline-offset:2px}
+.srclink{font-size:11.5px;color:var(--hover);text-decoration:none}
+.srclink:hover{text-decoration:underline}
+.chkmsg{font-size:11.5px;color:var(--sub);flex:1;min-width:150px}
+.chkmsg.ok{color:var(--ok)}
+.chkmsg.warn{color:var(--warn);font-weight:700}
+.chkmsg.err{color:var(--red)}
+.orig{margin-top:10px;border:1px solid var(--warn);background:var(--warn-bg);border-radius:8px;padding:11px 13px}
+.orig h4{margin:0 0 6px;font-size:11px;letter-spacing:.08em;color:var(--warn)}
+.orig p{margin:0;font-size:12.5px;line-height:1.7;max-height:340px;overflow-y:auto;white-space:pre-wrap;
+  overflow-wrap:anywhere;font-family:ui-monospace,"SF Mono",Menlo,monospace}
+.empty{text-align:center;padding:56px 20px;color:var(--sub);font-size:13px}
+footer{border-top:1px solid var(--hair);padding:16px 22px 30px;color:var(--sub);font-size:11px;
+  line-height:1.9;max-width:1000px;margin:0 auto}
+footer a{color:var(--hover)}
+#toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,14px);background:var(--ink);color:var(--bg);
+  padding:10px 18px;border-radius:999px;font-size:12.5px;font-weight:700;opacity:0;pointer-events:none;
+  transition:opacity .2s,transform .2s;z-index:60;box-shadow:var(--shadow);max-width:88vw;text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+@media (max-width:920px){
+  header{padding:12px 14px 10px;gap:8px 12px}
+  .crest{width:36px;height:36px}.crest span{font-size:17px}
+  .titlebox h1{font-size:15px}
+  .eyebrow{font-size:8px;letter-spacing:.2em}
+  .stats{display:none}
+  .navtabs{order:3;margin-left:0}
+  #sharebtn{margin-left:auto;padding:8px 12px}#sharebtn .lbl-share{display:none}
+  .subtabs{padding:0 14px;gap:16px;overflow-x:auto}
+  .opbar{padding:9px 14px}
+  main{padding:14px 14px 60px}
+  .nm{font-size:13.5px}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="brandline"></div>
+<header>
+  <div class="crest" aria-hidden="true"><span>✈</span></div>
+  <div class="titlebox">
+    <div class="eyebrow">WINGS OF JAPAN — ZED FARE REFERENCE</div>
+    <h1><span class="jp-red">ZED運賃</span> 条件一覧</h1>
+    <div class="dateline" id="dateline">flyzed.info 全263社・2026年8月3日取得 ※非公式・参考データ</div>
+  </div>
+  <nav class="navtabs" aria-label="路線マップ切替">
+    <a class="navtab" href="../../">国内線</a>
+    <a class="navtab active" href="../" aria-current="page">国際線</a>
+  </nav>
+  <div class="stats">
+    <div class="stat"><b id="st-all">–</b><span>社</span></div>
+    <div class="stat"><b id="st-det">–</b><span>詳細あり</span></div>
+    <div class="stat"><b id="st-emb">–</b><span>エンバーゴ</span></div>
+  </div>
+  <button id="sharebtn" title="このページのリンクを共有">✈<span class="lbl-share"> 共有</span></button>
+</header>
+
+<nav class="subtabs" aria-label="国際線コンテンツ切替">
+  <a class="subtab" href="../">ルートマップ</a>
+  <a class="subtab active" href="./" aria-current="page">ZED運賃 条件</a>
+</nav>
+
+<div class="opbar">
+  <div class="searchwrap">
+    <input type="search" id="q" placeholder="航空会社名・IATAコード(例: AY, JL)・キーワードで検索" autocomplete="off" aria-label="航空会社を検索">
+  </div>
+  <div class="filters" id="filters"></div>
+  <button id="bulkbtn" title="表示中の航空会社について flyzed.info の原文が更新されていないか確認します">原文をまとめて確認</button>
+</div>
+
+<main>
+  <p class="intro">
+    航空会社職員向けの割引搭乗制度 <b>ZED運賃</b>(Zonal Employee Discount)について、
+    <b>flyzed.info</b> に掲載されている全263社のページを個別に取得し、原文サイトの見出し構成
+    (Embargoes / Flight listing / Visas and Passports / Flights excluded・included / Baggage /
+    Boarding policy / Check-in / Dress code / Special service requests など、社ごとに異なる)を
+    保持したまま日本語に訳したものです。固定項目に圧縮せず、各社ページに実際にある見出しをそのまま再現しています。
+  </p>
+  <div class="notice">
+    <span aria-hidden="true">⚠</span>
+    <div>
+      <b>必ず一次情報で最終確認してください。</b>
+      本ページは原文の翻訳であり、公式規定と食い違う場合は myIDTravel や所属航空会社の
+      Staff Travel 部門の案内が優先されます。各カードの「<b>原文の最新を確認</b>」ボタンで、
+      翻訳時点から flyzed.info の原文が変わっていないかをその場で照合できます。
+    </div>
+  </div>
+  <div class="rescount" id="rescount"></div>
+  <div class="list" id="list"></div>
+  <div class="empty" id="empty" style="display:none">該当する航空会社が見つかりませんでした。</div>
+</main>
+
+<footer>
+  出典: <a href="https://www.flyzed.info/" target="_blank" rel="noopener noreferrer">flyzed.info</a>
+  (ZED MIBA — helping airline employees along their ZED journey)<br>
+  データ取得: 2026年8月3日 ・ 全263社を原文の見出し構成のまま検証・再取得 ・
+  <a href="../">国際線ルートマップ</a> / <a href="../../">国内線ルートマップ</a><br>
+  当サイトはJALグループとは無関係の非公式ファンサイトです。
+</footer>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const SHARE_URL = location.href.split("#")[0];
+const FETCHED_ON = "2026年8月3日";
+const API = "/api/flyzed";
+const LS_KEY = "zed-check-v1";
+
+let DATA = [];
+let filter = "all";
+let checks = {};      // code -> {state:"same"|"changed"|"error", at:ISO, hash, text}
+const busy = new Set();
+
+try { checks = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch (e) { checks = {}; }
+function saveChecks(){ try { localStorage.setItem(LS_KEY, JSON.stringify(checks)); } catch (e) {} }
+
+const esc = s => (s == null ? "" : String(s)).replace(/[&<>"']/g,
+  c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+const isDetailed = d => Array.isArray(d.sections) && d.sections.length > 0;
+const isEmbargoSec = t => /embargo|エンバーゴ/i.test(t || "");
+const hasEmbargo = d => isDetailed(d) &&
+  d.sections.some(s => isEmbargoSec(s.title) && (s.text || "").trim().length > 2);
+
+// A carrier code field may read "MASWINGS, MY" or "TS, 正式名 Air Transat A.T.";
+// pull out the IATA-shaped tokens so a 2-letter query can match exactly.
+const codeTokens = f => ((f || "").match(/[A-Za-z0-9]{2,3}\*?/g) || []).map(s => s.toLowerCase());
+const IATA_Q = /^[a-z0-9]{2,3}\*?$/;
+
+function passesFilter(d){
+  if (filter === "detailed") return isDetailed(d);
+  if (filter === "thin")     return !isDetailed(d);
+  if (filter === "embargo")  return hasEmbargo(d);
+  if (filter === "changed")  return checks[d.src] && checks[d.src].state === "changed";
+  return true;
+}
+
+function matches(d, q){
+  if (!q) return true;
+  if (IATA_Q.test(q)) {
+    // Short alphanumeric input is treated as a carrier code first; only if no
+    // carrier owns that code do we fall back to a loose name match.
+    if (codeTokens(d.code).includes(q)) return true;
+    return EXACT_CODE_EXISTS ? false : (d.name + " " + d.code).toLowerCase().includes(q);
+  }
+  const hay = d.name + " " + d.code + " " + (d.note || "") +
+    (isDetailed(d) ? d.sections.map(s => s.title + " " + s.text).join(" ") : "");
+  return hay.toLowerCase().includes(q);
+}
+
+let EXACT_CODE_EXISTS = false;
+
+function visible(){
+  const q = document.getElementById("q").value.trim().toLowerCase();
+  EXACT_CODE_EXISTS = IATA_Q.test(q) && DATA.some(d => codeTokens(d.code).includes(q));
+  return DATA.filter(d => passesFilter(d) && matches(d, q));
+}
+
+function checkBadge(d){
+  const c = checks[d.src];
+  if (!c) return "";
+  if (c.state === "same")    return '<span class="badge ok">原文一致</span>';
+  if (c.state === "changed") return '<span class="badge warn">原文更新あり</span>';
+  return "";
+}
+
+function cardHTML(d, i){
+  const det = isDetailed(d);
+  const body = det
+    ? d.sections.map(s => `<div class="sec">
+        <div class="sec-t${isEmbargoSec(s.title) ? " emb" : ""}">${esc(s.title)}</div>
+        <p class="sec-x">${esc(s.text || "記載なし")}</p></div>`).join("")
+    : `<p class="notefield">${esc(d.note || "情報なし")}</p>`;
+
+  return `<div class="card" data-i="${i}">
+    <button class="card-head" aria-expanded="false">
+      <span class="dot ${det ? "full" : "thin"}"></span>
+      <span class="code">${esc(d.code || "—")}</span>
+      <span class="nm">${esc(d.name)}</span>
+      ${det ? '<span class="badge dim">' + d.sections.length + '項目</span>' : ""}
+      ${checkBadge(d)}
+      <span class="chev" aria-hidden="true">&#9656;</span>
+    </button>
+    <div class="card-body">
+      ${body}
+      <div class="chk" data-src="${esc(d.src || "")}">
+        <button class="chkbtn" data-act="check">原文の最新を確認</button>
+        <a class="srclink" href="https://www.flyzed.info/${encodeURIComponent(d.src || "")}"
+           target="_blank" rel="noopener noreferrer">flyzed.info の原文を開く ↗</a>
+        <span class="chkmsg"></span>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderChk(wrap, d){
+  const msg = wrap.querySelector(".chkmsg");
+  const c = checks[d.src];
+  wrap.querySelectorAll(".orig").forEach(n => n.remove());
+  if (!c) {
+    msg.className = "chkmsg";
+    msg.textContent = `当サイトの和訳は ${FETCHED_ON} 時点の原文にもとづきます`;
+    return;
+  }
+  const when = new Date(c.at).toLocaleString("ja-JP", { month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" });
+  if (c.state === "same") {
+    msg.className = "chkmsg ok";
+    msg.textContent = `✓ ${when} 確認 — 原文は翻訳時点から変わっていません`;
+  } else if (c.state === "changed") {
+    msg.className = "chkmsg warn";
+    msg.textContent = `⚠ ${when} 確認 — 原文が更新されています。下の原文(英語)を優先してください`;
+    if (c.text) {
+      const box = document.createElement("div");
+      box.className = "orig";
+      box.innerHTML = `<h4>FLYZED.INFO 原文(英語・最新)</h4><p>${esc(c.text)}</p>`;
+      wrap.appendChild(box);
+    }
+  } else {
+    msg.className = "chkmsg err";
+    msg.textContent = c.msg || "確認できませんでした";
+  }
+}
+
+function render(){
+  const list = document.getElementById("list");
+  const rows = visible();
+  list.innerHTML = rows.map((d) => cardHTML(d, DATA.indexOf(d))).join("");
+  document.getElementById("rescount").textContent = `${rows.length} 件表示中 / 全 ${DATA.length} 社`;
+  document.getElementById("empty").style.display = rows.length ? "none" : "block";
+
+  list.querySelectorAll(".card").forEach(card => {
+    const d = DATA[+card.dataset.i];
+    const head = card.querySelector(".card-head");
+    head.addEventListener("click", () => {
+      const open = card.classList.toggle("open");
+      head.setAttribute("aria-expanded", open ? "true" : "false");
+      if (open) renderChk(card.querySelector(".chk"), d);
+    });
+    card.querySelector('[data-act="check"]').addEventListener("click", ev => {
+      ev.stopPropagation();
+      runCheck(d, card.querySelector(".chk"));
+    });
+  });
+  renderFilters();
+}
+
+async function fetchLive(code){
+  const res = await fetch(`${API}?code=${encodeURIComponent(code)}`, { cache: "no-store" });
+  const ct = res.headers.get("content-type") || "";
+  if (!ct.includes("application/json")) throw new Error("NOAPI");
+  const j = await res.json();
+  if (!res.ok) throw new Error(j.error || "failed");
+  return j;
+}
+
+async function runCheck(d, wrap){
+  if (!d.src || busy.has(d.src)) return;
+  busy.add(d.src);
+  const btn = wrap ? wrap.querySelector('[data-act="check"]') : null;
+  const msg = wrap ? wrap.querySelector(".chkmsg") : null;
+  if (btn) { btn.disabled = true; btn.textContent = "確認中…"; }
+  if (msg) { msg.className = "chkmsg"; msg.textContent = "flyzed.info を照合しています…"; }
+
+  try {
+    const live = await fetchLive(d.src);
+    checks[d.src] = live.hash === d.fp
+      ? { state: "same", at: live.checkedAt }
+      : { state: "changed", at: live.checkedAt, hash: live.hash, text: live.text };
+  } catch (err) {
+    checks[d.src] = {
+      state: "error",
+      at: new Date().toISOString(),
+      msg: err && err.message === "NOAPI"
+        ? "この配信元では自動確認を利用できません(vercel.app 版でお試しください)"
+        : "原文サーバーに接続できませんでした。時間をおいて再試行してください",
+    };
+  }
+  busy.delete(d.src);
+  saveChecks();
+
+  if (wrap && document.body.contains(wrap)) {
+    if (btn) { btn.disabled = false; btn.textContent = "原文の最新を確認"; }
+    renderChk(wrap, d);
+    const head = wrap.closest(".card").querySelector(".card-head");
+    const old = head.querySelector(".badge.ok, .badge.warn");
+    if (old) old.remove();
+    const html = checkBadge(d);
+    if (html) head.querySelector(".chev").insertAdjacentHTML("beforebegin", html);
+  }
+  renderFilters();
+  return checks[d.src].state;
+}
+
+async function bulkCheck(){
+  const rows = visible().filter(d => d.src);
+  if (!rows.length) return;
+  const btn = document.getElementById("bulkbtn");
+  btn.disabled = true;
+  let done = 0, changed = 0, failed = 0;
+  const queue = rows.slice();
+
+  async function worker(){
+    while (queue.length) {
+      const d = queue.shift();
+      const st = await runCheck(d, null);
+      done++;
+      if (st === "changed") changed++;
+      if (st === "error") failed++;
+      btn.textContent = `確認中 ${done}/${rows.length}`;
+      if (done % 4 === 0) render();
+    }
+  }
+  await Promise.all(Array.from({ length: 6 }, worker));
+
+  btn.disabled = false;
+  btn.textContent = "原文をまとめて確認";
+  render();
+  showToast(failed === rows.length
+    ? "この配信元では自動確認を利用できません"
+    : `${done}社を確認 — 更新あり ${changed}社${failed ? ` / 失敗 ${failed}社` : ""}`);
+}
+
+function renderFilters(){
+  const changed = DATA.filter(d => checks[d.src] && checks[d.src].state === "changed").length;
+  const defs = [
+    ["all", "すべて", DATA.length],
+    ["detailed", "詳細あり", DATA.filter(isDetailed).length],
+    ["embargo", "エンバーゴ記載", DATA.filter(hasEmbargo).length],
+    ["thin", "情報なし(確認済)", DATA.filter(d => !isDetailed(d)).length],
+  ];
+  if (changed) defs.push(["changed", "原文更新あり", changed]);
+  if (filter === "changed" && !changed) filter = "all";
+
+  document.getElementById("filters").innerHTML = defs.map(([k, label, n]) =>
+    `<button class="f-pill${filter === k ? " on" : ""}" data-f="${k}">${label}<span class="ct">${n}</span></button>`
+  ).join("");
+
+  document.getElementById("filters").querySelectorAll(".f-pill").forEach(p => {
+    p.addEventListener("click", () => { filter = p.dataset.f; render(); });
+  });
+}
+
+const toast = document.getElementById("toast");
+let toastTimer = null;
+function showToast(m){
+  toast.textContent = m; toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), 3200);
+}
+
+document.getElementById("sharebtn").onclick = async () => {
+  try {
+    if (navigator.share) { await navigator.share({ title: document.title, url: SHARE_URL }); return; }
+    await navigator.clipboard.writeText(SHARE_URL);
+    showToast("リンクをコピーしました ✈");
+  } catch (err) {
+    if (err && err.name === "AbortError") return;
+    showToast(SHARE_URL);
+  }
+};
+
+document.getElementById("q").addEventListener("input", render);
+document.getElementById("bulkbtn").addEventListener("click", bulkCheck);
+
+fetch("./data.json")
+  .then(r => r.json())
+  .then(rows => {
+    DATA = rows;
+    document.getElementById("st-all").textContent = DATA.length;
+    document.getElementById("st-det").textContent = DATA.filter(isDetailed).length;
+    document.getElementById("st-emb").textContent = DATA.filter(hasEmbargo).length;
+    render();
+    const code = decodeURIComponent(location.hash.replace(/^#/, "")).trim().toLowerCase();
+    if (code) { document.getElementById("q").value = code; render(); }
+  })
+  .catch(() => {
+    document.getElementById("list").innerHTML =
+      '<div class="empty">データを読み込めませんでした。ページを再読み込みしてください。</div>';
+  });
+</script>
+</body>
+</html>
