@@ -116,6 +116,12 @@ main{max-width:1000px;margin:0 auto;padding:18px 22px 70px}
   border-left:3px solid var(--gold);border-radius:8px;padding:10px 13px;margin:14px 0 4px;font-size:12px;color:var(--sub);line-height:1.7}
 .notice b{color:var(--ink)}
 .rescount{font-size:11px;color:var(--sub);letter-spacing:.1em;margin:16px 2px 8px;font-variant-numeric:tabular-nums}
+.chgbanner{display:flex;align-items:center;gap:10px;background:var(--warn-bg);border:1px solid var(--warn);
+  border-radius:9px;padding:11px 14px;margin-top:14px;font-size:12.5px;color:var(--ink)}
+.chgbanner b{color:var(--warn)}
+.chgbanner button{flex:none;margin-left:auto;border:1px solid var(--warn);background:var(--panel);color:var(--warn);
+  border-radius:999px;padding:6px 14px;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap}
+.chgbanner button:hover{background:var(--warn);color:#fff}
 .list{display:flex;flex-direction:column;gap:9px}
 .card{background:var(--panel);border:1px solid var(--panel-edge);border-radius:11px;overflow:hidden;
   box-shadow:var(--card-shadow)}
@@ -128,7 +134,13 @@ main{max-width:1000px;margin:0 auto;padding:18px 22px 70px}
 .code{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12.5px;font-weight:700;
   background:var(--chipbg);border:1px solid var(--panel-edge);border-radius:6px;padding:3px 8px;
   min-width:46px;text-align:center;flex:none;letter-spacing:.03em}
-.nm{font-weight:700;font-size:14.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.namewrap{flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;overflow:hidden}
+.nm{font-weight:700;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none;max-width:100%}
+.kana{font-size:11.5px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.quicklink{font-size:11px;color:var(--hover);text-decoration:none;flex:none;padding:3px 8px;border-radius:6px;white-space:nowrap}
+.quicklink:hover{text-decoration:underline;background:var(--chipbg)}
+.quicklink.changed{color:var(--warn);font-weight:700;border:1px solid var(--warn)}
+@media (max-width:640px){ .kana{display:none} .quicklink{display:none} }
 .badge{font-size:10px;font-weight:700;letter-spacing:.04em;border-radius:5px;padding:2px 7px;flex:none;white-space:nowrap}
 .badge.ok{color:var(--ok);background:var(--ok-bg);border:1px solid color-mix(in srgb,var(--ok) 35%,transparent)}
 .badge.warn{color:var(--warn);background:var(--warn-bg);border:1px solid color-mix(in srgb,var(--warn) 40%,transparent)}
@@ -235,6 +247,7 @@ footer a{color:var(--hover)}
       翻訳時点から flyzed.info の原文が変わっていないかをその場で照合できます。
     </div>
   </div>
+  <div class="chgbanner" id="chgbanner" style="display:none" role="status"></div>
   <div class="rescount" id="rescount"></div>
   <div class="list" id="list"></div>
   <div class="empty" id="empty" style="display:none">該当する航空会社が見つかりませんでした。</div>
@@ -255,6 +268,61 @@ const SHARE_URL = location.href.split("#")[0];
 const FETCHED_ON = "2026年8月3日";
 const API = "/api/flyzed";
 const LS_KEY = "zed-check-v1";
+
+// Japanese katakana names / common alternate names, keyed by IATA-style code
+// (the `src` field on each dataset row). flyzed.info only carries English
+// names, so a reader who only knows an airline as "キャセイ" or "JAL" would
+// otherwise have no way to find it without already knowing the 2-3 letter
+// code. Only airlines with a well-established Japanese name are listed here;
+// the rest still match on English substrings via matches() below.
+const ALIASES = {
+  AN:["アドバンストエア"], A3:["エーゲ航空"], EI:["エアリンガス"], SU:["アエロフロート","アエロフロート・ロシア航空"],
+  AR:["アルゼンチン航空"], AM:["アエロメヒコ"], AH:["アルジェリア航空"], G9:["エアアラビア","エア・アラビア"],
+  KC:["エアアスタナ","エア・アスタナ"], UU:["エアオーストラル"], BT:["エアバルティック","エア・バルティック"],
+  SM:["エアカイロ"], SB:["エアカラン"], AC:["エアカナダ"], TX:["エアカライブ"], XK:["エアコルシカ"],
+  EN:["エアドロミティ"], UX:["エアエウロパ"], AF:["エールフランス"], GL:["エアグリーンランド"],
+  IX:["エアインディアエクスプレス"], AI:["エアインディア"], NX:["マカオ航空","エアマカオ"], MK:["エアモーリシャス"],
+  NZ:["ニュージーランド航空","エアニュージーランド"], PX:["エアニウギニ"], JU:["エアセルビア"],
+  HM:["エアセイシェル"], VT:["エアタヒチ"], TN:["エアタヒチヌイ"], TS:["エアトランザット"],
+  AS:["アラスカ航空"], G4:["アレジアント航空"], AA:["アメリカン航空"],
+  NH:["全日空","全日本空輸","ANA"], IZ:["アルキア航空"], OZ:["アシアナ航空","アシアナ"],
+  RC:["アトランティック航空"], HZ:["オーロラ航空"], OS:["オーストリア航空"], XP:["アベロ航空"],
+  AV:["アビアンカ航空","アビアンカ"], AD:["アズールブラジル航空","アズール航空"], UP:["バハマ航空"],
+  PG:["バンコクエアウェイズ"], B2:["ベラビア","ベラルーシ航空"], NT:["ビンターカナリアス"],
+  MX:["ブリーズ航空","ブリーズエアウェイズ"], BA:["ブリティッシュエアウェイズ","英国航空","BA"],
+  SN:["ブリュッセル航空"], VR:["カーボベルデ航空"], BW:["カリビアン航空"],
+  CX:["キャセイパシフィック航空","キャセイパシフィック","キャセイ","Cathay"], KX:["ケイマン航空"],
+  DE:["コンドル航空"], CM:["コパ航空"], XC:["コレンドン航空"], SS:["コルセア"], OU:["クロアチア航空"],
+  CY:["キプロス航空"], DL:["デルタ航空","デルタ"], MS:["エジプト航空"], LY:["エルアル航空","エルアル"],
+  EK:["エミレーツ航空","エミレーツ"], ET:["エチオピア航空"], EY:["エティハド航空","エティハド"],
+  EW:["ユーロウィングス"], BR:["エバー航空","エバ航空","EVA"], AY:["フィンエアー","フィンランド航空"],
+  F8:["フレアー航空"], FZ:["フライドバイ"], XY:["フライナス"], BF:["フレンチビー"], F9:["フロンティア航空"],
+  GA:["ガルーダインドネシア航空","ガルーダ航空","ガルーダ"], G3:["ゴル航空"], GF:["ガルフエア"],
+  HU:["海南航空"], HX:["香港航空"], UO:["香港エクスプレス航空","香港エクスプレス"],
+  CI:["チャイナエアライン","中華航空"], MU:["中国東方航空"], IB:["イベリア航空"], FI:["アイスランド航空"],
+  IR:["イラン航空"], AZ:["イタ航空","ITA航空"], JL:["日本航空","JAL"], J9:["ジャジーラ航空"],
+  B6:["ジェットブルー"], LJ:["チンエアー"], KQ:["ケニア航空"], KL:["オランダ航空","KLMオランダ航空"],
+  KM:["マルタ航空"], KE:["大韓航空"], KU:["クウェート航空"], B0:["ラコンパニー"], TM:["モザンビーク航空"],
+  LA:["ラタム航空","ラタム"], LO:["ポーランド航空","LOTポーランド航空"], LH:["ルフトハンザ","ルフトハンザ航空","ルフトハンザドイツ航空"],
+  LG:["ルクスエア"], MD:["マダガスカル航空"], MH:["マレーシア航空"], AE:["マンダリン航空"],
+  OM:["モンゴル航空","MIATモンゴル航空"], ME:["中東航空","MEA"], NO:["ネオス航空"], RA:["ネパール航空"],
+  N0:["ノルスアトランティック航空"], DY:["ノルウェーエアシャトル","ノルウェー"], OA:["オリンピック航空"],
+  WY:["オマーン航空"], PK:["パキスタン航空"], MM:["ピーチアビエーション","ピーチ"], PC:["ペガサス航空"],
+  PR:["フィリピン航空"], PU:["プルスウルトラ"], DP:["ポベーダ航空"], PD:["ポーター航空"],
+  QF:["カンタス航空","カンタス"], QR:["カタール航空","カタール"], RX:["リヤド航空"],
+  AT:["モロッコ王国航空","ロイヤルエアモロッコ"], BI:["ロイヤルブルネイ航空"], RJ:["ロイヤルヨルダン航空"],
+  WB:["ルワンダ航空"], OV:["サラームエア"], SV:["サウジアラビア航空"], SK:["スカンジナビア航空","SAS"],
+  ZH:["深セン航空"], S7:["エスセブン航空","S7航空"], SQ:["シンガポール航空"], QS:["スマートウイングス"],
+  IE:["ソロモン航空"], SA:["南アフリカ航空"], WN:["サウスウエスト航空"], UL:["スリランカ航空"],
+  JX:["スターラックス航空"], SY:["サンカントリー航空"], XQ:["サンエクスプレス"], PY:["スリナム航空"],
+  LX:["スイスインターナショナルエアラインズ","スイス航空"], DT:["アンゴラ航空"], TP:["タップポルトガル航空","タップ"],
+  RO:["タロム航空"], TG:["タイ国際航空","タイ航空"], IT:["タイガーエア台湾"], TO:["トランサヴィアフランス"],
+  HV:["トランサヴィア"], X3:["トゥイフライ"], TU:["チュニジア航空"], TK:["トルコ航空"], B7:["ユニー航空"],
+  UA:["ユナイテッド航空","ユナイテッド"], UT:["ユーティエア"], VN:["ベトナム航空"],
+  VS:["ヴァージンアトランティック航空","バージンアトランティック"], VA:["ヴァージンオーストラリア航空","バージンオーストラリア"],
+  VB:["ビバアエロブス"], Y4:["ボラリス"], V7:["ヴォロテア"], WF:["ヴィーデロー"], P5:["ウィンゴ"],
+  MF:["廈門航空","アモイ航空"], IY:["イエメニア航空"],
+};
 
 let DATA = [];
 let filter = "all";
@@ -285,15 +353,20 @@ function passesFilter(d){
   return true;
 }
 
+const aliasText = d => (ALIASES[d.src] || []).join(" ");
+
 function matches(d, q){
   if (!q) return true;
   if (IATA_Q.test(q)) {
     // Short alphanumeric input is treated as a carrier code first; only if no
-    // carrier owns that code do we fall back to a loose name match.
+    // carrier owns that code do we fall back to a loose name/alias match, so
+    // e.g. "JAL" (which is also a 3-letter code shape) still finds Japan
+    // Airlines even though "JL" is its real IATA code.
     if (codeTokens(d.code).includes(q)) return true;
-    return EXACT_CODE_EXISTS ? false : (d.name + " " + d.code).toLowerCase().includes(q);
+    if (EXACT_CODE_EXISTS) return false;
+    return (d.name + " " + d.code + " " + aliasText(d)).toLowerCase().includes(q);
   }
-  const hay = d.name + " " + d.code + " " + (d.note || "") +
+  const hay = d.name + " " + d.code + " " + aliasText(d) + " " + (d.note || "") +
     (isDetailed(d) ? d.sections.map(s => s.title + " " + s.text).join(" ") : "");
   return hay.toLowerCase().includes(q);
 }
@@ -322,13 +395,23 @@ function cardHTML(d, i){
         <p class="sec-x">${esc(s.text || "記載なし")}</p></div>`).join("")
     : `<p class="notefield">${esc(d.note || "情報なし")}</p>`;
 
+  const kana = (ALIASES[d.src] || [])[0];
+
   return `<div class="card" data-i="${i}">
     <button class="card-head" aria-expanded="false">
       <span class="dot ${det ? "full" : "thin"}"></span>
       <span class="code">${esc(d.code || "—")}</span>
-      <span class="nm">${esc(d.name)}</span>
+      <span class="namewrap">
+        <span class="nm">${esc(d.name)}</span>
+        ${kana ? `<span class="kana">${esc(kana)}</span>` : ""}
+      </span>
       ${det ? '<span class="badge dim">' + d.sections.length + '項目</span>' : ""}
       ${checkBadge(d)}
+      <a class="quicklink${checks[d.src] && checks[d.src].state === "changed" ? " changed" : ""}"
+         href="https://www.flyzed.info/${encodeURIComponent(d.src || "")}"
+         target="_blank" rel="noopener noreferrer"
+         title="flyzed.info の原文を開く"
+         onclick="event.stopPropagation()">${checks[d.src] && checks[d.src].state === "changed" ? "⚠ 原文を確認 ↗" : "原文 ↗"}</a>
       <span class="chev" aria-hidden="true">&#9656;</span>
     </button>
     <div class="card-body">
@@ -371,12 +454,30 @@ function renderChk(wrap, d){
   }
 }
 
+function renderChangeBanner(){
+  const banner = document.getElementById("chgbanner");
+  const changedList = DATA.filter(d => checks[d.src] && checks[d.src].state === "changed");
+  if (!changedList.length) { banner.style.display = "none"; return; }
+  const names = changedList.slice(0, 3).map(d => d.name).join("・");
+  const more = changedList.length > 3 ? ` 他${changedList.length - 3}社` : "";
+  banner.style.display = "flex";
+  banner.innerHTML = `<span>⚠ <b>${changedList.length}社</b>で原文の更新を検知しています(${esc(names)}${esc(more)})</span>
+    <button id="chgjump" type="button">今すぐ確認する</button>`;
+  document.getElementById("chgjump").onclick = () => {
+    filter = "changed";
+    document.getElementById("q").value = "";
+    render();
+    document.querySelector(".opbar").scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+}
+
 function render(){
   const list = document.getElementById("list");
   const rows = visible();
   list.innerHTML = rows.map((d) => cardHTML(d, DATA.indexOf(d))).join("");
   document.getElementById("rescount").textContent = `${rows.length} 件表示中 / 全 ${DATA.length} 社`;
   document.getElementById("empty").style.display = rows.length ? "none" : "block";
+  renderChangeBanner();
 
   list.querySelectorAll(".card").forEach(card => {
     const d = DATA[+card.dataset.i];
@@ -436,8 +537,14 @@ async function runCheck(d, wrap){
     if (old) old.remove();
     const html = checkBadge(d);
     if (html) head.querySelector(".chev").insertAdjacentHTML("beforebegin", html);
+    const ql = head.querySelector(".quicklink");
+    if (ql && checks[d.src].state === "changed") {
+      ql.classList.add("changed");
+      ql.textContent = "⚠ 原文を確認 ↗";
+    }
   }
   renderFilters();
+  renderChangeBanner();
   return checks[d.src].state;
 }
 
@@ -464,7 +571,9 @@ async function bulkCheck(){
 
   btn.disabled = false;
   btn.textContent = "原文をまとめて確認";
+  if (changed > 0) filter = "changed";  // jump straight to what needs attention
   render();
+  if (changed > 0) document.querySelector(".opbar").scrollIntoView({ behavior: "smooth", block: "start" });
   showToast(failed === rows.length
     ? "この配信元では自動確認を利用できません"
     : `${done}社を確認 — 更新あり ${changed}社${failed ? ` / 失敗 ${failed}社` : ""}`);
