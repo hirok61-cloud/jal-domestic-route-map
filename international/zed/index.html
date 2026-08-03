@@ -8,11 +8,12 @@
 <style>
 :root{
   color-scheme: light dark;
-  --red:#b7001e; --red-deep:#8c0017; --red-soft:#fbeef0; --gold:#a98e5e;
+  --red:#b7001e; --red-deep:#8c0017; --red-soft:#fbeef0; --gold:#8a6d33;
   --bg:#faf9f7;
   --ink:#1b1e24; --sub:#6b7480; --panel:#ffffff; --panel-edge:#e2e0da; --hair:#eceae5; --chipbg:#f4f2ee;
   --hover:#0d55a0;
-  --ok:#2f7d4f; --ok-bg:#e9f5ee; --warn:#9a6a1c; --warn-bg:#fbf1de; --dim:#9aa3ad; --dim-bg:#f1f0ee;
+  --ok:#2f7d4f; --ok-bg:#e9f5ee; --warn:#9a6a1c; --warn-bg:#fbf1de;
+  --dim:#6f7885; --dim-icon:#5c6673; --dim-bg:#f1f0ee;
   --shadow:0 10px 30px rgba(30,20,20,.12); --card-shadow:0 2px 10px rgba(30,20,20,.06);
 }
 @media (prefers-color-scheme: dark){:root{
@@ -20,16 +21,18 @@
   --bg:#0e1216;
   --ink:#eceff3; --sub:#95a1ad; --panel:#141a21; --panel-edge:#27303a; --hair:#20272f; --chipbg:#1b222b;
   --hover:#5ab0ff;
-  --ok:#5fc98c; --ok-bg:#12291d; --warn:#e0ac54; --warn-bg:#31260f; --dim:#6b7783; --dim-bg:#1a2029;
+  --ok:#5fc98c; --ok-bg:#12291d; --warn:#e0ac54; --warn-bg:#31260f;
+  --dim:#8b97a4; --dim-icon:#9aa6b3; --dim-bg:#1a2029;
   --shadow:0 10px 30px rgba(0,0,0,.55); --card-shadow:0 2px 10px rgba(0,0,0,.4);
 }}
 :root[data-theme="light"]{
   color-scheme: light;
-  --red:#b7001e; --red-deep:#8c0017; --red-soft:#fbeef0; --gold:#a98e5e;
+  --red:#b7001e; --red-deep:#8c0017; --red-soft:#fbeef0; --gold:#8a6d33;
   --bg:#faf9f7;
   --ink:#1b1e24; --sub:#6b7480; --panel:#ffffff; --panel-edge:#e2e0da; --hair:#eceae5; --chipbg:#f4f2ee;
   --hover:#0d55a0;
-  --ok:#2f7d4f; --ok-bg:#e9f5ee; --warn:#9a6a1c; --warn-bg:#fbf1de; --dim:#9aa3ad; --dim-bg:#f1f0ee;
+  --ok:#2f7d4f; --ok-bg:#e9f5ee; --warn:#9a6a1c; --warn-bg:#fbf1de;
+  --dim:#6f7885; --dim-icon:#5c6673; --dim-bg:#f1f0ee;
   --shadow:0 10px 30px rgba(30,20,20,.12); --card-shadow:0 2px 10px rgba(30,20,20,.06);
 }
 :root[data-theme="dark"]{
@@ -38,9 +41,15 @@
   --bg:#0e1216;
   --ink:#eceff3; --sub:#95a1ad; --panel:#141a21; --panel-edge:#27303a; --hair:#20272f; --chipbg:#1b222b;
   --hover:#5ab0ff;
-  --ok:#5fc98c; --ok-bg:#12291d; --warn:#e0ac54; --warn-bg:#31260f; --dim:#6b7783; --dim-bg:#1a2029;
+  --ok:#5fc98c; --ok-bg:#12291d; --warn:#e0ac54; --warn-bg:#31260f;
+  --dim:#8b97a4; --dim-icon:#9aa6b3; --dim-bg:#1a2029;
   --shadow:0 10px 30px rgba(0,0,0,.55); --card-shadow:0 2px 10px rgba(0,0,0,.4);
 }
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
+.skiplink{position:absolute;left:-9999px;top:0;z-index:100;background:var(--red);color:#fff;
+  padding:10px 16px;border-radius:0 0 8px 0;font-weight:700;font-size:13px;text-decoration:none}
+.skiplink:focus{left:0}
 *{box-sizing:border-box}
 html,body{margin:0}
 body{background:var(--bg);color:var(--ink);
@@ -125,9 +134,15 @@ main{max-width:1000px;margin:0 auto;padding:18px 22px 70px}
 .list{display:flex;flex-direction:column;gap:9px}
 .card{background:var(--panel);border:1px solid var(--panel-edge);border-radius:11px;overflow:hidden;
   box-shadow:var(--card-shadow)}
-.card-head{display:flex;align-items:center;gap:11px;padding:12px 15px;cursor:pointer;width:100%;
-  background:none;border:none;text-align:left;font-size:inherit}
-.card-head:focus-visible{outline:2px solid var(--red);outline-offset:-2px}
+/* card-head はコンテナ。開閉トグルと操作ボタン群を「兄弟」にすることで、
+   button の入れ子(=支援技術から子要素が消える)を避けている。 */
+.card-head{display:flex;align-items:center;gap:4px;padding:0 9px 0 0;margin:0;
+  font-size:inherit;font-weight:inherit}
+.card-toggle{display:flex;align-items:center;gap:11px;flex:1;min-width:0;
+  padding:12px 6px 12px 15px;cursor:pointer;background:none;border:none;text-align:left;
+  font:inherit;color:inherit}
+.card-toggle:focus-visible{outline:2px solid var(--red);outline-offset:-2px;border-radius:8px}
+.card-actions{display:flex;align-items:center;gap:2px;flex:none}
 .dot{width:7px;height:7px;border-radius:50%;flex:none}
 .dot.full{background:var(--red)}
 .dot.thin{background:var(--dim)}
@@ -137,10 +152,13 @@ main{max-width:1000px;margin:0 auto;padding:18px 22px 70px}
 .namewrap{flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;overflow:hidden}
 .nm{font-weight:700;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none;max-width:100%}
 .kana{font-size:11.5px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.quicklink{font-size:11px;color:var(--hover);text-decoration:none;flex:none;padding:3px 8px;border-radius:6px;white-space:nowrap}
+.quicklink{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 10px;
+  margin:-10px 0;font-size:11px;color:var(--hover);text-decoration:none;flex:none;
+  border-radius:8px;white-space:nowrap;touch-action:manipulation}
 .quicklink:hover{text-decoration:underline;background:var(--chipbg)}
+.quicklink:focus-visible{outline:2px solid var(--hover);outline-offset:1px}
 .quicklink.changed{color:var(--warn);font-weight:700;border:1px solid var(--warn)}
-@media (max-width:640px){ .kana{display:none} .quicklink{display:none} }
+@media (max-width:640px){ .kana{display:none} }
 .badge{font-size:10px;font-weight:700;letter-spacing:.04em;border-radius:5px;padding:2px 7px;flex:none;white-space:nowrap}
 .badge.ok{color:var(--ok);background:var(--ok-bg);border:1px solid color-mix(in srgb,var(--ok) 35%,transparent)}
 .badge.warn{color:var(--warn);background:var(--warn-bg);border:1px solid color-mix(in srgb,var(--warn) 40%,transparent)}
@@ -179,14 +197,33 @@ main{max-width:1000px;margin:0 auto;padding:18px 22px 70px}
   padding:4px 11px;font-size:11px;cursor:pointer;transition:all .15s;white-space:nowrap}
 .kw-chip:hover{border-color:var(--hover);color:var(--hover);border-style:solid}
 .kw-chip.on{background:var(--hover);border-color:var(--hover);border-style:solid;color:#fff}
-/* ---------- ピン留め / 比較チェック ---------- */
-.pinbtn,.cmpbtn{flex:none;font-size:14px;line-height:1;cursor:pointer;user-select:none;
-  padding:2px 4px;border-radius:5px;color:var(--dim)}
+/* ---------- ピン留め / 比較(実 button + aria-pressed のトグル) ---------- */
+/* 見た目の高さは据え置きたいので、min-height:44px で当たり判定を確保しつつ
+   負マージンで行の占有高さだけ元に戻している(WCAG 2.5.8 の 24px を満たす)。*/
+.pinbtn,.cmpbtn{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  min-width:44px;min-height:44px;margin:-11px 0;
+  font:inherit;font-size:15px;line-height:1;cursor:pointer;user-select:none;
+  background:none;border:none;border-radius:8px;color:var(--dim-icon);
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .pinbtn:hover,.cmpbtn:hover{background:var(--chipbg)}
+.pinbtn:active,.cmpbtn:active{background:var(--panel-edge)}
+.pinbtn:focus-visible,.cmpbtn:focus-visible{outline:2px solid var(--hover);outline-offset:1px}
 .pinbtn.on{color:var(--gold)}
-.cmpbtn{font-size:10.5px;font-weight:700;letter-spacing:.02em;border:1px solid var(--panel-edge);padding:3px 9px}
+.pin-txt{display:none;font-size:10.5px;font-weight:700}
+.cmpbtn{min-width:64px;font-size:10.5px;font-weight:700;letter-spacing:.02em;
+  border:1px solid var(--panel-edge);color:var(--sub)}
 .cmpbtn.on{background:var(--hover);border-color:var(--hover);color:#fff}
-@media (max-width:640px){ .pinbtn,.cmpbtn{display:none} }
+@media (min-width:1000px){ .pinbtn{min-width:auto;padding:0 10px} .pin-txt{display:inline} }
+/* スマホでは見出しを2段にして、ピン・比較・原文リンクを残す
+   (以前はここで display:none にしており、スマホから機能が消えていた) */
+@media (max-width:640px){
+  .card-head{flex-wrap:wrap;padding:0 8px 6px 0}
+  .card-toggle{flex:1 0 100%;padding:11px 8px 6px 13px}
+  .card-actions{flex:1 0 100%;justify-content:flex-end;gap:4px;
+    padding:2px 0 0 13px;border-top:1px dashed var(--hair)}
+  .quicklink{margin-right:auto;font-size:11.5px}
+  .cmpbtn{min-width:72px}
+}
 /* ---------- 比較モード ---------- */
 .cmpbar{position:fixed;left:50%;bottom:24px;transform:translate(-50%,0);z-index:55;
   display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--panel-edge);
@@ -200,9 +237,11 @@ main{max-width:1000px;margin:0 auto;padding:18px 22px 70px}
   border-radius:14px;box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
 .modal-head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--hair);flex:none}
 .modal-head h2{margin:0;font-size:14px;font-weight:700;letter-spacing:.03em}
-.modal-close{margin-left:auto;border:none;background:none;color:var(--sub);font-size:20px;cursor:pointer;
-  line-height:1;padding:4px 8px;border-radius:6px}
+.modal-close{margin:-8px -6px -8px auto;border:none;background:none;color:var(--sub);font-size:20px;
+  cursor:pointer;line-height:1;border-radius:8px;
+  min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 .modal-close:hover{background:var(--chipbg);color:var(--ink)}
+.modal-close:focus-visible{outline:2px solid var(--hover);outline-offset:1px}
 .cmp-cols{flex:1;display:flex;overflow-x:auto;overflow-y:hidden}
 .cmp-col{flex:1 0 300px;min-width:280px;max-width:420px;border-right:1px solid var(--hair);
   padding:16px 18px 24px;overflow-y:auto}
@@ -211,8 +250,12 @@ main{max-width:1000px;margin:0 auto;padding:18px 22px 70px}
 .cmp-col-head .code{margin-top:1px}
 .cmp-col-head h3{margin:0;font-size:15px;line-height:1.3}
 .cmp-col-head .kana{display:block;font-size:11px;color:var(--sub);margin-top:2px}
-.cmp-col-remove{margin-left:auto;flex:none;border:none;background:none;color:var(--dim);cursor:pointer;font-size:16px;padding:2px 6px}
+.cmp-col-remove{margin:-10px -8px -10px auto;flex:none;border:none;background:none;color:var(--dim);
+  cursor:pointer;font-size:16px;border-radius:8px;
+  min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 .cmp-col-remove:hover{color:var(--red)}
+.cmp-col-remove:focus-visible{outline:2px solid var(--hover);outline-offset:1px}
+.cmp-cols:focus-visible{outline:2px solid var(--hover);outline-offset:-2px}
 @media (max-width:920px){
   .kwbar{padding:8px 14px}
   .cmp-col{flex-basis:82vw;min-width:82vw}
@@ -238,10 +281,19 @@ footer a{color:var(--hover)}
   main{padding:14px 14px 60px}
   .nm{font-size:13.5px}
 }
+/* 指で操作する端末では当たり判定を広げる。検索欄が16px未満だと
+   iOS Safari がフォーカス時にページを勝手に拡大して戻らないため16pxにする。 */
+@media (pointer:coarse){
+  .searchwrap input{font-size:16px;padding:11px 16px}
+  .chkbtn,.f-pill{min-height:44px}
+  .kw-chip{min-height:40px}
+}
+.chkbtn,.f-pill,.kw-chip{display:inline-flex;align-items:center;touch-action:manipulation}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
+<a class="skiplink" href="#list">検索結果一覧へスキップ</a>
 <div class="brandline"></div>
 <header>
   <div class="crest" aria-hidden="true"><span>✈</span></div>
@@ -275,7 +327,7 @@ footer a{color:var(--hover)}
   <button id="bulkbtn" title="表示中の航空会社について flyzed.info の原文が更新されていないか確認します">原文をまとめて確認</button>
 </div>
 
-<div class="kwbar" id="kwbar" aria-label="よく調べる項目でクイック検索">
+<div class="kwbar" id="kwbar" role="group" aria-label="よく調べる項目でクイック検索">
   <span class="kwlabel">よく調べる:</span>
 </div>
 
@@ -297,7 +349,7 @@ footer a{color:var(--hover)}
     </div>
   </div>
   <div class="chgbanner" id="chgbanner" style="display:none" role="status"></div>
-  <div class="rescount" id="rescount"></div>
+  <div class="rescount" id="rescount" role="status" aria-live="polite"></div>
   <div class="list" id="list"></div>
   <div class="empty" id="empty" style="display:none">該当する航空会社が見つかりませんでした。</div>
 </main>
@@ -311,7 +363,8 @@ footer a{color:var(--hover)}
 </footer>
 
 <div id="toast" role="status" aria-live="polite"></div>
-<div id="cmpbar" style="display:none"></div>
+<span id="bulkstatus" class="sr-only" role="status" aria-live="polite"></span>
+<div id="cmpbar" class="cmpbar" style="display:none"></div>
 <div id="cmpmodal-root"></div>
 
 <script>
@@ -421,9 +474,21 @@ const isEmbargoSec = t => /embargo|エンバーゴ/i.test(t || "");
 const hasEmbargo = d => isDetailed(d) &&
   d.sections.some(s => isEmbargoSec(s.title) && (s.text || "").trim().length > 2);
 
-// A carrier code field may read "MASWINGS, MY" or "TS, 正式名 Air Transat A.T.";
-// pull out the IATA-shaped tokens so a 2-letter query can match exactly.
-const codeTokens = f => ((f || "").match(/[A-Za-z0-9]{2,3}\*?/g) || []).map(s => s.toLowerCase());
+// A carrier code field may read "MASWINGS, MY" or "TS, 正式名 Air Transat A.T.".
+// `src` is the authoritative flyzed key; the display `code` can also hold a
+// second real code. Scanning the whole string would mint junk tokens out of
+// Japanese-adjacent words — "NM, 運航: SAS Natireva" used to yield "va" and
+// hijack every lookup for Virgin Australia — so only the leading ASCII run is
+// scanned, and only whole 2-3 char words count.
+const codeTokens = d => {
+  const set = new Set();
+  const src = (d.src || "").replace(/\*$/, "").toLowerCase();
+  if (src) set.add(src);
+  const asciiHead = (d.code || "").split(/[^\x20-\x7E]/)[0];
+  (asciiHead.match(/\b[A-Za-z0-9]{2,3}\*?\b/g) || [])
+    .forEach(t => set.add(t.replace(/\*$/, "").toLowerCase()));
+  return [...set];
+};
 const IATA_Q = /^[a-z0-9]{2,3}\*?$/;
 
 function passesFilter(d){
@@ -444,7 +509,7 @@ function matches(d, q){
     // carrier owns that code do we fall back to a loose name/alias match, so
     // e.g. "JAL" (which is also a 3-letter code shape) still finds Japan
     // Airlines even though "JL" is its real IATA code.
-    if (codeTokens(d.code).includes(q)) return true;
+    if (codeTokens(d).includes(q)) return true;
     if (EXACT_CODE_EXISTS) return false;
     return (d.name + " " + d.code + " " + aliasText(d)).toLowerCase().includes(q);
   }
@@ -457,7 +522,7 @@ let EXACT_CODE_EXISTS = false;
 
 function visible(){
   const q = document.getElementById("q").value.trim().toLowerCase();
-  EXACT_CODE_EXISTS = IATA_Q.test(q) && DATA.some(d => codeTokens(d.code).includes(q));
+  EXACT_CODE_EXISTS = IATA_Q.test(q) && DATA.some(d => codeTokens(d).includes(q));
   const rows = DATA.filter(d => passesFilter(d) && matches(d, q));
   // Pinned airlines float to the top so a reader doesn't have to search for
   // the same 3-4 carriers every time; irrelevant once the "pinned" filter
@@ -493,35 +558,51 @@ function cardHTML(d, i){
   const cmp = compareHas(d.src);
   const changed = checks[d.src] && checks[d.src].state === "changed";
 
+  const id = esc(d.src || String(i));
+
   return `<div class="card" data-i="${i}">
-    <button class="card-head" aria-expanded="false">
-      <span class="dot ${det ? "full" : "thin"}"></span>
-      <span class="pinbtn${pinned ? " on" : ""}" data-act="pin" role="checkbox" tabindex="0"
-        aria-checked="${pinned}" aria-label="お気に入りに登録">${pinned ? "★" : "☆"}</span>
-      <span class="code">${esc(d.code || "—")}</span>
-      <span class="namewrap">
-        <span class="nm">${esc(d.name)}</span>
-        ${kana ? `<span class="kana">${esc(kana)}</span>` : ""}
+    <h2 class="card-head">
+      <button class="card-toggle" type="button" id="ct-${id}"
+              aria-controls="cb-${id}" aria-expanded="false">
+        <span class="dot ${det ? "full" : "thin"}" aria-hidden="true"></span>
+        <span class="code">${esc(d.code || "—")}</span>
+        <span class="namewrap">
+          <span class="nm">${esc(d.name)}</span>
+          ${kana ? `<span class="kana">${esc(kana)}</span>` : ""}
+        </span>
+        ${det ? '<span class="badge dim">' + d.sections.length + '項目</span>' : ""}
+        ${checkBadge(d)}
+        <span class="chev" aria-hidden="true">&#9656;</span>
+      </button>
+      <span class="card-actions">
+        <button class="pinbtn${pinned ? " on" : ""}" type="button" data-act="pin"
+                aria-pressed="${pinned}"
+                title="${pinned ? "お気に入りから外す" : "お気に入りに登録"}">
+          <span class="pin-ico" aria-hidden="true">${pinned ? "★" : "☆"}</span>
+          <span class="pin-txt" aria-hidden="true">お気に入り</span>
+          <span class="sr-only">${esc(d.name)} を${pinned ? "お気に入りから外す" : "お気に入りに登録"}</span>
+        </button>
+        <button class="cmpbtn${cmp ? " on" : ""}" type="button" data-act="cmp"
+                aria-pressed="${cmp}" title="${cmp ? "比較から外す" : "比較に追加"}">
+          <span aria-hidden="true">${cmp ? "比較中" : "＋比較"}</span>
+          <span class="sr-only">${esc(d.name)} を${cmp ? "比較から外す" : "比較に追加"}</span>
+        </button>
+        <a class="quicklink${changed ? " changed" : ""}"
+           href="https://www.flyzed.info/${encodeURIComponent(d.src || "")}"
+           target="_blank" rel="noopener noreferrer">
+          <span aria-hidden="true">${changed ? "⚠ 原文を確認 ↗" : "原文 ↗"}</span>
+          <span class="sr-only">${esc(d.name)} の原文を flyzed.info で開く(新しいタブ)</span>
+        </a>
       </span>
-      ${det ? '<span class="badge dim">' + d.sections.length + '項目</span>' : ""}
-      ${checkBadge(d)}
-      <span class="cmpbtn${cmp ? " on" : ""}" data-act="cmp" role="checkbox" tabindex="0"
-        aria-checked="${cmp}" aria-label="比較に追加">${cmp ? "比較中" : "＋比較"}</span>
-      <a class="quicklink${changed ? " changed" : ""}"
-         href="https://www.flyzed.info/${encodeURIComponent(d.src || "")}"
-         target="_blank" rel="noopener noreferrer"
-         title="flyzed.info の原文を開く"
-         onclick="event.stopPropagation()">${changed ? "⚠ 原文を確認 ↗" : "原文 ↗"}</a>
-      <span class="chev" aria-hidden="true">&#9656;</span>
-    </button>
-    <div class="card-body">
+    </h2>
+    <div class="card-body" id="cb-${id}">
       ${body}
       <div class="chk" data-src="${esc(d.src || "")}">
-        <button class="chkbtn" data-act="check">原文の最新を確認</button>
+        <button class="chkbtn" data-act="check" type="button">原文の最新を確認</button>
         <a class="srclink" href="https://www.flyzed.info/${encodeURIComponent(d.src || "")}"
            target="_blank" rel="noopener noreferrer">flyzed.info の原文を開く ↗</a>
         <button class="chkbtn" data-act="copylink" type="button">🔗 このカードへのリンクをコピー</button>
-        <span class="chkmsg"></span>
+        <span class="chkmsg" aria-live="polite"></span>
       </div>
     </div>
   </div>`;
@@ -546,7 +627,10 @@ function renderChk(wrap, d){
     if (c.text) {
       const box = document.createElement("div");
       box.className = "orig";
-      box.innerHTML = `<h4>FLYZED.INFO 原文(英語・最新)</h4><p>${esc(c.text)}</p>`;
+      // lang="en" matters: a Japanese TTS voice reading English source text is
+      // unintelligible. tabindex makes the scroll box keyboard-reachable.
+      box.innerHTML = `<h4>FLYZED.INFO 原文(英語・最新)</h4>
+        <p lang="en" tabindex="0" role="region" aria-label="flyzed.info 原文(英語)">${esc(c.text)}</p>`;
       wrap.appendChild(box);
     }
   } else {
@@ -572,19 +656,8 @@ function renderChangeBanner(){
   };
 }
 
-// role="checkbox" spans (pin / compare) can't be real <button> elements —
-// they live inside the card-head <button>, and nested buttons get silently
-// closed by the HTML parser. This wires click + keyboard (Enter/Space)
-// activation on those spans without that pitfall.
-function onActivate(el, fn){
-  el.addEventListener("click", ev => { ev.stopPropagation(); fn(ev); });
-  el.addEventListener("keydown", ev => {
-    if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); ev.stopPropagation(); fn(ev); }
-  });
-}
-
 function copyCardLink(d){
-  const url = `${location.origin}${location.pathname}#${encodeURIComponent(d.src || "")}`;
+  const url = `${SHARE_URL}#${encodeURIComponent(d.src || "")}`;
   const done = () => showToast("このカードへの直接リンクをコピーしました ✈");
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(url).then(done).catch(() => showToast(url));
@@ -593,42 +666,78 @@ function copyCardLink(d){
   }
 }
 
+// render() replaces the whole list, which would otherwise collapse every open
+// card and drop keyboard focus on the floor. Capture both, then restore.
+function renderPreservingState(){
+  const active = document.activeElement;
+  const activeCard = active && active.closest ? active.closest(".card") : null;
+  const keep = activeCard
+    ? { src: DATA[+activeCard.dataset.i].src, act: active.dataset ? active.dataset.act : null }
+    : null;
+  const openSrcs = new Set([...document.querySelectorAll(".card.open")]
+    .map(c => DATA[+c.dataset.i].src));
+
+  render();
+
+  document.querySelectorAll(".card").forEach(c => {
+    const d = DATA[+c.dataset.i];
+    if (!openSrcs.has(d.src)) return;
+    c.classList.add("open");
+    c.querySelector(".card-toggle").setAttribute("aria-expanded", "true");
+    renderChk(c.querySelector(".chk"), d);
+  });
+
+  if (keep) {
+    const c = [...document.querySelectorAll(".card")]
+      .find(el => DATA[+el.dataset.i].src === keep.src);
+    const t = c && (keep.act ? c.querySelector(`[data-act="${keep.act}"]`) : c.querySelector(".card-toggle"));
+    if (t) t.focus({ preventScroll: true });
+  }
+}
+
 function render(){
+  // Resolve filters that no longer have any members *before* building the
+  // list, otherwise the pills and the list disagree until the next click.
+  const pinnedCount  = DATA.filter(d => PINS.has(d.src)).length;
+  const changedCount = DATA.filter(d => checks[d.src] && checks[d.src].state === "changed").length;
+  if (filter === "pinned"  && !pinnedCount)  filter = "all";
+  if (filter === "changed" && !changedCount) filter = "all";
+
   const list = document.getElementById("list");
   const rows = visible();
   list.innerHTML = rows.map((d) => cardHTML(d, DATA.indexOf(d))).join("");
   document.getElementById("rescount").textContent = `${rows.length} 件表示中 / 全 ${DATA.length} 社`;
   document.getElementById("empty").style.display = rows.length ? "none" : "block";
   renderChangeBanner();
+  syncKwChips();
 
   list.querySelectorAll(".card").forEach(card => {
     const d = DATA[+card.dataset.i];
-    const head = card.querySelector(".card-head");
-    head.addEventListener("click", () => {
+    const toggle = card.querySelector(".card-toggle");
+    toggle.addEventListener("click", () => {
       const open = card.classList.toggle("open");
-      head.setAttribute("aria-expanded", open ? "true" : "false");
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
       if (open) renderChk(card.querySelector(".chk"), d);
     });
-    card.querySelector('[data-act="check"]').addEventListener("click", ev => {
-      ev.stopPropagation();
+    card.querySelector('[data-act="check"]').addEventListener("click", () => {
       runCheck(d, card.querySelector(".chk"));
     });
-    card.querySelector('[data-act="copylink"]').addEventListener("click", ev => {
-      ev.stopPropagation();
-      copyCardLink(d);
-    });
-    onActivate(card.querySelector('[data-act="pin"]'), () => {
+    card.querySelector('[data-act="copylink"]').addEventListener("click", () => copyCardLink(d));
+    card.querySelector('[data-act="pin"]').addEventListener("click", () => {
       togglePin(d.src);
-      render();  // re-sort (pinned float to top)
+      const on = PINS.has(d.src);
+      showToast(on ? `${d.name} をお気に入りに登録しました ★` : `${d.name} をお気に入りから外しました`);
+      renderPreservingState();   // pinned rows float to the top
     });
-    onActivate(card.querySelector('[data-act="cmp"]'), () => {
-      const el = card.querySelector('[data-act="cmp"]');
-      const added = toggleCompare(d.src);
-      if (added === false) return;  // hit MAX_COMPARE, nothing changed
+    card.querySelector('[data-act="cmp"]').addEventListener("click", ev => {
+      const el = ev.currentTarget;
+      if (toggleCompare(d.src) === false) return;   // hit MAX_COMPARE
       const on = compareHas(d.src);
       el.classList.toggle("on", on);
-      el.setAttribute("aria-checked", String(on));
-      el.textContent = on ? "比較中" : "＋比較";
+      el.setAttribute("aria-pressed", String(on));
+      el.title = on ? "比較から外す" : "比較に追加";
+      el.querySelector("[aria-hidden]").textContent = on ? "比較中" : "＋比較";
+      el.querySelector(".sr-only").textContent = `${d.name} を${on ? "比較から外す" : "比較に追加"}`;
     });
   });
   renderFilters();
@@ -671,15 +780,16 @@ async function runCheck(d, wrap){
   if (wrap && document.body.contains(wrap)) {
     if (btn) { btn.disabled = false; btn.textContent = "原文の最新を確認"; }
     renderChk(wrap, d);
-    const head = wrap.closest(".card").querySelector(".card-head");
-    const old = head.querySelector(".badge.ok, .badge.warn");
+    const card = wrap.closest(".card");
+    const toggle = card.querySelector(".card-toggle");
+    const old = toggle.querySelector(".badge.ok, .badge.warn");
     if (old) old.remove();
     const html = checkBadge(d);
-    if (html) head.querySelector(".chev").insertAdjacentHTML("beforebegin", html);
-    const ql = head.querySelector(".quicklink");
+    if (html) toggle.querySelector(".chev").insertAdjacentHTML("beforebegin", html);
+    const ql = card.querySelector(".quicklink");
     if (ql && checks[d.src].state === "changed") {
       ql.classList.add("changed");
-      ql.textContent = "⚠ 原文を確認 ↗";
+      ql.querySelector("[aria-hidden]").textContent = "⚠ 原文を確認 ↗";
     }
   }
   renderFilters();
@@ -703,7 +813,10 @@ async function bulkCheck(){
       if (st === "changed") changed++;
       if (st === "error") failed++;
       btn.textContent = `確認中 ${done}/${rows.length}`;
-      if (done % 4 === 0) render();
+      if (done % 10 === 0 || done === rows.length) {
+        document.getElementById("bulkstatus").textContent = `${rows.length}社中 ${done}社を確認しました`;
+      }
+      if (done % 4 === 0) renderPreservingState();
     }
   }
   await Promise.all(Array.from({ length: 6 }, worker));
@@ -726,18 +839,29 @@ function renderFilters(){
     ["detailed", "詳細あり", DATA.filter(isDetailed).length],
     ["embargo", "エンバーゴ記載", DATA.filter(hasEmbargo).length],
     ["thin", "情報なし(確認済)", DATA.filter(d => !isDetailed(d)).length],
+    // Always shown, even at zero: it is the only hint that ☆ does anything.
+    ["pinned", pinned ? "★お気に入り" : "☆お気に入り", pinned],
   ];
-  if (pinned) defs.push(["pinned", "★お気に入り", pinned]);
   if (changed) defs.push(["changed", "原文更新あり", changed]);
-  if (filter === "changed" && !changed) filter = "all";
-  if (filter === "pinned" && !pinned) filter = "all";
 
   document.getElementById("filters").innerHTML = defs.map(([k, label, n]) =>
-    `<button class="f-pill${filter === k ? " on" : ""}" data-f="${k}">${label}<span class="ct">${n}</span></button>`
+    `<button class="f-pill${filter === k ? " on" : ""}" data-f="${k}" type="button"
+      aria-pressed="${filter === k}">${label}<span class="ct">${n}</span></button>`
   ).join("");
 
   document.getElementById("filters").querySelectorAll(".f-pill").forEach(p => {
     p.addEventListener("click", () => { filter = p.dataset.f; render(); });
+  });
+}
+
+// Keep chip highlighting honest when the query is changed by anything other
+// than a chip click (typing, a shared link, the "今すぐ確認する" jump).
+function syncKwChips(){
+  const q = document.getElementById("q").value.trim();
+  document.querySelectorAll("#kwbar .kw-chip").forEach(c => {
+    const on = c.textContent === q;
+    c.classList.toggle("on", on);
+    c.setAttribute("aria-pressed", String(on));
   });
 }
 
@@ -748,12 +872,12 @@ function renderKwChips(){
     chip.type = "button";
     chip.className = "kw-chip";
     chip.textContent = kw;
+    chip.setAttribute("aria-pressed", "false");
     chip.addEventListener("click", () => {
       const input = document.getElementById("q");
       const already = input.value.trim() === kw;
       input.value = already ? "" : kw;  // clicking the active chip again clears it
-      render();
-      bar.querySelectorAll(".kw-chip").forEach(c => c.classList.toggle("on", !already && c === chip));
+      render();                          // render() calls syncKwChips()
     });
     bar.appendChild(chip);
   });
@@ -771,9 +895,7 @@ function updateCmpBar(){
   bar.querySelector(".cmp-clear").addEventListener("click", () => {
     compareList = [];
     updateCmpBar();
-    document.querySelectorAll('.cmpbtn.on').forEach(el => {
-      el.classList.remove("on"); el.setAttribute("aria-checked", "false"); el.textContent = "＋比較";
-    });
+    renderPreservingState();   // resets every ＋比較 badge in one pass
   });
 }
 
@@ -792,42 +914,76 @@ function compareColumnHTML(d){
   </div>`;
 }
 
+const BG_REGIONS = "header,.subtabs,.opbar,.kwbar,main,footer,#cmpbar";
+let cmpLastFocus = null;
+
+function trapFocus(container){
+  const SEL = 'a[href],button:not([disabled]),input,select,textarea,[tabindex]:not([tabindex="-1"])';
+  return ev => {
+    if (ev.key !== "Tab") return;
+    const f = [...container.querySelectorAll(SEL)].filter(el => el.offsetParent !== null);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
+    else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+  };
+}
+
+function closeCompareModal(){
+  document.getElementById("cmpmodal-root").innerHTML = "";
+  document.body.style.overflow = "";
+  document.querySelectorAll(BG_REGIONS).forEach(el => {
+    el.removeAttribute("inert"); el.removeAttribute("aria-hidden");
+  });
+  if (cmpLastFocus && document.body.contains(cmpLastFocus)) cmpLastFocus.focus();
+  cmpLastFocus = null;
+}
+
 function renderCompareModal(){
   const root = document.getElementById("cmpmodal-root");
   const items = compareList.map(code => DATA.find(d => d.src === code)).filter(Boolean);
-  if (!items.length) { root.innerHTML = ""; return; }
+  if (!items.length) { closeCompareModal(); return; }
 
   root.innerHTML = `<div class="modal-backdrop" id="cmpBackdrop"></div>
-    <div class="modal" role="dialog" aria-modal="true" aria-label="航空会社の比較">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cmpTitle">
       <div class="modal-head">
-        <h2>比較(${items.length}社)</h2>
-        <button type="button" class="modal-close" id="cmpClose" aria-label="閉じる">✕</button>
+        <h2 id="cmpTitle" tabindex="-1">比較(${items.length}社)</h2>
+        <button type="button" class="modal-close" id="cmpClose" aria-label="比較を閉じる">✕</button>
       </div>
-      <div class="cmp-cols">${items.map(compareColumnHTML).join("")}</div>
+      <div class="cmp-cols" tabindex="0" role="group" aria-label="比較列(横スクロール)">
+        ${items.map(compareColumnHTML).join("")}
+      </div>
     </div>`;
 
-  const close = () => { document.getElementById("cmpmodal-root").innerHTML = ""; };
-  document.getElementById("cmpBackdrop").addEventListener("click", close);
-  document.getElementById("cmpClose").addEventListener("click", close);
+  document.body.style.overflow = "hidden";
+  document.querySelectorAll(BG_REGIONS).forEach(el => {
+    el.setAttribute("inert", ""); el.setAttribute("aria-hidden", "true");
+  });
+
+  const dialog = root.querySelector(".modal");
+  dialog.addEventListener("keydown", trapFocus(dialog));
+  document.getElementById("cmpTitle").focus();
+  document.getElementById("cmpBackdrop").addEventListener("click", closeCompareModal);
+  document.getElementById("cmpClose").addEventListener("click", closeCompareModal);
+
   root.querySelectorAll(".cmp-col-remove").forEach(btn => {
     btn.addEventListener("click", () => {
       const code = btn.closest(".cmp-col").dataset.src;
-      toggleCompare(code);   // also updates #cmpbar
-      render();              // resyncs each card's ＋比較/比較中 badge
-      if (compareList.length) renderCompareModal(); else close();
+      toggleCompare(code);        // also updates #cmpbar
+      renderPreservingState();    // resyncs each card's ＋比較/比較中 badge
+      if (compareList.length) renderCompareModal(); else closeCompareModal();
     });
   });
 }
 
 function openCompareModal(){
   if (!compareList.length) return;
+  cmpLastFocus = document.activeElement;
   renderCompareModal();
 }
 
 document.addEventListener("keydown", ev => {
-  if (ev.key === "Escape" && document.getElementById("cmpmodal-root").firstChild) {
-    document.getElementById("cmpmodal-root").innerHTML = "";
-  }
+  if (ev.key === "Escape" && document.getElementById("cmpmodal-root").firstChild) closeCompareModal();
 });
 
 const toast = document.getElementById("toast");
@@ -852,6 +1008,31 @@ document.getElementById("sharebtn").onclick = async () => {
 document.getElementById("q").addEventListener("input", render);
 document.getElementById("bulkbtn").addEventListener("click", bulkCheck);
 
+// A shared link like "#AY" should land the reader straight on that airline's
+// open card, not just a pre-filled search box they still have to act on.
+// Resolution goes by exact `src` first — token matching alone once sent "#VA"
+// to Air Moana, whose code string happens to end in "…Nati-re-va".
+function applyHash(){
+  const raw = decodeURIComponent(location.hash.replace(/^#/, "")).trim();
+  if (!raw) return;
+  const low = raw.toLowerCase();
+  const target =
+    DATA.find(d => (d.src || "").toLowerCase() === low) ||
+    (IATA_Q.test(low) ? DATA.find(d => codeTokens(d).includes(low)) : null);
+
+  filter = "all";
+  document.getElementById("q").value = target ? (target.src || target.code) : raw;
+  render();
+  if (!target) return;
+
+  const card = document.querySelector(`.card[data-i="${DATA.indexOf(target)}"]`);
+  if (!card) return;
+  card.classList.add("open");
+  card.querySelector(".card-toggle").setAttribute("aria-expanded", "true");
+  renderChk(card.querySelector(".chk"), target);
+  card.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
 renderKwChips();
 
 fetch("./data.json")
@@ -862,29 +1043,8 @@ fetch("./data.json")
     document.getElementById("st-det").textContent = DATA.filter(isDetailed).length;
     document.getElementById("st-emb").textContent = DATA.filter(hasEmbargo).length;
     render();
-
-    // A shared link like "#AY" should land the reader straight on that
-    // airline's open card, not just a pre-filled search box they still have
-    // to act on.
-    const hashRaw = decodeURIComponent(location.hash.replace(/^#/, "")).trim();
-    if (hashRaw) {
-      const hashLower = hashRaw.toLowerCase();
-      const target = IATA_Q.test(hashLower)
-        ? DATA.find(d => codeTokens(d.code).includes(hashLower))
-        : null;
-      document.getElementById("q").value = target ? target.code : hashRaw;
-      render();
-      if (target) {
-        const idx = DATA.indexOf(target);
-        const card = document.querySelector(`.card[data-i="${idx}"]`);
-        if (card) {
-          card.classList.add("open");
-          card.querySelector(".card-head").setAttribute("aria-expanded", "true");
-          renderChk(card.querySelector(".chk"), target);
-          card.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-      }
-    }
+    applyHash();
+    window.addEventListener("hashchange", applyHash);
   })
   .catch(() => {
     document.getElementById("list").innerHTML =
