@@ -172,6 +172,51 @@ main{max-width:1000px;margin:0 auto;padding:18px 22px 70px}
 .orig h4{margin:0 0 6px;font-size:11px;letter-spacing:.08em;color:var(--warn)}
 .orig p{margin:0;font-size:12.5px;line-height:1.7;max-height:340px;overflow-y:auto;white-space:pre-wrap;
   overflow-wrap:anywhere;font-family:ui-monospace,"SF Mono",Menlo,monospace}
+/* ---------- キーワードショートカット ---------- */
+.kwbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:10px 22px;border-bottom:1px solid var(--hair)}
+.kwlabel{font-size:10.5px;color:var(--sub);letter-spacing:.14em;flex:none}
+.kw-chip{flex:none;border:1px dashed var(--panel-edge);background:none;color:var(--sub);border-radius:999px;
+  padding:4px 11px;font-size:11px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.kw-chip:hover{border-color:var(--hover);color:var(--hover);border-style:solid}
+.kw-chip.on{background:var(--hover);border-color:var(--hover);border-style:solid;color:#fff}
+/* ---------- ピン留め / 比較チェック ---------- */
+.pinbtn,.cmpbtn{flex:none;font-size:14px;line-height:1;cursor:pointer;user-select:none;
+  padding:2px 4px;border-radius:5px;color:var(--dim)}
+.pinbtn:hover,.cmpbtn:hover{background:var(--chipbg)}
+.pinbtn.on{color:var(--gold)}
+.cmpbtn{font-size:10.5px;font-weight:700;letter-spacing:.02em;border:1px solid var(--panel-edge);padding:3px 9px}
+.cmpbtn.on{background:var(--hover);border-color:var(--hover);color:#fff}
+@media (max-width:640px){ .pinbtn,.cmpbtn{display:none} }
+/* ---------- 比較モード ---------- */
+.cmpbar{position:fixed;left:50%;bottom:24px;transform:translate(-50%,0);z-index:55;
+  display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--panel-edge);
+  border-radius:999px;padding:8px 10px 8px 16px;box-shadow:var(--shadow);font-size:12.5px}
+.cmpbar button{flex:none;border:none;border-radius:999px;padding:7px 15px;font-size:12px;font-weight:700;cursor:pointer}
+.cmpbar .cmp-view{background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff}
+.cmpbar .cmp-clear{background:none;color:var(--sub)}
+.cmpbar .cmp-clear:hover{color:var(--red)}
+.modal-backdrop{position:fixed;inset:0;background:rgba(10,10,10,.55);z-index:70}
+.modal{position:fixed;inset:5vh 4vw;z-index:71;background:var(--panel);border:1px solid var(--panel-edge);
+  border-radius:14px;box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
+.modal-head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--hair);flex:none}
+.modal-head h2{margin:0;font-size:14px;font-weight:700;letter-spacing:.03em}
+.modal-close{margin-left:auto;border:none;background:none;color:var(--sub);font-size:20px;cursor:pointer;
+  line-height:1;padding:4px 8px;border-radius:6px}
+.modal-close:hover{background:var(--chipbg);color:var(--ink)}
+.cmp-cols{flex:1;display:flex;overflow-x:auto;overflow-y:hidden}
+.cmp-col{flex:1 0 300px;min-width:280px;max-width:420px;border-right:1px solid var(--hair);
+  padding:16px 18px 24px;overflow-y:auto}
+.cmp-col:last-child{border-right:none}
+.cmp-col-head{display:flex;align-items:flex-start;gap:8px;margin-bottom:10px}
+.cmp-col-head .code{margin-top:1px}
+.cmp-col-head h3{margin:0;font-size:15px;line-height:1.3}
+.cmp-col-head .kana{display:block;font-size:11px;color:var(--sub);margin-top:2px}
+.cmp-col-remove{margin-left:auto;flex:none;border:none;background:none;color:var(--dim);cursor:pointer;font-size:16px;padding:2px 6px}
+.cmp-col-remove:hover{color:var(--red)}
+@media (max-width:920px){
+  .kwbar{padding:8px 14px}
+  .cmp-col{flex-basis:82vw;min-width:82vw}
+}
 .empty{text-align:center;padding:56px 20px;color:var(--sub);font-size:13px}
 footer{border-top:1px solid var(--hair);padding:16px 22px 30px;color:var(--sub);font-size:11px;
   line-height:1.9;max-width:1000px;margin:0 auto}
@@ -230,6 +275,10 @@ footer a{color:var(--hover)}
   <button id="bulkbtn" title="表示中の航空会社について flyzed.info の原文が更新されていないか確認します">原文をまとめて確認</button>
 </div>
 
+<div class="kwbar" id="kwbar" aria-label="よく調べる項目でクイック検索">
+  <span class="kwlabel">よく調べる:</span>
+</div>
+
 <main>
   <p class="intro">
     航空会社職員向けの割引搭乗制度 <b>ZED運賃</b>(Zonal Employee Discount)について、
@@ -262,6 +311,8 @@ footer a{color:var(--hover)}
 </footer>
 
 <div id="toast" role="status" aria-live="polite"></div>
+<div id="cmpbar" style="display:none"></div>
+<div id="cmpmodal-root"></div>
 
 <script>
 const SHARE_URL = location.href.split("#")[0];
@@ -332,6 +383,36 @@ const busy = new Set();
 try { checks = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch (e) { checks = {}; }
 function saveChecks(){ try { localStorage.setItem(LS_KEY, JSON.stringify(checks)); } catch (e) {} }
 
+// ---- お気に入り(ピン留め) ----------------------------------------------
+const PIN_KEY = "zed-pins-v1";
+let PINS = new Set();
+try { PINS = new Set(JSON.parse(localStorage.getItem(PIN_KEY) || "[]")); } catch (e) { PINS = new Set(); }
+function savePins(){ try { localStorage.setItem(PIN_KEY, JSON.stringify([...PINS])); } catch (e) {} }
+function togglePin(code){
+  if (!code) return;
+  PINS.has(code) ? PINS.delete(code) : PINS.add(code);
+  savePins();
+}
+
+// ---- 比較モード(最大4社まで、選んだ順を保持) -----------------------------
+const MAX_COMPARE = 4;
+let compareList = [];
+const compareHas = code => compareList.includes(code);
+function toggleCompare(code){
+  if (!code) return;
+  const i = compareList.indexOf(code);
+  if (i >= 0) { compareList.splice(i, 1); }
+  else {
+    if (compareList.length >= MAX_COMPARE) { showToast(`比較は最大${MAX_COMPARE}社まで選択できます`); return false; }
+    compareList.push(code);
+  }
+  updateCmpBar();
+  return true;
+}
+
+// ---- 検索ショートカット(社ごとに異なる見出しの中から、よく調べる語だけ拾う) --
+const QUICK_KEYWORDS = ["エンバーゴ", "ドレスコード", "手荷物", "チェックイン", "払戻", "ビザ", "特別サービス"];
+
 const esc = s => (s == null ? "" : String(s)).replace(/[&<>"']/g,
   c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
@@ -350,6 +431,7 @@ function passesFilter(d){
   if (filter === "thin")     return !isDetailed(d);
   if (filter === "embargo")  return hasEmbargo(d);
   if (filter === "changed")  return checks[d.src] && checks[d.src].state === "changed";
+  if (filter === "pinned")   return PINS.has(d.src);
   return true;
 }
 
@@ -376,7 +458,14 @@ let EXACT_CODE_EXISTS = false;
 function visible(){
   const q = document.getElementById("q").value.trim().toLowerCase();
   EXACT_CODE_EXISTS = IATA_Q.test(q) && DATA.some(d => codeTokens(d.code).includes(q));
-  return DATA.filter(d => passesFilter(d) && matches(d, q));
+  const rows = DATA.filter(d => passesFilter(d) && matches(d, q));
+  // Pinned airlines float to the top so a reader doesn't have to search for
+  // the same 3-4 carriers every time; irrelevant once the "pinned" filter
+  // already shows pins exclusively.
+  if (filter !== "pinned" && PINS.size) {
+    rows.sort((a, b) => (PINS.has(b.src) ? 1 : 0) - (PINS.has(a.src) ? 1 : 0));
+  }
+  return rows;
 }
 
 function checkBadge(d){
@@ -387,19 +476,28 @@ function checkBadge(d){
   return "";
 }
 
-function cardHTML(d, i){
+function sectionsHTML(d){
   const det = isDetailed(d);
-  const body = det
+  return det
     ? d.sections.map(s => `<div class="sec">
         <div class="sec-t${isEmbargoSec(s.title) ? " emb" : ""}">${esc(s.title)}</div>
         <p class="sec-x">${esc(s.text || "記載なし")}</p></div>`).join("")
     : `<p class="notefield">${esc(d.note || "情報なし")}</p>`;
+}
 
+function cardHTML(d, i){
+  const det = isDetailed(d);
+  const body = sectionsHTML(d);
   const kana = (ALIASES[d.src] || [])[0];
+  const pinned = PINS.has(d.src);
+  const cmp = compareHas(d.src);
+  const changed = checks[d.src] && checks[d.src].state === "changed";
 
   return `<div class="card" data-i="${i}">
     <button class="card-head" aria-expanded="false">
       <span class="dot ${det ? "full" : "thin"}"></span>
+      <span class="pinbtn${pinned ? " on" : ""}" data-act="pin" role="checkbox" tabindex="0"
+        aria-checked="${pinned}" aria-label="お気に入りに登録">${pinned ? "★" : "☆"}</span>
       <span class="code">${esc(d.code || "—")}</span>
       <span class="namewrap">
         <span class="nm">${esc(d.name)}</span>
@@ -407,11 +505,13 @@ function cardHTML(d, i){
       </span>
       ${det ? '<span class="badge dim">' + d.sections.length + '項目</span>' : ""}
       ${checkBadge(d)}
-      <a class="quicklink${checks[d.src] && checks[d.src].state === "changed" ? " changed" : ""}"
+      <span class="cmpbtn${cmp ? " on" : ""}" data-act="cmp" role="checkbox" tabindex="0"
+        aria-checked="${cmp}" aria-label="比較に追加">${cmp ? "比較中" : "＋比較"}</span>
+      <a class="quicklink${changed ? " changed" : ""}"
          href="https://www.flyzed.info/${encodeURIComponent(d.src || "")}"
          target="_blank" rel="noopener noreferrer"
          title="flyzed.info の原文を開く"
-         onclick="event.stopPropagation()">${checks[d.src] && checks[d.src].state === "changed" ? "⚠ 原文を確認 ↗" : "原文 ↗"}</a>
+         onclick="event.stopPropagation()">${changed ? "⚠ 原文を確認 ↗" : "原文 ↗"}</a>
       <span class="chev" aria-hidden="true">&#9656;</span>
     </button>
     <div class="card-body">
@@ -420,6 +520,7 @@ function cardHTML(d, i){
         <button class="chkbtn" data-act="check">原文の最新を確認</button>
         <a class="srclink" href="https://www.flyzed.info/${encodeURIComponent(d.src || "")}"
            target="_blank" rel="noopener noreferrer">flyzed.info の原文を開く ↗</a>
+        <button class="chkbtn" data-act="copylink" type="button">🔗 このカードへのリンクをコピー</button>
         <span class="chkmsg"></span>
       </div>
     </div>
@@ -471,6 +572,27 @@ function renderChangeBanner(){
   };
 }
 
+// role="checkbox" spans (pin / compare) can't be real <button> elements —
+// they live inside the card-head <button>, and nested buttons get silently
+// closed by the HTML parser. This wires click + keyboard (Enter/Space)
+// activation on those spans without that pitfall.
+function onActivate(el, fn){
+  el.addEventListener("click", ev => { ev.stopPropagation(); fn(ev); });
+  el.addEventListener("keydown", ev => {
+    if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); ev.stopPropagation(); fn(ev); }
+  });
+}
+
+function copyCardLink(d){
+  const url = `${location.origin}${location.pathname}#${encodeURIComponent(d.src || "")}`;
+  const done = () => showToast("このカードへの直接リンクをコピーしました ✈");
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(done).catch(() => showToast(url));
+  } else {
+    showToast(url);
+  }
+}
+
 function render(){
   const list = document.getElementById("list");
   const rows = visible();
@@ -490,6 +612,23 @@ function render(){
     card.querySelector('[data-act="check"]').addEventListener("click", ev => {
       ev.stopPropagation();
       runCheck(d, card.querySelector(".chk"));
+    });
+    card.querySelector('[data-act="copylink"]').addEventListener("click", ev => {
+      ev.stopPropagation();
+      copyCardLink(d);
+    });
+    onActivate(card.querySelector('[data-act="pin"]'), () => {
+      togglePin(d.src);
+      render();  // re-sort (pinned float to top)
+    });
+    onActivate(card.querySelector('[data-act="cmp"]'), () => {
+      const el = card.querySelector('[data-act="cmp"]');
+      const added = toggleCompare(d.src);
+      if (added === false) return;  // hit MAX_COMPARE, nothing changed
+      const on = compareHas(d.src);
+      el.classList.toggle("on", on);
+      el.setAttribute("aria-checked", String(on));
+      el.textContent = on ? "比較中" : "＋比較";
     });
   });
   renderFilters();
@@ -581,14 +720,17 @@ async function bulkCheck(){
 
 function renderFilters(){
   const changed = DATA.filter(d => checks[d.src] && checks[d.src].state === "changed").length;
+  const pinned = DATA.filter(d => PINS.has(d.src)).length;
   const defs = [
     ["all", "すべて", DATA.length],
     ["detailed", "詳細あり", DATA.filter(isDetailed).length],
     ["embargo", "エンバーゴ記載", DATA.filter(hasEmbargo).length],
     ["thin", "情報なし(確認済)", DATA.filter(d => !isDetailed(d)).length],
   ];
+  if (pinned) defs.push(["pinned", "★お気に入り", pinned]);
   if (changed) defs.push(["changed", "原文更新あり", changed]);
   if (filter === "changed" && !changed) filter = "all";
+  if (filter === "pinned" && !pinned) filter = "all";
 
   document.getElementById("filters").innerHTML = defs.map(([k, label, n]) =>
     `<button class="f-pill${filter === k ? " on" : ""}" data-f="${k}">${label}<span class="ct">${n}</span></button>`
@@ -598,6 +740,95 @@ function renderFilters(){
     p.addEventListener("click", () => { filter = p.dataset.f; render(); });
   });
 }
+
+function renderKwChips(){
+  const bar = document.getElementById("kwbar");
+  QUICK_KEYWORDS.forEach(kw => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "kw-chip";
+    chip.textContent = kw;
+    chip.addEventListener("click", () => {
+      const input = document.getElementById("q");
+      const already = input.value.trim() === kw;
+      input.value = already ? "" : kw;  // clicking the active chip again clears it
+      render();
+      bar.querySelectorAll(".kw-chip").forEach(c => c.classList.toggle("on", !already && c === chip));
+    });
+    bar.appendChild(chip);
+  });
+}
+
+// ---- 比較モード: フローティングバー & モーダル ----------------------------
+function updateCmpBar(){
+  const bar = document.getElementById("cmpbar");
+  if (!compareList.length) { bar.style.display = "none"; bar.innerHTML = ""; return; }
+  bar.style.display = "flex";
+  bar.innerHTML = `<span>比較: <b>${compareList.length}</b>社選択中</span>
+    <button type="button" class="cmp-view">比較を見る</button>
+    <button type="button" class="cmp-clear">クリア</button>`;
+  bar.querySelector(".cmp-view").addEventListener("click", openCompareModal);
+  bar.querySelector(".cmp-clear").addEventListener("click", () => {
+    compareList = [];
+    updateCmpBar();
+    document.querySelectorAll('.cmpbtn.on').forEach(el => {
+      el.classList.remove("on"); el.setAttribute("aria-checked", "false"); el.textContent = "＋比較";
+    });
+  });
+}
+
+function compareColumnHTML(d){
+  const kana = (ALIASES[d.src] || [])[0];
+  return `<div class="cmp-col" data-src="${esc(d.src || "")}">
+    <div class="cmp-col-head">
+      <span class="code">${esc(d.code || "—")}</span>
+      <div>
+        <h3>${esc(d.name)}</h3>
+        ${kana ? `<span class="kana">${esc(kana)}</span>` : ""}
+      </div>
+      <button type="button" class="cmp-col-remove" title="比較から外す" aria-label="比較から外す">✕</button>
+    </div>
+    ${sectionsHTML(d)}
+  </div>`;
+}
+
+function renderCompareModal(){
+  const root = document.getElementById("cmpmodal-root");
+  const items = compareList.map(code => DATA.find(d => d.src === code)).filter(Boolean);
+  if (!items.length) { root.innerHTML = ""; return; }
+
+  root.innerHTML = `<div class="modal-backdrop" id="cmpBackdrop"></div>
+    <div class="modal" role="dialog" aria-modal="true" aria-label="航空会社の比較">
+      <div class="modal-head">
+        <h2>比較(${items.length}社)</h2>
+        <button type="button" class="modal-close" id="cmpClose" aria-label="閉じる">✕</button>
+      </div>
+      <div class="cmp-cols">${items.map(compareColumnHTML).join("")}</div>
+    </div>`;
+
+  const close = () => { document.getElementById("cmpmodal-root").innerHTML = ""; };
+  document.getElementById("cmpBackdrop").addEventListener("click", close);
+  document.getElementById("cmpClose").addEventListener("click", close);
+  root.querySelectorAll(".cmp-col-remove").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const code = btn.closest(".cmp-col").dataset.src;
+      toggleCompare(code);   // also updates #cmpbar
+      render();              // resyncs each card's ＋比較/比較中 badge
+      if (compareList.length) renderCompareModal(); else close();
+    });
+  });
+}
+
+function openCompareModal(){
+  if (!compareList.length) return;
+  renderCompareModal();
+}
+
+document.addEventListener("keydown", ev => {
+  if (ev.key === "Escape" && document.getElementById("cmpmodal-root").firstChild) {
+    document.getElementById("cmpmodal-root").innerHTML = "";
+  }
+});
 
 const toast = document.getElementById("toast");
 let toastTimer = null;
@@ -621,6 +852,8 @@ document.getElementById("sharebtn").onclick = async () => {
 document.getElementById("q").addEventListener("input", render);
 document.getElementById("bulkbtn").addEventListener("click", bulkCheck);
 
+renderKwChips();
+
 fetch("./data.json")
   .then(r => r.json())
   .then(rows => {
@@ -629,8 +862,29 @@ fetch("./data.json")
     document.getElementById("st-det").textContent = DATA.filter(isDetailed).length;
     document.getElementById("st-emb").textContent = DATA.filter(hasEmbargo).length;
     render();
-    const code = decodeURIComponent(location.hash.replace(/^#/, "")).trim().toLowerCase();
-    if (code) { document.getElementById("q").value = code; render(); }
+
+    // A shared link like "#AY" should land the reader straight on that
+    // airline's open card, not just a pre-filled search box they still have
+    // to act on.
+    const hashRaw = decodeURIComponent(location.hash.replace(/^#/, "")).trim();
+    if (hashRaw) {
+      const hashLower = hashRaw.toLowerCase();
+      const target = IATA_Q.test(hashLower)
+        ? DATA.find(d => codeTokens(d.code).includes(hashLower))
+        : null;
+      document.getElementById("q").value = target ? target.code : hashRaw;
+      render();
+      if (target) {
+        const idx = DATA.indexOf(target);
+        const card = document.querySelector(`.card[data-i="${idx}"]`);
+        if (card) {
+          card.classList.add("open");
+          card.querySelector(".card-head").setAttribute("aria-expanded", "true");
+          renderChk(card.querySelector(".chk"), target);
+          card.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }
+    }
   })
   .catch(() => {
     document.getElementById("list").innerHTML =
