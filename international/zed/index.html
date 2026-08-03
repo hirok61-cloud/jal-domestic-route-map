@@ -119,6 +119,13 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
 #bulkbtn:focus-visible{outline:2px solid var(--hover);outline-offset:2px}
 /* ---------- 本文 ---------- */
 main{max-width:1000px;margin:0 auto;padding:18px 22px 70px}
+.about > summary{cursor:pointer;font-size:12px;color:var(--sub);letter-spacing:.06em;
+  padding:8px 2px;list-style:none;display:flex;align-items:center;gap:6px;min-height:36px}
+.about > summary::-webkit-details-marker{display:none}
+.about > summary::before{content:"▸";color:var(--red);transition:transform .15s;font-size:11px}
+.about[open] > summary::before{transform:rotate(90deg)}
+.about > summary:hover{color:var(--red)}
+.about > summary:focus-visible{outline:2px solid var(--red);outline-offset:2px;border-radius:6px}
 .intro{color:var(--sub);font-size:12.5px;line-height:1.75;margin:0 0 6px;max-width:74ch}
 .intro b{color:var(--ink)}
 .notice{display:flex;gap:9px;align-items:flex-start;background:var(--chipbg);border:1px solid var(--panel-edge);
@@ -158,7 +165,12 @@ main{max-width:1000px;margin:0 auto;padding:18px 22px 70px}
 .quicklink:hover{text-decoration:underline;background:var(--chipbg)}
 .quicklink:focus-visible{outline:2px solid var(--hover);outline-offset:1px}
 .quicklink.changed{color:var(--warn);font-weight:700;border:1px solid var(--warn)}
-@media (max-width:640px){ .kana{display:none} }
+/* On narrow screens the kana moves under the name instead of disappearing —
+   it is often the only part of the label a Japanese reader recognises. */
+@media (max-width:640px){
+  .namewrap{flex-wrap:wrap;row-gap:1px}
+  .kana{flex:1 0 100%}
+}
 .badge{font-size:10px;font-weight:700;letter-spacing:.04em;border-radius:5px;padding:2px 7px;flex:none;white-space:nowrap}
 .badge.ok{color:var(--ok);background:var(--ok-bg);border:1px solid color-mix(in srgb,var(--ok) 35%,transparent)}
 .badge.warn{color:var(--warn);background:var(--warn-bg);border:1px solid color-mix(in srgb,var(--warn) 40%,transparent)}
@@ -191,7 +203,9 @@ main{max-width:1000px;margin:0 auto;padding:18px 22px 70px}
 .orig p{margin:0;font-size:12.5px;line-height:1.7;max-height:340px;overflow-y:auto;white-space:pre-wrap;
   overflow-wrap:anywhere;font-family:ui-monospace,"SF Mono",Menlo,monospace}
 /* ---------- キーワードショートカット ---------- */
-.kwbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:10px 22px;border-bottom:1px solid var(--hair)}
+.kwbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:10px 22px;
+  border-bottom:1px solid var(--hair);position:sticky;top:var(--opbar-h,0px);z-index:19;
+  background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(8px)}
 .kwlabel{font-size:10.5px;color:var(--sub);letter-spacing:.14em;flex:none}
 .kw-chip{flex:none;border:1px dashed var(--panel-edge);background:none;color:var(--sub);border-radius:999px;
   padding:4px 11px;font-size:11px;cursor:pointer;transition:all .15s;white-space:nowrap}
@@ -225,7 +239,11 @@ main{max-width:1000px;margin:0 auto;padding:18px 22px 70px}
   .cmpbtn{min-width:72px}
 }
 /* ---------- 比較モード ---------- */
-.cmpbar{position:fixed;left:50%;bottom:24px;transform:translate(-50%,0);z-index:55;
+/* left:50% + translateX(-50%) alone caps the usable width at half the
+   viewport, which crushed this bar into a vertical sliver below ~590px.
+   Anchoring both edges and centring with auto margins keeps it intrinsic. */
+.cmpbar{position:fixed;left:0;right:0;bottom:24px;margin-inline:auto;
+  width:max-content;max-width:calc(100% - 24px);z-index:55;
   display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--panel-edge);
   border-radius:999px;padding:8px 10px 8px 16px;box-shadow:var(--shadow);font-size:12.5px}
 .cmpbar button{flex:none;border:none;border-radius:999px;padding:7px 15px;font-size:12px;font-weight:700;cursor:pointer}
@@ -258,7 +276,11 @@ main{max-width:1000px;margin:0 auto;padding:18px 22px 70px}
 .cmp-cols:focus-visible{outline:2px solid var(--hover);outline-offset:-2px}
 @media (max-width:920px){
   .kwbar{padding:8px 14px}
-  .cmp-col{flex-basis:82vw;min-width:82vw}
+  /* leave a sliver of the next column visible so the horizontal scroll,
+     and therefore the fact that this IS a comparison, is discoverable */
+  .cmp-col{flex-basis:78vw;min-width:78vw}
+  .cmpbar{bottom:14px;font-size:12px;gap:7px;padding:7px 8px 7px 13px}
+  .cmpbar button{padding:8px 12px}
 }
 .empty{text-align:center;padding:56px 20px;color:var(--sub);font-size:13px}
 footer{border-top:1px solid var(--hair);padding:16px 22px 30px;color:var(--sub);font-size:11px;
@@ -288,7 +310,7 @@ footer a{color:var(--hover)}
   .chkbtn,.f-pill{min-height:44px}
   .kw-chip{min-height:40px}
 }
-.chkbtn,.f-pill,.kw-chip{display:inline-flex;align-items:center;touch-action:manipulation}
+.chkbtn,.f-pill,.kw-chip{display:inline-flex;align-items:center;min-height:36px;touch-action:manipulation}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -332,6 +354,8 @@ footer a{color:var(--hover)}
 </div>
 
 <main>
+<details class="about" id="about">
+  <summary>このページについて / ご利用上の注意</summary>
   <p class="intro">
     航空会社職員向けの割引搭乗制度 <b>ZED運賃</b>(Zonal Employee Discount)について、
     <b>flyzed.info</b> に掲載されている全263社のページを個別に取得し、原文サイトの見出し構成
@@ -348,6 +372,7 @@ footer a{color:var(--hover)}
       翻訳時点から flyzed.info の原文が変わっていないかをその場で照合できます。
     </div>
   </div>
+</details>
   <div class="chgbanner" id="chgbanner" style="display:none" role="status"></div>
   <div class="rescount" id="rescount" role="status" aria-live="polite"></div>
   <div class="list" id="list"></div>
@@ -469,6 +494,12 @@ const QUICK_KEYWORDS = ["エンバーゴ", "ドレスコード", "手荷物", "�
 const esc = s => (s == null ? "" : String(s)).replace(/[&<>"']/g,
   c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
+// Some source sections carry Markdown-style **emphasis** around meaningful
+// sub-labels ("**受託手荷物**:"). Rendering the asterisks literally looks
+// broken, so promote them to real bold — after escaping, so this can never
+// introduce markup from the data.
+const richText = s => esc(s).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+
 const isDetailed = d => Array.isArray(d.sections) && d.sections.length > 0;
 const isEmbargoSec = t => /embargo|エンバーゴ/i.test(t || "");
 const hasEmbargo = d => isDetailed(d) &&
@@ -546,7 +577,7 @@ function sectionsHTML(d){
   return det
     ? d.sections.map(s => `<div class="sec">
         <div class="sec-t${isEmbargoSec(s.title) ? " emb" : ""}">${esc(s.title)}</div>
-        <p class="sec-x">${esc(s.text || "記載なし")}</p></div>`).join("")
+        <p class="sec-x">${richText(s.text || "記載なし")}</p></div>`).join("")
     : `<p class="notefield">${esc(d.note || "情報なし")}</p>`;
 }
 
@@ -1030,10 +1061,29 @@ function applyHash(){
   card.classList.add("open");
   card.querySelector(".card-toggle").setAttribute("aria-expanded", "true");
   renderChk(card.querySelector(".chk"), target);
-  card.scrollIntoView({ behavior: "smooth", block: "center" });
+  // Land on the airline's name, not the middle of a long expanded card —
+  // offset by the sticky toolbar so the header isn't hidden underneath it.
+  const bars = document.querySelector(".opbar").offsetHeight
+             + document.querySelector(".kwbar").offsetHeight;
+  const y = card.getBoundingClientRect().top + window.scrollY - bars - 8;
+  window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
 }
 
+// The keyword bar sticks directly beneath the search/filter bar, whose height
+// depends on how many rows the pills wrap onto.
+function syncStickyOffset(){
+  const h = document.querySelector(".opbar").offsetHeight;
+  document.documentElement.style.setProperty("--opbar-h", h + "px");
+}
+window.addEventListener("resize", syncStickyOffset);
+
+// On a phone the intro + safety notice cost roughly two screens before the
+// first airline appears, so it starts collapsed there and open on desktop.
+const aboutEl = document.getElementById("about");
+aboutEl.open = window.innerWidth > 640;
+
 renderKwChips();
+syncStickyOffset();
 
 fetch("./data.json")
   .then(r => r.json())
