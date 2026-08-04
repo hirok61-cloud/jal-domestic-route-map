@@ -173,6 +173,8 @@ main{max-width:1000px;margin:0 auto;padding:18px 22px 70px}
 .namewrap{flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;overflow:hidden}
 .nm{font-weight:700;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none;max-width:100%}
 .kana{font-size:11.5px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.country{font-size:11.5px;color:var(--sub);white-space:nowrap;flex:none;display:inline-flex;align-items:center;gap:3px}
+.country span[aria-hidden]{font-size:13px}
 .quicklink{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 10px;
   margin:-10px 0;font-size:11px;color:var(--hover);text-decoration:none;flex:none;
   border-radius:8px;white-space:nowrap;touch-action:manipulation}
@@ -184,6 +186,7 @@ main{max-width:1000px;margin:0 auto;padding:18px 22px 70px}
 @media (max-width:640px){
   .namewrap{flex-wrap:wrap;row-gap:1px}
   .kana{flex:1 0 100%}
+  .country{flex:1 0 100%}
 }
 .badge{font-size:10px;font-weight:700;letter-spacing:.04em;border-radius:5px;padding:2px 7px;flex:none;white-space:nowrap}
 .badge.ok{color:var(--ok);background:var(--ok-bg);border:1px solid color-mix(in srgb,var(--ok) 35%,transparent)}
@@ -308,6 +311,7 @@ main{max-width:1000px;margin:0 auto;padding:18px 22px 70px}
 .cmp-col-head .code{margin-top:1px}
 .cmp-col-head h3{margin:0;font-size:15px;line-height:1.3}
 .cmp-col-head .kana{display:block;font-size:11px;color:var(--sub);margin-top:2px}
+.cmp-col-head .country{display:inline-flex;font-size:11px;margin-top:2px}
 .cmp-col-remove{margin:-10px -8px -10px auto;flex:none;border:none;background:none;color:var(--dim);
   cursor:pointer;font-size:16px;border-radius:8px;
   min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
@@ -626,6 +630,91 @@ async function refreshAlliances(){
   btn.textContent = "アライアンス情報を更新";
 }
 
+// ---- 国・地域(フィルタなし、一目で分かるようにするだけの表示用) ------------
+// Keyed by the exact `src` value (not the stripped base code used for
+// logos/alliances), so entries that collide on IATA-style code once a
+// trailing "*" is stripped (ES/ES*, P6/P6*) can still carry two different,
+// correct countries. A handful of dummy/test rows and a few carriers whose
+// home base I couldn't confirm confidently are left out on purpose — no
+// flag is better than a wrong one.
+const COUNTRY = {
+  "AN":["US","米国"], "A3":["GR","ギリシャ"], "EI":["IE","アイルランド"], "SU":["RU","ロシア"],
+  "XZ":["IT","イタリア"], "AR":["AR","アルゼンチン"], "AM":["MX","メキシコ"], "AW":["GH","ガーナ"],
+  "AH":["DZ","アルジェリア"], "AYY":["CA","カナダ"], "6I":["DK","デンマーク"], "G9":["AE","UAE"],
+  "KC":["KZ","カザフスタン"], "UU":["RE","レユニオン(仏)"], "BT":["LV","ラトビア"], "MY":["MY","マレーシア"],
+  "BP":["BW","ボツワナ"], "SM":["EG","エジプト"], "TY":["NC","ニューカレドニア(仏)"], "SB":["NC","ニューカレドニア(仏)"],
+  "AC":["CA","カナダ"], "TX":["GP","グアドループ(仏)"], "XK":["FR","フランス"], "HF":["CI","コートジボワール"],
+  "YN":["CA","カナダ"], "EN":["IT","イタリア"], "UX":["ES","スペイン"], "AF":["FR","フランス"],
+  "GL":["GL","グリーンランド"], "E2":["IL","イスラエル"], "3C":["NZ","ニュージーランド"], "IX":["IN","インド"],
+  "AI":["IN","インド"], "3H":["CA","カナダ"], "DU":["FR","フランス"], "4Z":["ZA","南アフリカ"],
+  "NX":["MO","マカオ"], "MK":["MU","モーリシャス"], "NM":["PF","フランス領ポリネシア"], "NZ":["NZ","ニュージーランド"],
+  "PX":["PG","パプアニューギニア"], "TL":["AU","オーストラリア"], "4N":["CA","カナダ"], "P4":["NG","ナイジェリア"],
+  "GZ":["CK","クック諸島"], "JU":["RS","セルビア"], "HM":["SC","セーシェル"], "VT":["PF","フランス領ポリネシア"],
+  "TN":["PF","フランス領ポリネシア"], "8T":["CA","カナダ"], "TS":["CA","カナダ"], "QP":["IN","インド"],
+  "AS":["US","米国"], "G4":["US","米国"], "HP":["SE","スウェーデン"], "8R":["FR","フランス"],
+  "AA":["US","米国"], "NH":["JP","日本"], "DM":["DO","ドミニカ共和国"], "IZ":["IL","イスラエル"],
+  "OZ":["KR","韓国"], "KP":["TG","トーゴ"], "5O":["FR","フランス"], "RC":["FO","フェロー諸島"],
+  "HZ":["RU","ロシア"], "OS":["AT","オーストリア"], "XP":["US","米国"], "AV":["CO","コロンビア"],
+  "AD":["BR","ブラジル"], "UP":["BS","バハマ"], "PG":["TH","タイ"], "B2":["BY","ベラルーシ"],
+  "B4":["MV","モルディブ"], "2T":["BM","バミューダ"], "NT":["ES","スペイン"], "4B":["US","米国"],
+  "MX":["US","米国"], "BA":["GB","英国"], "SN":["BE","ベルギー"], "VR":["CV","カーボベルデ"],
+  "MO":["CA","カナダ"], "5T":["CA","カナダ"], "PM":["ES","スペイン"], "9K":["US","米国"],
+  "BW":["TT","トリニダード・トバゴ"], "CX":["HK","香港"], "KX":["KY","ケイマン諸島"], "9M":["CA","カナダ"],
+  "VE":["ES","スペイン"], "DE":["DE","ドイツ"], "LF":["US","米国"], "CM":["PA","パナマ"],
+  "XC":["TR","トルコ"], "SS":["FR","フランス"], "OU":["HR","クロアチア"], "CY":["CY","キプロス"],
+  "DN":["RO","ルーマニア"], "DX":["DK","デンマーク"], "DL":["US","米国"], "KG":["US","米国"],
+  "D0":["GB","英国"], "ES*":["BH","バーレーン"], "4Y":["DE","ドイツ"], "8J":["RU","ロシア"],
+  "MS":["EG","エジプト"], "LY":["IL","イスラエル"], "EA":["IE","アイルランド"], "EK":["AE","UAE"],
+  "ES":["VE","ベネズエラ"], "ET":["ET","エチオピア"], "EY":["AE","UAE"], "YU":["PT","ポルトガル"],
+  "EW":["DE","ドイツ"], "BR":["TW","台湾"], "FJ":["FJ","フィジー"], "AY":["FI","フィンランド"],
+  "8D":["LK","スリランカ"], "F8":["CA","カナダ"], "FZ":["AE","UAE"], "XY":["SA","サウジアラビア"],
+  "BF":["FR","フランス"], "F9":["US","米国"], "GA":["ID","インドネシア"], "G6":["US","米国"],
+  "G3":["BR","ブラジル"], "GF":["BH","バーレーン"], "G8":["GF","フランス領ギアナ"], "HR":["DE","ドイツ"],
+  "HU":["CN","中国"], "YB":["CA","カナダ"], "2L":["CH","スイス"], "HX":["HK","香港"],
+  "UO":["HK","香港"], "MR":["MN","モンゴル"], "CS":["CH","スイス"], "CE":["FR","フランス"],
+  "CI":["TW","台湾"], "MU":["CN","中国"], "IB":["ES","スペイン"], "FI":["IS","アイスランド"],
+  "6E":["IN","インド"], "IR":["IR","イラン"], "6H":["IL","イスラエル"], "AZ":["IT","イタリア"],
+  "JL":["JP","日本"], "J9":["KW","クウェート"], "B6":["US","米国"], "LJ":["KR","韓国"],
+  "XE":["US","米国"], "K4":["US","米国"], "M5":["US","米国"], "KQ":["KE","ケニア"],
+  "FK":["CA","カナダ"], "KL":["NL","オランダ"], "KM":["MT","マルタ"], "KE":["KR","韓国"],
+  "KU":["KW","クウェート"], "B0":["FR","フランス"], "TM":["MZ","モザンビーク"], "LA":["CL","チリ"],
+  "KK":["DK","デンマーク"], "FC":["AU","オーストラリア"], "LM":["GB","英国"], "LO":["PL","ポーランド"],
+  "LH":["DE","ドイツ"], "LG":["LU","ルクセンブルク"], "MD":["MG","マダガスカル"], "MH":["MY","マレーシア"],
+  "AE":["TW","台湾"], "DI":["DE","ドイツ"], "OM":["MN","モンゴル"], "ME":["LB","レバノン"],
+  "NO":["IT","イタリア"], "RA":["NP","ネパール"], "N0":["NO","ノルウェー"], "0N":["CA","カナダ"],
+  "DY":["NO","ノルウェー"], "OA":["GR","ギリシャ"], "WY":["OM","オマーン"], "8P":["CA","カナダ"],
+  "PK":["PK","パキスタン"], "PB":["CA","カナダ"], "P6*":["CA","カナダ"], "MM":["JP","日本"],
+  "PC":["TR","トルコ"], "JV":["CA","カナダ"], "PR":["PH","フィリピン"], "PU":["ES","スペイン"],
+  "DP":["RU","ロシア"], "PD":["CA","カナダ"], "PW":["TZ","タンザニア"], "JW":["DE","ドイツ"],
+  "P6":["ES","スペイン"], "PRA":["DE","ドイツ"], "PP":["CA","カナダ"], "QF":["AU","オーストラリア"],
+  "QR":["QA","カタール"], "RX":["SA","サウジアラビア"], "AT":["MA","モロッコ"], "BI":["BN","ブルネイ"],
+  "RJ":["JO","ヨルダン"], "WB":["RW","ルワンダ"], "OV":["OM","オマーン"], "S4":["PT","ポルトガル"],
+  "SV":["SA","サウジアラビア"], "SK":["SE","スウェーデン"], "BB":["PR","プエルトリコ(米)"], "ZH":["CN","中国"],
+  "S7":["RU","ロシア"], "SQ":["SG","シンガポール"], "H2":["CL","チリ"], "QS":["CZ","チェコ"],
+  "IE":["SB","ソロモン諸島"], "SA":["ZA","南アフリカ"], "9X":["US","米国"], "WN":["US","米国"],
+  "UL":["LK","スリランカ"], "JX":["TW","台湾"], "SY":["US","米国"], "XQ":["TR","トルコ"],
+  "S6":["HT","ハイチ"], "PY":["SR","スリナム"], "LX":["CH","スイス"], "7E":["DE","ドイツ"],
+  "DT":["AO","アンゴラ"], "TP":["PT","ポルトガル"], "K3":["US","米国"], "RO":["RO","ルーマニア"],
+  "TG":["TH","タイ"], "THU":["CA","カナダ"], "IT":["TW","台湾"], "TJ":["US","米国"],
+  "TO":["FR","フランス"], "4T":["CA","カナダ"], "HV":["NL","オランダ"], "9N":["BZ","ベリーズ"],
+  "X3":["DE","ドイツ"], "TU":["TN","チュニジア"], "TK":["TR","トルコ"], "B7":["TW","台湾"],
+  "UA":["US","米国"], "UN":["NG","ナイジェリア"], "UT":["RU","ロシア"], "VN":["VN","ベトナム"],
+  "VS":["GB","英国"], "VA":["AU","オーストラリア"], "VB":["MX","メキシコ"], "Y4":["MX","メキシコ"],
+  "V7":["ES","スペイン"], "WF":["NO","ノルウェー"], "WM":["SX","シント・マールテン"], "P5":["CO","コロンビア"],
+  "MF":["CN","中国"], "IY":["YE","イエメン"], "VC":["DK","デンマーク"],
+};
+function flagEmoji(iso){
+  if (!iso || iso.length !== 2) return "";
+  const BASE = 0x1F1E6;
+  return String.fromCodePoint(...[...iso.toUpperCase()].map(c => BASE + c.charCodeAt(0) - 65));
+}
+function countryHTML(d){
+  const c = COUNTRY[d.src];
+  if (!c) return "";
+  const [iso, label] = c;
+  return `<span class="country"><span aria-hidden="true">${flagEmoji(iso)}</span> ${esc(label)}</span>`;
+}
+
 let DATA = [];
 let filter = "all";
 let checks = {};      // code -> {state:"same"|"changed"|"error", at:ISO, hash, text}
@@ -893,6 +982,7 @@ function cardHTML(d, i){
         <span class="namewrap">
           <span class="nm">${esc(d.name)}</span>
           ${kana ? `<span class="kana">${esc(kana)}</span>` : ""}
+          ${countryHTML(d)}
         </span>
         ${det ? '<span class="badge dim">' + d.sections.length + '項目</span>' : ""}
         ${allianceBadgeHTML(d)}
@@ -1244,6 +1334,7 @@ function compareColumnHTML(d){
       <div>
         <h3>${esc(d.name)}</h3>
         ${kana ? `<span class="kana">${esc(kana)}</span>` : ""}
+        ${countryHTML(d)}
         ${allianceBadgeHTML(d)}
       </div>
       <button type="button" class="cmp-col-remove" title="比較から外す" aria-label="比較から外す">✕</button>
