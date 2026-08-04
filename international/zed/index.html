@@ -152,6 +152,19 @@ main{max-width:1000px;margin:0 auto;padding:18px 22px 70px}
 .card-toggle:focus-visible{outline:2px solid var(--red);outline-offset:-2px;border-radius:8px}
 .card-actions{display:flex;align-items:center;gap:2px;flex:none}
 .dot{width:7px;height:7px;border-radius:50%;flex:none}
+/* Fallback (code initials on a tinted tile) paints first; the live logo
+   <img> — fetched from a public airline-logo service, never bundled by us —
+   sits on top via z-index and simply isn't there if it 404s, leaving the
+   fallback visible underneath. No load-state tracking needed either way. */
+.logo{position:relative;flex:none;width:28px;height:28px;border-radius:7px;overflow:hidden;
+  background:var(--chipbg);border:1px solid var(--panel-edge)}
+.logo-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:9.5px;font-weight:800;letter-spacing:.02em;color:var(--dim-icon)}
+.logo img{position:relative;z-index:1;width:100%;height:100%;object-fit:contain;
+  background:#fff;display:block}
+.cmp-col-head .logo{width:32px;height:32px;border-radius:8px}
+.cmp-col-head .logo-fallback{font-size:11px}
+@media (max-width:640px){ .logo{width:24px;height:24px} .logo-fallback{font-size:8.5px} }
 .dot.full{background:var(--red)}
 .dot.thin{background:var(--dim)}
 .code{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12.5px;font-weight:700;
@@ -610,6 +623,34 @@ function sectionsHTML(d){
   }).join("");
 }
 
+// Airline logos, fetched live from a public logo service keyed by IATA-style
+// code (never bundled/cached by us, so they stay current if a carrier
+// rebrands). Coverage isn't 100% — very small/regional carriers and the
+// handful of dummy/test entries in this dataset (~7%) have no logo there —
+// so every card renders a coloured code-initial as the base layer FIRST,
+// then the <img> paints over it; if the image 404s, onerror removes it and
+// the initials stay visible. No JS state tracking needed either way.
+//
+// 2-letter IATA codes get reused across decades, so the free logo service
+// occasionally maps one to the wrong (often defunct) carrier — e.g. "AN"
+// returned French regional brand HOP! instead of Advanced Air. Known-bad
+// mappings go here to fall back to the initials tile instead of showing a
+// confidently wrong logo; add to this list if you spot another mismatch.
+const LOGO_BLOCKLIST = new Set(["AN"]);
+
+function logoHTML(d){
+  const base = (d.src || "").replace(/\*$/, "");
+  const initials = esc(base ? base.slice(0, 2).toUpperCase() : "?");
+  if (!base || LOGO_BLOCKLIST.has(base)) {
+    return `<span class="logo"><span class="logo-fallback">${initials}</span></span>`;
+  }
+  const src = `https://pics.avs.io/60/60/${encodeURIComponent(base)}.png`;
+  return `<span class="logo">
+    <span class="logo-fallback" aria-hidden="true">${initials}</span>
+    <img src="${src}" alt="" width="28" height="28" onerror="this.remove()">
+  </span>`;
+}
+
 function cardHTML(d, i){
   const det = isDetailed(d);
   const body = sectionsHTML(d);
@@ -625,6 +666,7 @@ function cardHTML(d, i){
       <button class="card-toggle" type="button" id="ct-${id}"
               aria-controls="cb-${id}" aria-expanded="false">
         <span class="dot ${det ? "full" : "thin"}" aria-hidden="true"></span>
+        ${logoHTML(d)}
         <span class="code">${esc(d.code || "—")}</span>
         <span class="namewrap">
           <span class="nm">${esc(d.name)}</span>
@@ -963,6 +1005,7 @@ function compareColumnHTML(d){
   const kana = (ALIASES[d.src] || [])[0];
   return `<div class="cmp-col" data-src="${esc(d.src || "")}">
     <div class="cmp-col-head">
+      ${logoHTML(d)}
       <span class="code">${esc(d.code || "—")}</span>
       <div>
         <h3>${esc(d.name)}</h3>
