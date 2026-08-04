@@ -360,7 +360,21 @@ footer a{color:var(--hover)}
    collapsed cards and "全文を見る" sections are forced open so the printed
    copy is never missing text the reader would have had to click for. */
 @media print{
-  .skiplink,.brandline,.navtabs,#sharebtn,.subtabs,.opbar,.kwbar,.chgbanner,#alliancemsg,
+  /* Printed output should look the same regardless of whether the reader's
+     OS/browser is in light or dark mode — re-pin every custom property to
+     its light-theme value so badges etc. don't print with dark tinted
+     backgrounds just because prefers-color-scheme:dark also happens to be
+     true (that media query is independent of @media print, so without this
+     the dark palette would otherwise leak straight into a printed page). */
+  :root{
+    --red:#b7001e; --red-deep:#8c0017; --red-soft:#fbeef0; --gold:#8a6d33;
+    --bg:#faf9f7;
+    --ink:#1b1e24; --sub:#6b7480; --panel:#ffffff; --panel-edge:#e2e0da; --hair:#eceae5; --chipbg:#f4f2ee;
+    --hover:#0d55a0;
+    --ok:#2f7d4f; --ok-bg:#e9f5ee; --warn:#9a6a1c; --warn-bg:#fbf1de;
+    --dim:#6f7885; --dim-icon:#5c6673; --dim-bg:#f1f0ee;
+  }
+  .skiplink,.brandline,header,.subtabs,.opbar,.kwbar,.chgbanner,#alliancemsg,
   #cmpbar,#toast,#bulkstatus,.card-actions,.chk .chkbtn,.sec-detail-btn,
   .about>summary,footer{display:none!important}
   body{background:#fff;color:#000;font-size:11px;line-height:1.5}
@@ -378,6 +392,11 @@ footer a{color:var(--hover)}
   .sec-full[hidden]{display:block!important}
   .sec-summary{display:none!important}
   .badge,.dot{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  /* al-ow/al-st/al-sa colors are hardcoded per-theme (not var-based), so the
+     :root override above doesn't reach them — pin explicitly too. */
+  .badge.al-ow{color:#0d55a0;background:#e7f0fa;border-color:#0d55a0}
+  .badge.al-st{color:#a3312a;background:#fbebe9;border-color:#a3312a}
+  .badge.al-sa{color:#4a4a1f;background:#f2f0df;border-color:#4a4a1f}
   .srclink{word-break:break-all}
 }
 .print-meta{display:none}
@@ -1409,7 +1428,14 @@ window.addEventListener("beforeprint", () => {
   printRestore = { aboutOpen: aboutEl.open, cardStates, secStates };
 
   aboutEl.open = true;
-  cardStates.forEach(({ el }) => el.classList.add("open"));
+  cardStates.forEach(({ el }) => {
+    el.classList.add("open");
+    // Cards that were never manually opened have an empty .chkmsg — it's
+    // normally filled in by the click handler (see render()), which a card
+    // forced open here never goes through.
+    const d = DATA[+el.dataset.i];
+    renderChk(el.querySelector(".chk"), d);
+  });
   secStates.forEach(({ el }) => { el.hidden = false; });
   // Logos below the fold were never scrolled into view, so the lazy-load
   // observer never filled in their real src — force all of them in now,
