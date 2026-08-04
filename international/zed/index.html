@@ -113,11 +113,11 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
 .f-pill.on{background:var(--red);color:#fff;border-color:var(--red)}
 .f-pill:focus-visible{outline:2px solid var(--hover);outline-offset:2px}
 .f-pill .ct{font-variant-numeric:tabular-nums;opacity:.75;margin-left:5px;font-size:10.5px}
-#bulkbtn{flex:none;border:1px solid var(--red);background:var(--panel);color:var(--red);border-radius:999px;
+#bulkbtn,#alliancebtn{flex:none;border:1px solid var(--red);background:var(--panel);color:var(--red);border-radius:999px;
   padding:6px 14px;font-size:11.5px;font-weight:700;cursor:pointer;transition:all .15s;white-space:nowrap}
-#bulkbtn:hover:not(:disabled){background:var(--red);color:#fff}
-#bulkbtn:disabled{opacity:.5;cursor:default}
-#bulkbtn:focus-visible{outline:2px solid var(--hover);outline-offset:2px}
+#bulkbtn:hover:not(:disabled),#alliancebtn:hover:not(:disabled){background:var(--red);color:#fff}
+#bulkbtn:disabled,#alliancebtn:disabled{opacity:.5;cursor:default}
+#bulkbtn:focus-visible,#alliancebtn:focus-visible{outline:2px solid var(--hover);outline-offset:2px}
 /* ---------- 本文 ---------- */
 main{max-width:1000px;margin:0 auto;padding:18px 22px 70px}
 .about > summary{cursor:pointer;font-size:12px;color:var(--sub);letter-spacing:.06em;
@@ -189,6 +189,21 @@ main{max-width:1000px;margin:0 auto;padding:18px 22px 70px}
 .badge.ok{color:var(--ok);background:var(--ok-bg);border:1px solid color-mix(in srgb,var(--ok) 35%,transparent)}
 .badge.warn{color:var(--warn);background:var(--warn-bg);border:1px solid color-mix(in srgb,var(--warn) 40%,transparent)}
 .badge.dim{color:var(--dim);background:var(--dim-bg);border:1px solid var(--panel-edge)}
+.badge.al-ow{color:#0d55a0;background:#e7f0fa;border:1px solid color-mix(in srgb,#0d55a0 35%,transparent)}
+.badge.al-st{color:#a3312a;background:#fbebe9;border:1px solid color-mix(in srgb,#a3312a 35%,transparent)}
+.badge.al-sa{color:#4a4a1f;background:#f2f0df;border:1px solid color-mix(in srgb,#4a4a1f 35%,transparent)}
+@media (prefers-color-scheme: dark){
+  .badge.al-ow{color:#8ec0f2;background:#132538;border-color:color-mix(in srgb,#8ec0f2 35%,transparent)}
+  .badge.al-st{color:#f0a9a2;background:#331714;border-color:color-mix(in srgb,#f0a9a2 35%,transparent)}
+  .badge.al-sa{color:#dcd88f;background:#28270f;border-color:color-mix(in srgb,#dcd88f 35%,transparent)}
+}
+:root[data-theme="dark"] .badge.al-ow{color:#8ec0f2;background:#132538;border-color:color-mix(in srgb,#8ec0f2 35%,transparent)}
+:root[data-theme="dark"] .badge.al-st{color:#f0a9a2;background:#331714;border-color:color-mix(in srgb,#f0a9a2 35%,transparent)}
+:root[data-theme="dark"] .badge.al-sa{color:#dcd88f;background:#28270f;border-color:color-mix(in srgb,#dcd88f 35%,transparent)}
+:root[data-theme="light"] .badge.al-ow{color:#0d55a0;background:#e7f0fa;border-color:color-mix(in srgb,#0d55a0 35%,transparent)}
+:root[data-theme="light"] .badge.al-st{color:#a3312a;background:#fbebe9;border-color:color-mix(in srgb,#a3312a 35%,transparent)}
+:root[data-theme="light"] .badge.al-sa{color:#4a4a1f;background:#f2f0df;border-color:color-mix(in srgb,#4a4a1f 35%,transparent)}
+#alliancebtn{white-space:nowrap}
 .chev{color:var(--sub);font-size:11px;flex:none;transition:transform .15s}
 .card.open .chev{transform:rotate(90deg)}
 .card-body{display:none;border-top:1px solid var(--hair);padding:4px 15px 15px}
@@ -368,7 +383,9 @@ footer a{color:var(--hover)}
   </div>
   <div class="filters" id="filters"></div>
   <button id="bulkbtn" title="表示中の航空会社について flyzed.info の原文が更新されていないか確認します">原文をまとめて確認</button>
+  <button id="alliancebtn" title="oneworld / SkyTeam の加盟社一覧を各公式サイトから取得し直します">アライアンス情報を更新</button>
 </div>
+<div class="chgbanner" id="alliancemsg" style="display:none" role="status"></div>
 
 <div class="kwbar" id="kwbar" role="group" aria-label="よく調べる項目でクイック検索">
   <span class="kwlabel">よく調べる:</span>
@@ -474,6 +491,77 @@ const ALIASES = {
   MF:["廈門航空","アモイ航空"], IY:["イエメニア航空"],
 };
 
+// ---- アライアンス(oneworld / SkyTeam / Star Alliance) ---------------------
+// Bundled snapshot so alliance badges render on first paint with no extra
+// network round trip. "更新" button below re-fetches oneworld/SkyTeam live
+// from /api/alliances (both are plain server-rendered pages, so the endpoint
+// scrapes them directly); Star Alliance's own member page is a JS-rendered
+// Liferay portlet with no static HTML fallback, so its list stays a manually
+// reviewed static snapshot even after "updating" — see api/alliances.js.
+const ALLIANCE_LS_KEY = "zed-alliances-v1";
+const ALLIANCE_LABEL = { oneworld: "oneworld", skyteam: "SkyTeam", staralliance: "Star Alliance" };
+const ALLIANCE_CLASS = { oneworld: "al-ow", skyteam: "al-st", staralliance: "al-sa" };
+const ALLIANCE_DEFAULT = {
+  fetchedAt: null,
+  oneworld: { live: false, codes: ["AS","AA","BA","CX","FJ","AY","IB","JL","MH","WY","PR","QF","QR","AT","RJ","UL"] },
+  skyteam: { live: false, codes: ["AR","AM","UX","AF","CI","MU","DL","GA","KQ","KL","KE","ME","SK","SV","RO","VN","VS","MF"] },
+  staralliance: { live: false, codes: ["A3","AC","AI","NZ","NH","OZ","OS","AV","SN","CM","OU","MS","ET","BR","AZ","LO","LH","ZH","SQ","SA","LX","TP","TG","TK","UA"],
+    note: "Star Alliance公式サイトはJS認証必須のポータル形式のため自動取得できません。手動確認済みの固定リストです。" },
+};
+let ALLIANCES = ALLIANCE_DEFAULT;
+try {
+  const cached = JSON.parse(localStorage.getItem(ALLIANCE_LS_KEY) || "null");
+  if (cached && cached.oneworld && cached.skyteam && cached.staralliance) ALLIANCES = cached;
+} catch (e) {}
+
+function allianceOf(d){
+  const tokens = codeTokens(d).map(t => t.toUpperCase());
+  for (const key of ["oneworld", "skyteam", "staralliance"]) {
+    const codes = ALLIANCES[key].codes;
+    if (tokens.some(t => codes.includes(t))) return key;
+  }
+  return null;
+}
+
+function allianceBadgeHTML(d){
+  const key = allianceOf(d);
+  if (!key) return "";
+  return `<span class="badge ${ALLIANCE_CLASS[key]}">${ALLIANCE_LABEL[key]}</span>`;
+}
+
+async function refreshAlliances(){
+  const btn = document.getElementById("alliancebtn");
+  const msg = document.getElementById("alliancemsg");
+  btn.disabled = true;
+  btn.textContent = "更新中…";
+  try {
+    const res = await fetch("/api/alliances", { cache: "no-store" });
+    const ct = res.headers.get("content-type") || "";
+    if (!ct.includes("application/json")) throw new Error("NOAPI");
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.error || "failed");
+    ALLIANCES = j;
+    try { localStorage.setItem(ALLIANCE_LS_KEY, JSON.stringify(j)); } catch (e) {}
+    renderPreservingState();
+    const when = new Date(j.fetchedAt).toLocaleString("ja-JP", { month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" });
+    const parts = [
+      `oneworld ${j.oneworld.live ? `✓最新(${j.oneworld.codes.length}社)` : "取得失敗のため前回値を保持"}`,
+      `SkyTeam ${j.skyteam.live ? `✓最新(${j.skyteam.codes.length}社)` : "取得失敗のため前回値を保持"}`,
+      `Star Alliance: ${j.staralliance.note}`,
+    ];
+    msg.style.display = "flex";
+    msg.innerHTML = `<span>✈ ${when} 更新 — ${esc(parts.join(" / "))}</span>`;
+    showToast("アライアンス情報を更新しました");
+  } catch (err) {
+    msg.style.display = "flex";
+    msg.innerHTML = `<span>⚠ ${err && err.message === "NOAPI"
+      ? "この配信元では自動更新を利用できません(vercel.app 版でお試しください)"
+      : "取得できませんでした。時間をおいて再試行してください"}</span>`;
+  }
+  btn.disabled = false;
+  btn.textContent = "アライアンス情報を更新";
+}
+
 let DATA = [];
 let filter = "all";
 let checks = {};      // code -> {state:"same"|"changed"|"error", at:ISO, hash, text}
@@ -549,6 +637,8 @@ function passesFilter(d){
   if (filter === "embargo")  return hasEmbargo(d);
   if (filter === "changed")  return checks[d.src] && checks[d.src].state === "changed";
   if (filter === "pinned")   return PINS.has(d.src);
+  if (filter === "oneworld" || filter === "skyteam" || filter === "staralliance")
+    return allianceOf(d) === filter;
   return true;
 }
 
@@ -673,6 +763,7 @@ function cardHTML(d, i){
           ${kana ? `<span class="kana">${esc(kana)}</span>` : ""}
         </span>
         ${det ? '<span class="badge dim">' + d.sections.length + '項目</span>' : ""}
+        ${allianceBadgeHTML(d)}
         ${checkBadge(d)}
         <span class="chev" aria-hidden="true">&#9656;</span>
       </button>
@@ -804,6 +895,8 @@ function render(){
   const changedCount = DATA.filter(d => checks[d.src] && checks[d.src].state === "changed").length;
   if (filter === "pinned"  && !pinnedCount)  filter = "all";
   if (filter === "changed" && !changedCount) filter = "all";
+  if (["oneworld", "skyteam", "staralliance"].includes(filter) &&
+      !DATA.some(d => allianceOf(d) === filter)) filter = "all";
 
   const list = document.getElementById("list");
   const rows = visible();
@@ -945,6 +1038,10 @@ function renderFilters(){
     ["pinned", pinned ? "★お気に入り" : "☆お気に入り", pinned],
   ];
   if (changed) defs.push(["changed", "原文更新あり", changed]);
+  ["oneworld", "skyteam", "staralliance"].forEach(key => {
+    const n = DATA.filter(d => allianceOf(d) === key).length;
+    if (n) defs.push([key, ALLIANCE_LABEL[key], n]);
+  });
 
   document.getElementById("filters").innerHTML = defs.map(([k, label, n]) =>
     `<button class="f-pill${filter === k ? " on" : ""}" data-f="${k}" type="button"
@@ -1010,6 +1107,7 @@ function compareColumnHTML(d){
       <div>
         <h3>${esc(d.name)}</h3>
         ${kana ? `<span class="kana">${esc(kana)}</span>` : ""}
+        ${allianceBadgeHTML(d)}
       </div>
       <button type="button" class="cmp-col-remove" title="比較から外す" aria-label="比較から外す">✕</button>
     </div>
@@ -1170,6 +1268,7 @@ aboutEl.open = window.innerWidth > 640;
 
 renderKwChips();
 syncStickyOffset();
+document.getElementById("alliancebtn").addEventListener("click", refreshAlliances);
 
 fetch("./data.json")
   .then(r => r.json())
