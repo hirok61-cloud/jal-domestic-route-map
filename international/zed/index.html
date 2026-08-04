@@ -192,6 +192,10 @@ main{max-width:1000px;margin:0 auto;padding:18px 22px 70px}
 .badge.al-ow{color:#0d55a0;background:#e7f0fa;border:1px solid color-mix(in srgb,#0d55a0 35%,transparent)}
 .badge.al-st{color:#a3312a;background:#fbebe9;border:1px solid color-mix(in srgb,#a3312a 35%,transparent)}
 .badge.al-sa{color:#4a4a1f;background:#f2f0df;border:1px solid color-mix(in srgb,#4a4a1f 35%,transparent)}
+.alliance-badge{display:inline-flex;align-items:center;gap:4px;padding:1px 7px 1px 4px}
+.alliance-badge img{height:13px;width:auto;display:block;flex:none}
+.alliance-badge.al-ow img{border-radius:50%}
+.f-pill img.f-alliance{height:11px;width:auto;display:inline-block;vertical-align:-1.5px;margin-right:5px;flex:none}
 @media (prefers-color-scheme: dark){
   .badge.al-ow{color:#8ec0f2;background:#132538;border-color:color-mix(in srgb,#8ec0f2 35%,transparent)}
   .badge.al-st{color:#f0a9a2;background:#331714;border-color:color-mix(in srgb,#f0a9a2 35%,transparent)}
@@ -501,6 +505,14 @@ const ALIASES = {
 const ALLIANCE_LS_KEY = "zed-alliances-v1";
 const ALLIANCE_LABEL = { oneworld: "oneworld", skyteam: "SkyTeam", staralliance: "Star Alliance" };
 const ALLIANCE_CLASS = { oneworld: "al-ow", skyteam: "al-st", staralliance: "al-sa" };
+// Bundled locally rather than hotlinked: alliance marks change far less often
+// than an airline's own branding, and a static asset here can't 404 or drift
+// out from under the page the way a live third-party logo service could.
+const ALLIANCE_LOGO = {
+  oneworld: "./assets/alliance-oneworld.svg",
+  skyteam: "./assets/alliance-skyteam.png",
+  staralliance: "./assets/alliance-staralliance.svg",
+};
 const ALLIANCE_DEFAULT = {
   fetchedAt: null,
   oneworld: { live: false, codes: ["AS","AA","BA","CX","FJ","AY","IB","JL","MH","WY","PR","QF","QR","AT","RJ","UL"] },
@@ -526,7 +538,10 @@ function allianceOf(d){
 function allianceBadgeHTML(d){
   const key = allianceOf(d);
   if (!key) return "";
-  return `<span class="badge ${ALLIANCE_CLASS[key]}">${ALLIANCE_LABEL[key]}</span>`;
+  return `<span class="badge alliance-badge ${ALLIANCE_CLASS[key]}">
+    <img src="${ALLIANCE_LOGO[key]}" alt="" width="13" height="13" loading="eager">
+    ${ALLIANCE_LABEL[key]}
+  </span>`;
 }
 
 async function refreshAlliances(){
@@ -1038,15 +1053,19 @@ function renderFilters(){
     ["pinned", pinned ? "★お気に入り" : "☆お気に入り", pinned],
   ];
   if (changed) defs.push(["changed", "原文更新あり", changed]);
-  ["oneworld", "skyteam", "staralliance"].forEach(key => {
+  const allianceKeys = ["oneworld", "skyteam", "staralliance"];
+  allianceKeys.forEach(key => {
     const n = DATA.filter(d => allianceOf(d) === key).length;
     if (n) defs.push([key, ALLIANCE_LABEL[key], n]);
   });
 
-  document.getElementById("filters").innerHTML = defs.map(([k, label, n]) =>
-    `<button class="f-pill${filter === k ? " on" : ""}" data-f="${k}" type="button"
-      aria-pressed="${filter === k}">${label}<span class="ct">${n}</span></button>`
-  ).join("");
+  document.getElementById("filters").innerHTML = defs.map(([k, label, n]) => {
+    const cls = allianceKeys.includes(k) ? ` ${ALLIANCE_CLASS[k]}` : "";
+    const icon = allianceKeys.includes(k)
+      ? `<img class="f-alliance" src="${ALLIANCE_LOGO[k]}" alt="" width="11" height="11">` : "";
+    return `<button class="f-pill${cls}${filter === k ? " on" : ""}" data-f="${k}" type="button"
+      aria-pressed="${filter === k}">${icon}${label}<span class="ct">${n}</span></button>`;
+  }).join("");
 
   document.getElementById("filters").querySelectorAll(".f-pill").forEach(p => {
     p.addEventListener("click", () => { filter = p.dataset.f; render(); });
