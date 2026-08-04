@@ -113,11 +113,11 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
 .f-pill.on{background:var(--red);color:#fff;border-color:var(--red)}
 .f-pill:focus-visible{outline:2px solid var(--hover);outline-offset:2px}
 .f-pill .ct{font-variant-numeric:tabular-nums;opacity:.75;margin-left:5px;font-size:10.5px}
-#bulkbtn,#alliancebtn{flex:none;border:1px solid var(--red);background:var(--panel);color:var(--red);border-radius:999px;
+#bulkbtn,#alliancebtn,#printbtn{flex:none;border:1px solid var(--red);background:var(--panel);color:var(--red);border-radius:999px;
   padding:6px 14px;font-size:11.5px;font-weight:700;cursor:pointer;transition:all .15s;white-space:nowrap}
-#bulkbtn:hover:not(:disabled),#alliancebtn:hover:not(:disabled){background:var(--red);color:#fff}
-#bulkbtn:disabled,#alliancebtn:disabled{opacity:.5;cursor:default}
-#bulkbtn:focus-visible,#alliancebtn:focus-visible{outline:2px solid var(--hover);outline-offset:2px}
+#bulkbtn:hover:not(:disabled),#alliancebtn:hover:not(:disabled),#printbtn:hover:not(:disabled){background:var(--red);color:#fff}
+#bulkbtn:disabled,#alliancebtn:disabled,#printbtn:disabled{opacity:.5;cursor:default}
+#bulkbtn:focus-visible,#alliancebtn:focus-visible,#printbtn:focus-visible{outline:2px solid var(--hover);outline-offset:2px}
 /* ---------- 本文 ---------- */
 main{max-width:1000px;margin:0 auto;padding:18px 22px 70px}
 .about > summary{cursor:pointer;font-size:12px;color:var(--sub);letter-spacing:.06em;
@@ -352,6 +352,35 @@ footer a{color:var(--hover)}
 }
 .chkbtn,.f-pill,.kw-chip{display:inline-flex;align-items:center;min-height:36px;touch-action:manipulation}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+/* ---------- 印刷 / PDF出力 ---------- */
+/* Printing (or "Save as PDF" from the print dialog, which is what the
+   PDFで出力 button actually triggers — no PDF library needed) reuses
+   whatever is currently in #list, so it automatically respects the active
+   search/filter. Chrome, buttons and anything screen-only are stripped;
+   collapsed cards and "全文を見る" sections are forced open so the printed
+   copy is never missing text the reader would have had to click for. */
+@media print{
+  .skiplink,.brandline,.navtabs,#sharebtn,.subtabs,.opbar,.kwbar,.chgbanner,#alliancemsg,
+  #cmpbar,#toast,#bulkstatus,.card-actions,.chk .chkbtn,.sec-detail-btn,
+  .about>summary,footer{display:none!important}
+  body{background:#fff;color:#000;font-size:11px;line-height:1.5}
+  main{max-width:none;margin:0;padding:0}
+  .print-meta{display:block;margin:0 0 16px}
+  .print-meta h1{font-size:17px;margin:0 0 5px}
+  .print-meta p{font-size:10px;color:#555;margin:0}
+  .rescount{display:none}
+  .about{display:block;margin-bottom:14px}
+  .about[open] > summary::before{display:none}
+  .card{break-inside:avoid-page;border:1px solid #ccc;box-shadow:none;margin-bottom:9px;border-radius:4px}
+  .card-toggle{cursor:default}
+  .chev{display:none}
+  .card-body{display:block!important;max-height:none!important}
+  .sec-full[hidden]{display:block!important}
+  .sec-summary{display:none!important}
+  .badge,.dot{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .srclink{word-break:break-all}
+}
+.print-meta{display:none}
 </style>
 </head>
 <body>
@@ -388,6 +417,7 @@ footer a{color:var(--hover)}
   <div class="filters" id="filters"></div>
   <button id="bulkbtn" title="表示中の航空会社について flyzed.info の原文が更新されていないか確認します">原文をまとめて確認</button>
   <button id="alliancebtn" title="oneworld / SkyTeam の加盟社一覧を各公式サイトから取得し直します">アライアンス情報を更新</button>
+  <button id="printbtn" title="表示中の航空会社の条件を印刷、または「PDFとして保存」で出力します">PDFで出力</button>
 </div>
 <div class="chgbanner" id="alliancemsg" style="display:none" role="status"></div>
 
@@ -736,12 +766,47 @@ function sectionsHTML(d){
 // then the <img> paints over it; if the image 404s, onerror removes it and
 // the initials stay visible. No JS state tracking needed either way.
 //
-// 2-letter IATA codes get reused across decades, so the free logo service
-// occasionally maps one to the wrong (often defunct) carrier — e.g. "AN"
-// returned French regional brand HOP! instead of Advanced Air. Known-bad
-// mappings go here to fall back to the initials tile instead of showing a
-// confidently wrong logo; add to this list if you spot another mismatch.
-const LOGO_BLOCKLIST = new Set(["AN"]);
+// 2-3 letter carrier codes get reused across decades, so the free logo
+// service occasionally maps one to the wrong (often defunct) carrier — e.g.
+// "AN" returned French regional brand HOP! instead of Advanced Air.
+//
+// This list isn't just the one AN case: every one of the 261 distinct codes
+// in this dataset was fetched and visually checked against the airline name
+// on file (2026-08-04). 21 more mismatches turned up — each logo below
+// clearly spelled out a *different* airline's name in the image itself, so
+// these aren't judgment calls. Two (ES, P6) are flyzed.info's own code
+// collisions (ES/ES*, P6/P6* map two different real airlines onto the same
+// base code here) rather than the logo service's fault, but the effect is
+// the same: showing it under one of the two names would be actively
+// misleading, so both fall back to the initials tile too. PJ is a known
+// dummy/test row in the dataset, not a real airline, so its logo is
+// meaningless regardless of what image comes back.
+// Known-bad mappings go here to fall back to the initials tile instead of
+// showing a confidently wrong logo; add to this list if you spot another.
+const LOGO_BLOCKLIST = new Set([
+  "AN",  // Advanced Air -> shows HOP!
+  "2T",  // BermudAir -> shows TruJet (defunct)
+  "8R",  // Amelia -> shows SOL
+  "CS",  // Chair Airlines -> shows Continental Micronesia (defunct)
+  "DI",  // Marabu Airlines -> shows Norwegian
+  "DN",  // DAN AIR -> shows norwegian.com
+  "DU",  // Air Liaison -> shows Norwegian
+  "ES",  // Estelar Air / DHL Air Bahrain(ES*) -> flyzed code collision, shows DHL
+  "G6",  // Global Crossing Airlines -> shows Fly Arna
+  "G8",  // Guyane Express Fly -> shows "Fly Smart GO" (GoAir/Go First's old tagline)
+  "H3",  // Hello Jets -> shows Thomas Cook (defunct)
+  "JV",  // Perimeter Aviation -> shows Bluebird Airways
+  "JW",  // Private Wings -> shows AirAsia
+  "KK",  // LEAV Aviation -> shows Atlasjet
+  "LF",  // Contour Airlines -> shows LAO Central Airlines
+  "OV",  // Salam Air -> shows Estonian Air
+  "P6",  // Privilege Style / PASCAN(P6*) -> flyzed code collision
+  "PJ",  // dummy/test row in the dataset, not a real airline
+  "RX",  // Riyadh Air -> shows Regent Airways (defunct)
+  "VE",  // Clic Air -> shows EasyFly
+  "W2",  // Travelcoup -> shows FlexFlight
+  "XE",  // JSX -> shows ExpressJet (defunct)
+]);
 
 function logoHTML(d){
   const base = (d.src || "").replace(/\*$/, "");
@@ -750,10 +815,43 @@ function logoHTML(d){
     return `<span class="logo"><span class="logo-fallback">${initials}</span></span>`;
   }
   const src = `https://pics.avs.io/60/60/${encodeURIComponent(base)}.png`;
+  // data-src, not src: with 263 rows in the DOM at once (search/filter show
+  // subsets, but "all" is the default) an eager <img src> would fire every
+  // request immediately regardless of scroll position. logoObserver below
+  // fills in the real src only once a card is actually near the viewport.
   return `<span class="logo">
     <span class="logo-fallback" aria-hidden="true">${initials}</span>
-    <img src="${src}" alt="" width="28" height="28" onerror="this.remove()">
+    <img data-src="${src}" alt="" width="28" height="28" onerror="this.remove()">
   </span>`;
+}
+
+// Explicit IntersectionObserver instead of the native loading="lazy": this
+// page builds cards via innerHTML on every render/re-sort, and loading="lazy"
+// on innerHTML-inserted <img> elements has been unreliable in that situation
+// (observed stuck at naturalWidth 0 with load/error never firing). Setting
+// .src ourselves once an element is observed to be near-viewport sidesteps
+// that entirely and is testable/predictable either way.
+const logoObserver = "IntersectionObserver" in window
+  ? new IntersectionObserver((entries, obs) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const img = entry.target;
+        obs.unobserve(img);
+        if (img.dataset.src) {
+          img.src = img.dataset.src;
+          img.removeAttribute("data-src");
+        }
+      });
+    }, { rootMargin: "400px 0px" })
+  : null;
+
+function observeLogos(root){
+  const imgs = (root || document).querySelectorAll("img[data-src]");
+  if (!logoObserver) {
+    imgs.forEach(img => { img.src = img.dataset.src; img.removeAttribute("data-src"); });
+    return;
+  }
+  imgs.forEach(img => logoObserver.observe(img));
 }
 
 function cardHTML(d, i){
@@ -920,6 +1018,7 @@ function render(){
   document.getElementById("empty").style.display = rows.length ? "none" : "block";
   renderChangeBanner();
   syncKwChips();
+  observeLogos(list);
 
   list.querySelectorAll(".card").forEach(card => {
     const d = DATA[+card.dataset.i];
@@ -1186,6 +1285,7 @@ function renderCompareModal(){
   document.getElementById("cmpBackdrop").addEventListener("click", closeCompareModal);
   document.getElementById("cmpClose").addEventListener("click", closeCompareModal);
 
+  observeLogos(root);
   root.querySelectorAll(".cmp-col-remove").forEach(btn => {
     btn.addEventListener("click", () => {
       const code = btn.closest(".cmp-col").dataset.src;
@@ -1288,6 +1388,57 @@ aboutEl.open = window.innerWidth > 640;
 renderKwChips();
 syncStickyOffset();
 document.getElementById("alliancebtn").addEventListener("click", refreshAlliances);
+
+// ---- 印刷 / PDF出力 --------------------------------------------------------
+// window.print() + the @media print rules above does the actual work; this
+// just (a) forces every visible card fully open with no collapsed sections
+// so nothing is missing from the printout, and (b) prepends a short header
+// stating what was included, since a filtered/searched subset prints exactly
+// as shown on screen. Both are undone in afterprint so the live page is
+// unaffected once the print dialog closes (Cancel included — afterprint
+// fires either way).
+let printRestore = null;
+window.addEventListener("beforeprint", () => {
+  const aboutEl = document.getElementById("about");
+  const cardStates = [...document.querySelectorAll(".card")].map(c => ({
+    el: c, open: c.classList.contains("open"),
+  }));
+  const secStates = [...document.querySelectorAll(".sec-full")].map(p => ({
+    el: p, hidden: p.hidden,
+  }));
+  printRestore = { aboutOpen: aboutEl.open, cardStates, secStates };
+
+  aboutEl.open = true;
+  cardStates.forEach(({ el }) => el.classList.add("open"));
+  secStates.forEach(({ el }) => { el.hidden = false; });
+  // Logos below the fold were never scrolled into view, so the lazy-load
+  // observer never filled in their real src — force all of them in now,
+  // otherwise a printed multi-page list would go blank past page 1.
+  document.querySelectorAll("img[data-src]").forEach(img => {
+    img.src = img.dataset.src;
+    img.removeAttribute("data-src");
+  });
+
+  const rows = visible();
+  const q = document.getElementById("q").value.trim();
+  const meta = document.createElement("div");
+  meta.className = "print-meta";
+  meta.innerHTML = `<h1>ZED運賃 条件一覧(資料)</h1>
+    <p>出力日時: ${esc(new Date().toLocaleString("ja-JP"))} ・
+    ${q ? `検索「${esc(q)}」で ` : ""}${rows.length}社を表示 ・
+    出典: flyzed.info(${esc(FETCHED_ON)}取得分) ・
+    必ず一次情報で最終確認してください</p>`;
+  document.querySelector("main").prepend(meta);
+});
+window.addEventListener("afterprint", () => {
+  document.querySelectorAll(".print-meta").forEach(n => n.remove());
+  if (!printRestore) return;
+  document.getElementById("about").open = printRestore.aboutOpen;
+  printRestore.cardStates.forEach(({ el, open }) => el.classList.toggle("open", open));
+  printRestore.secStates.forEach(({ el, hidden }) => { el.hidden = hidden; });
+  printRestore = null;
+});
+document.getElementById("printbtn").addEventListener("click", () => window.print());
 
 fetch("./data.json")
   .then(r => r.json())
