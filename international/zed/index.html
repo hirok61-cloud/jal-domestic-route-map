@@ -184,6 +184,13 @@ main{max-width:1000px;margin:0 auto;padding:18px 22px 70px}
 .sec-t{font-size:11px;font-weight:700;letter-spacing:.09em;color:var(--red);margin-bottom:5px}
 .sec-t.emb{color:var(--warn)}
 .sec-x{font-size:13.5px;margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.sec-summary{color:var(--ink)}
+.sec-detail-btn{margin-top:7px;border:none;background:none;color:var(--hover);font-size:12px;
+  font-weight:700;cursor:pointer;padding:6px 2px;min-height:36px;display:inline-flex;align-items:center;
+  gap:3px;touch-action:manipulation}
+.sec-detail-btn:hover{text-decoration:underline}
+.sec-detail-btn:focus-visible{outline:2px solid var(--hover);outline-offset:1px;border-radius:6px}
+.sec-full{margin-top:9px;padding-top:10px;border-top:1px dashed var(--hair);color:var(--sub)}
 .notefield{font-size:13px;color:var(--sub);padding:12px 0 4px;margin:0}
 /* 更新チェック */
 .chk{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:11px 0 3px;border-top:1px solid var(--hair);margin-top:4px}
@@ -574,11 +581,32 @@ function checkBadge(d){
 
 function sectionsHTML(d){
   const det = isDetailed(d);
-  return det
-    ? d.sections.map(s => `<div class="sec">
-        <div class="sec-t${isEmbargoSec(s.title) ? " emb" : ""}">${esc(s.title)}</div>
-        <p class="sec-x">${richText(s.text || "記載なし")}</p></div>`).join("")
-    : `<p class="notefield">${esc(d.note || "情報なし")}</p>`;
+  if (!det) return `<p class="notefield">${esc(d.note || "情報なし")}</p>`;
+
+  return d.sections.map((s, si) => {
+    const emb = isEmbargoSec(s.title) ? " emb" : "";
+    const full = s.text || "記載なし";
+    // Older/unsummarized entries fall back to showing the full translation
+    // directly — a summary is a shortcut to it, not a replacement for it.
+    const hasSummary = s.summary && s.summary.trim() && s.summary.trim() !== full.trim();
+    if (!hasSummary) {
+      return `<div class="sec">
+        <div class="sec-t${emb}">${esc(s.title)}</div>
+        <p class="sec-x">${richText(full)}</p>
+      </div>`;
+    }
+    // Element IDs can't contain whitespace; d.src/d.name occasionally do
+    // (e.g. "TS, 正式名 Air Transat A.T."), so strip anything that isn't
+    // alphanumeric before using it as one.
+    const secId = `${(d.src || d.name || "x").replace(/[^A-Za-z0-9]/g, "")}-${si}`;
+    return `<div class="sec">
+      <div class="sec-t${emb}">${esc(s.title)}</div>
+      <p class="sec-x sec-summary">${richText(s.summary)}</p>
+      <button type="button" class="sec-detail-btn" data-sec-toggle="${secId}"
+              aria-expanded="false" aria-controls="secfull-${secId}">全文を見る ▾</button>
+      <p class="sec-x sec-full" id="secfull-${secId}" hidden>${richText(full)}</p>
+    </div>`;
+  }).join("");
 }
 
 function cardHTML(d, i){
@@ -1015,6 +1043,20 @@ function openCompareModal(){
 
 document.addEventListener("keydown", ev => {
   if (ev.key === "Escape" && document.getElementById("cmpmodal-root").firstChild) closeCompareModal();
+});
+
+// Delegated once at the document level: it works whether the toggle is in a
+// card the list just re-rendered, or in a compare-modal column that was
+// built fresh, without re-binding a listener per section on every render.
+document.addEventListener("click", ev => {
+  const btn = ev.target.closest("[data-sec-toggle]");
+  if (!btn) return;
+  const full = document.getElementById(`secfull-${btn.dataset.secToggle}`);
+  if (!full) return;
+  const open = full.hidden;
+  full.hidden = !open;
+  btn.setAttribute("aria-expanded", String(open));
+  btn.textContent = open ? "折りたたむ ▴" : "全文を見る ▾";
 });
 
 const toast = document.getElementById("toast");
