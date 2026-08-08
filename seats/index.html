@@ -301,6 +301,11 @@ function badge(quota){
 
 /* 座席表で実際に選べる席数。運賃が「空席あり」でも座席表は埋まっていることがあり、
    利用者にはそちらのほうが実感に近いので、普通席のバッジの下に併記する。 */
+const hhmm = (iso) => {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+};
+
 function seatmapNote(f){
   if (f.sa === undefined || f.sa === null) return "";
   if (f.sa === 0) return '<span class="seatmap none">座席表は満席</span>';
@@ -309,7 +314,9 @@ function seatmapNote(f){
   if (f.sw) wa.push(`窓${f.sw}`);
   if (f.sl) wa.push(`通路${f.sl}`);
   const detail = wa.length ? ` <span class="wa">(${wa.join("・")})</span>` : "";
-  return `<span class="seatmap">座席表 ${f.sa}席${detail}</span>`;
+  // 運賃だけ先に保存された直後は、座席表が1つ前の収集時点のものになる
+  const at = f.saAt ? ` <span class="wa">${hhmm(f.saAt)}時点</span>` : "";
+  return `<span class="seatmap">座席表 ${f.sa}席${detail}${at}</span>`;
 }
 
 /** クラスJ・ファーストの座席表の空き。普通席と同じ座席表から数えている。 */

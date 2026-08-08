@@ -188,6 +188,31 @@ Deno.serve(async (req: Request) => {
     return json({ hub, today: todayJST(), days });
   }
 
+  /* ------------------------------------------- 収集スクリプトを渡す（公開） */
+  /* ブックマークレットに収集ロジックを埋め込むとURLが長くなりすぎ、
+     Androidのブックマークでは切り捨てられて何も起きなくなる。
+     ここで中継してCORSを許可することで、ブックマークレットは数百字で済み、
+     ロジックを直しても登録し直さずに最新が読まれる。 */
+  if (req.method === "GET" && action === "script") {
+    const src = await fetch(
+      "https://hirok61-cloud.github.io/jal-domestic-route-map/seats/collect.min.js",
+      { headers: { "cache-control": "no-cache" } },
+    ).catch(() => null);
+    if (!src || !src.ok) {
+      return new Response("alert('収集スクリプトを取得できませんでした');", {
+        status: 502,
+        headers: { ...CORS, "content-type": "text/javascript; charset=utf-8" },
+      });
+    }
+    return new Response(await src.text(), {
+      headers: {
+        ...CORS,
+        "content-type": "text/javascript; charset=utf-8",
+        "cache-control": "no-store",
+      },
+    });
+  }
+
   /* --------------------------------------------------- 推移を読む（公開） */
   if (req.method === "GET" && action === "history") {
     const date = url.searchParams.get("date") ?? todayJST();
@@ -245,21 +270,31 @@ Deno.serve(async (req: Request) => {
      2度目で「前回」を自分自身にしてしまわないよう、収集IDで見分けて引き継ぐ。 */
   const sameRun = !!(payload.runId && prevPayload?.runId && payload.runId === prevPayload.runId);
 
-  const prev = new Map<string, { e: number; s?: number }>();
+  const prev = new Map<string, any>();
   if (prevPayload) {
     for (const r of prevPayload.routes ?? []) {
-      for (const f of r.flights ?? []) {
-        prev.set(f.no, sameRun ? { e: f.pe, s: f.ps } : { e: f.eco, s: f.sa });
-      }
+      for (const f of r.flights ?? []) prev.set(f.no, f);
     }
   }
   payload.prevAt = sameRun ? prevPayload.prevAt : prevPayload?.generatedAt;
+
+  const SEAT_KEYS = ["sa", "st", "sw", "sl", "sj", "sf"];
   for (const r of payload.routes ?? []) {
     for (const f of r.flights ?? []) {
       const old = prev.get(f.no);
-      if (!old || old.e === undefined) continue;
-      f.pe = old.e;                          // 前回の運賃上の残席
-      if (old.s !== undefined) f.ps = old.s; // 前回の座席表の空席
+      if (!old) continue;
+
+      const oldEco = sameRun ? old.pe : old.eco;
+      const oldSeat = sameRun ? old.ps : old.sa;
+      if (oldEco !== undefined) f.pe = oldEco;                 // 前回の運賃上の残席
+      if (oldSeat !== undefined) f.ps = oldSeat;               // 前回の座席表の空席
+
+      /* 1回の収集は運賃だけ先に保存するので、そのままだと表示から座席表の数字が
+         10分ほど消えてしまう。前回の座席表を引き継いで、いつ時点かを添えておく。 */
+      if (f.sa === undefined && old.sa !== undefined) {
+        for (const k of SEAT_KEYS) if (old[k] !== undefined) f[k] = old[k];
+        f.saAt = old.saAt ?? prevPayload.generatedAt;
+      }
     }
   }
 

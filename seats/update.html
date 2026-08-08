@@ -256,19 +256,11 @@ footer{padding:14px 22px 26px;color:var(--sub);font-size:11px;border-top:1px sol
 const SCRIPT_URL = new URL("../tools/collect-in-browser.js", location.href).href;
 const STORE_KEY = "jalSeatsUpdateKey";
 
-/* ブックマークレットには収集ロジックを丸ごと埋め込む（外部読み込みなし）。
-   JALのページから外部スクリプトを読む方式は iOS / Android の両方で失敗したため、
-   読み込み自体をなくすしかなかった。
-   ただし Chrome のアドレスバーは 32,768 字で URL を切り捨てる。日本語は %XX 表記で
-   1文字9字に膨らむので、コメントを落とした collect.min.js を埋め込む
-   （tools/build-bookmarklet.mjs で生成。約1万6千字に収まる）。
-   押した瞬間に小さな枠を出しておき、どこで動いているかが分かるようにする。 */
-const MIN_URL = new URL("collect.min.js", location.href).href;
-let minSrc = null;
-const minReady = fetch(MIN_URL, { cache: "no-store" })
-  .then((r) => (r.ok ? r.text() : Promise.reject(new Error("HTTP " + r.status))))
-  .then((t) => { minSrc = t; })
-  .catch(() => { minSrc = null; });
+/* ブックマークレットは収集スクリプトを取りに行くだけの小さなものにする。
+   ロジックを丸ごと埋め込むと2万字を超え、Androidのブックマークでは切り捨てられて
+   何も起きなくなる（実測）。取得先は Supabase の中継口で、CORSを許可しているため
+   JALのページからでも読める。この形なら、ロジックを直しても登録し直しは要らない。 */
+const COLLECT_URL = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats?action=script";
 
 function bootSnippet(body){
   return "javascript:" + encodeURIComponent(
@@ -281,22 +273,16 @@ function bootSnippet(body){
   );
 }
 
-/** 本番用: 起動枠を出してから、埋め込んだ収集ロジックをその場で動かす。 */
+/** 本番用。起動枠を出してから収集スクリプトを取ってきて動かす。 */
 function buildBookmarklet(key){
-  if (!minSrc) {
-    // 収集ロジックを取得できていないとき用。外部読み込みなので失敗しうる
-    return bootSnippet(
-      "x.textContent='読み込み中… '+location.hostname;"
-      + "window.__JAL_SEATS_KEY=" + JSON.stringify(key) + ";"
-      + "var s=d.createElement('script');s.src=" + JSON.stringify(SCRIPT_URL) + "+'?v='+Date.now();"
-      + "s.onerror=function(){x.innerHTML='<b>スクリプトを読み込めませんでした</b><br>'"
-      + "+'設定ページを開き直して、登録し直してください。'};b.appendChild(s);",
-    );
-  }
   return bootSnippet(
     "x.textContent='起動中… '+location.hostname;"
-    + "window.__JAL_SEATS_KEY=" + JSON.stringify(key) + ";\n"
-    + minSrc,
+    + "window.__JAL_SEATS_KEY=" + JSON.stringify(key) + ";"
+    + "fetch(" + JSON.stringify(COLLECT_URL) + "+'&v='+Date.now())"
+    + ".then(function(r){return r.text()})"
+    + ".then(function(t){(0,eval)(t)})"
+    + ".catch(function(e){x.innerHTML='<b>収集スクリプトを取得できませんでした</b><br>'"
+    + "+e.message+'<br>いま '+location.hostname+' で動いています。';});",
   );
 }
 
@@ -328,7 +314,6 @@ function refresh(){
 
 /* --- コピー（スマホはドラッグできないのでこちらが主役） --- */
 async function copyBookmarklet(btn){
-  await minReady;
   const text = btn.hasAttribute("data-copy-test")
     ? buildTestBookmarklet()
     : buildBookmarklet($key.value.trim());
