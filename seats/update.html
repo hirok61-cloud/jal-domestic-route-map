@@ -112,8 +112,15 @@ footer{padding:14px 22px 26px;color:var(--sub);font-size:11px;border-top:1px sol
 </section>
 
 <section>
-  <h2>Macが寝ているとき用：ブックマークレット</h2>
-  <p class="muted">スマホだけで完結する方法です。以下の1〜3で設定します。</p>
+  <h2>Macが寝ているとき用：スマホのブックマークレット</h2>
+  <p class="muted">
+    Macがスリープ中や電源オフのときは、上のボタンを押しても
+    <b>「Macが起動していなかったため実行されませんでした」</b>で終わります。
+    そのときのために、<b>スマホだけで完結する方法</b>を用意しておきます。以下の1〜3で設定します。
+  </p>
+  <p class="muted">
+    パソコンでは不要です（Chrome拡張が入っていれば、同じことをボタン1つでやってくれます）。
+  </p>
 </section>
 
 <section>
@@ -126,19 +133,8 @@ footer{padding:14px 22px 26px;color:var(--sub);font-size:11px;border-top:1px sol
 <section>
   <h2><span class="num">2</span>ブックマークに登録する</h2>
   <div class="tabs" id="platformtabs">
-    <button data-plat="pc">パソコン</button>
     <button data-plat="ios">iPhone / iPad</button>
     <button data-plat="android">Android</button>
-  </div>
-
-  <div class="plat" data-plat="pc">
-    <p class="muted">下のボタンを、ブラウザのブックマークバーにドラッグ＆ドロップして登録します。</p>
-    <a class="bm off" id="bm" href="#" draggable="true">✈ JAL空席を更新</a>
-    <div class="hint">
-      ブックマークバーが出ていないときは <code>⌘⇧B</code>（Windowsは <code>Ctrl+Shift+B</code>）で表示できます。<br>
-      ドラッグしづらいときは、「コピー」して手作りのブックマークのURL欄に貼り付けてもOKです。
-    </div>
-    <p><button class="copy" data-copy>ブックマークレットをコピー</button></p>
   </div>
 
   <div class="plat" data-plat="ios" hidden>
@@ -188,7 +184,7 @@ footer{padding:14px 22px 26px;color:var(--sub);font-size:11px;border-top:1px sol
     JALのサーバーには70回リクエストを送るので、1.2秒ずつ間隔をあけています。
     続けて何度も実行しないでください。
   </div>
-  <p class="muted" id="mobilerun" hidden>
+  <p class="muted" id="mobilerun">
     <b>スマホの注意:</b> 収集中は<b>その画面を開いたままにしてください。</b>
     ほかのアプリに切り替えたり画面が消えたりすると、ブラウザが処理を止めてしまい
     途中で失敗します（自動で画面スリープを抑えますが、手動ロックには勝てません）。
@@ -217,7 +213,6 @@ const SCRIPT_URL = new URL("../tools/collect-in-browser.js", location.href).href
 const STORE_KEY = "jalSeatsUpdateKey";
 
 const $key = document.getElementById("key");
-const $bm = document.getElementById("bm");
 const $state = document.getElementById("keystate");
 
 function buildBookmarklet(key){
@@ -234,13 +229,9 @@ function refresh(){
   const key = $key.value.trim();
   if (key) {
     localStorage.setItem(STORE_KEY, key);
-    $bm.href = buildBookmarklet(key);
-    $bm.classList.remove("off");
     $state.innerHTML = '<span class="ok">合言葉を保存しました。</span> 次の手順でブックマークに登録してください。';
   } else {
     localStorage.removeItem(STORE_KEY);
-    $bm.href = "#";
-    $bm.classList.add("off");
     $state.textContent = "未入力です。";
   }
   $copyBtns.forEach(b => { b.disabled = !key; });
@@ -273,9 +264,7 @@ const $tabs = document.getElementById("platformtabs");
 function selectPlatform(plat){
   [...$tabs.children].forEach(b => b.classList.toggle("on", b.dataset.plat === plat));
   document.querySelectorAll(".plat").forEach(p => { p.hidden = p.dataset.plat !== plat; });
-  document.getElementById("mobilerun").hidden = plat === "pc";
   document.getElementById("runstep").innerHTML = {
-    pc: 'ブックマークバーの <b>「✈ JAL空席を更新」</b> をクリック',
     ios: '<b>ブックマーク一覧</b>（本のアイコン）を開いて <b>「JAL空席を更新」</b> をタップ',
     android: 'アドレスバーに <code>jalseat</code> と入力して、出てきた<b>ブックマークの候補</b>をタップ',
   }[plat];
@@ -284,28 +273,12 @@ $tabs.addEventListener("click", ev => {
   const b = ev.target.closest("button");
   if (b) selectPlatform(b.dataset.plat);
 });
-// いま見ている端末の手順を最初から開いておく
-const ua = navigator.userAgent;
-selectPlatform(
-  /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? "ios"
-  : /Android/.test(ua) ? "android"
-  : "pc"
-);
+// いま見ている端末の手順を最初から開いておく（対象はスマホのみ）
+selectPlatform(/Android/.test(navigator.userAgent) ? "android" : "ios");
 
 $key.value = localStorage.getItem(STORE_KEY) || "";
 $key.addEventListener("input", refresh);
 refresh();
-
-// 合言葉が未入力のままクリックされても、JALのページに飛ばないようにする
-$bm.addEventListener("click", ev => {
-  if ($bm.classList.contains("off")) {
-    ev.preventDefault();
-    $key.focus();
-    return;
-  }
-  ev.preventDefault();
-  alert("このボタンはクリックではなく、ブックマークバーにドラッグして登録してください。");
-});
 </script>
 </body>
 </html>
