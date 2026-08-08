@@ -22,8 +22,7 @@
   const finish = (ok, extra) =>
     chrome.runtime.sendMessage({ type: "collect-finished", ok, ...extra });
 
-  const { job } = await chrome.storage.session.get("job");
-  const { updateKey } = await chrome.storage.local.get("updateKey");
+  const { job, updateKey } = await chrome.storage.local.get(["job", "updateKey"]);
   if (!updateKey) return finish(false, { error: "合言葉が未設定です" });
 
   const creds = JSON.parse(sessionStorage.getItem("apiAuthCreds") || "{}");

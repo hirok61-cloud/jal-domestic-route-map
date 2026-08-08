@@ -103,8 +103,10 @@ async function runJob(job) {
     await waitForUrl(tabId, BOOKING_RE, NAV_TIMEOUT_MS);
     await sleep(6000);
 
-    // 収集させる。結果の送信は collect.js が自分で行う
-    await chrome.storage.session.set({ job });
+    // 収集させる。結果の送信は collect.js が自分で行う。
+    // 注入したスクリプトは storage.session を読めない（TRUSTED_CONTEXTS 限定）ので
+    // 受け渡しは storage.local を使う。
+    await chrome.storage.local.set({ job });
     const done = new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         chrome.runtime.onMessage.removeListener(onMsg);
@@ -135,7 +137,7 @@ async function runJob(job) {
     }
   } finally {
     if (win?.id != null) chrome.windows.remove(win.id).catch(() => {});
-    await chrome.storage.session.remove("job").catch(() => {});
+    await chrome.storage.local.remove("job").catch(() => {});
     running = false;
   }
 }
@@ -153,12 +155,17 @@ async function poll() {
   } catch { /* オフライン等。次の周期で拾い直す */ }
 }
 
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.alarms.create(ALARM, { periodInMinutes: 1 });
-});
-chrome.runtime.onStartup.addListener(() => {
-  chrome.alarms.create(ALARM, { periodInMinutes: 1 });
-});
+/* 巡回の仕掛け直し。Service Worker は寝たり起きたりするので、
+   読み込まれたら毎回そろえておく（同名アラームは作り直しになるだけ）。
+   periodInMinutes だけだと初回が1分後になるので、起きた直後にも1回見に行く。 */
+function ensureAlarm() {
+  chrome.alarms.create(ALARM, { delayInMinutes: 0.5, periodInMinutes: 1 });
+}
+ensureAlarm();
+poll();
+
+chrome.runtime.onInstalled.addListener(() => { ensureAlarm(); poll(); });
+chrome.runtime.onStartup.addListener(() => { ensureAlarm(); poll(); });
 chrome.alarms.onAlarm.addListener((a) => { if (a.name === ALARM) poll(); });
 
 // サイトのボタンから「いま来た」と知らせが届いたら、次の周期を待たずに拾う

@@ -448,8 +448,17 @@ async function pollRequest(id, startedAt){
       + `<a href="update.html" style="color:inherit"> ほかの更新方法</a>`, "err");
     return;
   }
+  // pending のままということは、拡張がまだ拾っていない＝収集は始まっていない。
+  // 10分の期限切れまで黙って待たせると原因が分からないので、早めに知らせる。
+  if (job.status === "pending" && waited > 75){
+    runbar(`<b>まだ収集が始まっていません（${waited}秒経過）。</b>`
+      + ` Macが起動していてChromeが動いているか、拡張に合言葉を入れてあるかご確認ください。`
+      + `<a href="update.html" style="color:inherit"> 設定を見る</a>`, "err");
+    return;
+  }
   const detail = job.message ? `（${job.message}）` : "";
-  runbar(`<b>更新中…</b> ${detail} JALから70区間ぶん取り直しています。2分ほどかかります。 ${waited}秒経過`);
+  const stage = job.status === "pending" ? "収集を待っています…" : "更新中…";
+  runbar(`<b>${stage}</b> ${detail} JALから70区間ぶん取り直しています。2〜3分かかります。 ${waited}秒経過`);
 }
 
 $refresh.addEventListener("click", async () => {
