@@ -14,6 +14,7 @@
   --hover:#0d55a0;
   --c-JAL:#c8102e; --c-JAR:#e06a00; --c-JTA:#0077b6; --c-JAC:#2a8a4a;
   --c-RAC:#8a56c2; --c-HAC:#5b7f9e; --c-FDA:#0e8f8a; --c-ORC:#a0763b; --c-AMX:#c2578f; --c-CS:#8b98a3;
+  --seat-ok:#1a7f4b; --seat-few:#e08a00; --seat-full:#9aa4ae; --seat-cancel:#c0392b;
   --shadow:0 10px 30px rgba(30,20,20,.12); --card-shadow:0 2px 10px rgba(30,20,20,.06);
 }
 @media (prefers-color-scheme: dark){:root{
@@ -23,6 +24,7 @@
   --hover:#5ab0ff;
   --c-JAL:#ff4d5e; --c-JAR:#ff9040; --c-JTA:#3fb2ee; --c-JAC:#4cc077;
   --c-RAC:#b98af0; --c-HAC:#7fa5c6; --c-FDA:#3ec8c2; --c-ORC:#d3a468; --c-AMX:#f086c0; --c-CS:#6c7b87;
+  --seat-ok:#3fd48a; --seat-few:#ffb056; --seat-full:#5c6873; --seat-cancel:#ff6b5b;
   --shadow:0 10px 30px rgba(0,0,0,.55); --card-shadow:0 2px 10px rgba(0,0,0,.4);
 }}
 :root[data-theme="light"]{
@@ -32,6 +34,7 @@
   --hover:#0d55a0;
   --c-JAL:#c8102e; --c-JAR:#e06a00; --c-JTA:#0077b6; --c-JAC:#2a8a4a;
   --c-RAC:#8a56c2; --c-HAC:#5b7f9e; --c-FDA:#0e8f8a; --c-ORC:#a0763b; --c-AMX:#c2578f; --c-CS:#8b98a3;
+  --seat-ok:#1a7f4b; --seat-few:#e08a00; --seat-full:#9aa4ae; --seat-cancel:#c0392b;
   --shadow:0 10px 30px rgba(30,20,20,.12); --card-shadow:0 2px 10px rgba(30,20,20,.06);
 }
 :root[data-theme="dark"]{
@@ -41,6 +44,7 @@
   --hover:#5ab0ff;
   --c-JAL:#ff4d5e; --c-JAR:#ff9040; --c-JTA:#3fb2ee; --c-JAC:#4cc077;
   --c-RAC:#b98af0; --c-HAC:#7fa5c6; --c-FDA:#3ec8c2; --c-ORC:#d3a468; --c-AMX:#f086c0; --c-CS:#6c7b87;
+  --seat-ok:#3fd48a; --seat-few:#ffb056; --seat-full:#5c6873; --seat-cancel:#ff6b5b;
   --shadow:0 10px 30px rgba(0,0,0,.55); --card-shadow:0 2px 10px rgba(0,0,0,.4);
 }
 *{box-sizing:border-box}
@@ -73,7 +77,7 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
 .navtab:last-child{border-radius:0 999px 999px 0}
 .navtab.active{background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff;border-color:var(--red)}
 .navtab:not(.active):hover{color:var(--red);border-color:var(--red)}
-.subtabs{display:flex;gap:22px;padding:0 22px;border-bottom:1px solid var(--hair);background:var(--bg)}
+.subtabs{display:flex;align-items:center;gap:22px;padding:0 22px;border-bottom:1px solid var(--hair);background:var(--bg)}
 .subtab{position:relative;text-decoration:none;color:var(--sub);font-size:13px;font-weight:700;
   letter-spacing:.06em;padding:11px 2px 10px;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s}
 .subtab:hover{color:var(--red)}
@@ -108,6 +112,15 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
 .op-reset{flex:none;border:none;background:none;color:var(--hover);font-size:11.5px;cursor:pointer;
   white-space:nowrap;padding:4px 6px;border-radius:6px}
 .op-reset:hover{text-decoration:underline}
+/* 本日の空席モードの切替 */
+.seatbtn{flex:none;margin-left:auto;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer;
+  border:1px solid var(--panel-edge);background:var(--panel);border-radius:999px;
+  padding:5px 13px;font-size:11.5px;font-weight:700;letter-spacing:.04em;transition:all .15s}
+.seatbtn .dotmark{width:7px;height:7px;border-radius:50%;background:var(--seat-full);flex:none;transition:background .15s}
+.seatbtn:hover:not(:disabled){border-color:var(--seat-ok);color:var(--seat-ok)}
+.seatbtn[aria-pressed="true"]{background:var(--seat-ok);border-color:var(--seat-ok);color:#fff}
+.seatbtn[aria-pressed="true"] .dotmark{background:#fff}
+.seatbtn:disabled{opacity:.45;cursor:default}
 .searchwrap{margin-left:auto;flex:none}
 .searchwrap input{background:var(--panel);border:1px solid var(--panel-edge);border-radius:999px;
   padding:6px 15px;font-size:12px;color:var(--ink);width:185px;font-family:inherit;box-shadow:var(--card-shadow)}
@@ -122,6 +135,9 @@ aside{border-left:1px solid var(--hair);background:var(--panel);overflow-y:auto;
 .route-line{fill:none;cursor:pointer;transition:opacity .15s,stroke-width .15s;vector-effect:non-scaling-stroke}
 .route-line.dim{opacity:.07;pointer-events:none}
 .route-line.seasonal-off{stroke-dasharray:5 4}
+/* 本日の空席モード：空席データのない区間は薄く、全便欠航は破線にする */
+.route-line.seat-none{opacity:.1!important}
+.route-line.seat-cancel{stroke-dasharray:3 3}
 .route-hit{fill:none;stroke:transparent;stroke-width:15;cursor:pointer;vector-effect:non-scaling-stroke}
 .route-hit.dim{pointer-events:none}
 #mapwrap{touch-action:none}
@@ -255,7 +271,13 @@ footer .fan{color:var(--sub);letter-spacing:.04em}
   main{grid-template-columns:1fr;height:auto;min-height:0}
   #mapwrap{height:56vh;min-height:340px}
   aside{border-left:none;border-top:1px solid var(--hair)}
+  .subtabs{gap:14px}
+  .seatbtn{padding:5px 10px;font-size:11px}
+  .seatbtn .long{display:none}
   .legend{display:none}
+  /* 空席モードのときだけ、色の意味がわかるよう凡例を出す */
+  .legend.seat{display:block;left:8px;top:8px;padding:7px 10px;font-size:9.5px;line-height:1.7}
+  .legend.seat .bar{width:14px}
   .bp-ap b{font-size:24px}
 }
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
@@ -284,6 +306,7 @@ footer .fan{color:var(--sub);letter-spacing:.04em}
 <nav class="subtabs" aria-label="国内線コンテンツ切替">
   <a class="subtab active" href="./" aria-current="page">ルートマップ</a>
   <a class="subtab" href="seats/">本日の空席</a>
+  <button class="seatbtn" id="seatbtn" aria-pressed="false" disabled title="空席データを読み込み中"><span class="dotmark"></span><span class="long">地図を</span>空席で塗り分け</button>
 </nav>
 <div class="opbar">
   <span class="lbl">運航会社</span>
@@ -631,7 +654,8 @@ const routeEls = ROUTES.map((r,i)=>{
  hit.addEventListener("click",()=>selectRoute(i));
  hit.addEventListener("mousemove",e=>{
   line.setAttribute("opacity",1);line.setAttribute("stroke-width",(baseW(r)*1.8).toFixed(2));
-  const sub = r.planned? `季節運航 ${r.season.txt}（現在期間外）` :
+  const sub = SEAT.on ? seatSummary(r) :
+   r.planned? `季節運航 ${r.season.txt}（現在期間外）` :
    `${r.ops.map(o=>OPS[o][0]).join("・")}／往路${r.n0}便・復路${r.n1}便／${r.acs.map(acShort).join("・")}`;
   showTip(e,`<div class="t1">${AP[r.a][0]} ⇄ ${AP[r.b][0]}</div><div class="t2">${sub}</div>`);});
  hit.addEventListener("mouseleave",()=>{
@@ -745,6 +769,64 @@ function flyPlane(i){
  const am=el("animateMotion",{dur:"5s",repeatCount:"indefinite",path:d,rotate:"auto"},planeEl);
  am.beginElement&&am.beginElement();
 }
+/* ============ 本日の空席オーバーレイ ============
+   data/availability.json（羽田発着の当日・普通席の残席）を読み、
+   地図の路線を空席状況で塗り分ける。残席は9が上限なので 9=「空席あり」扱い。 */
+const SEAT = {idx:null, on:false, meta:null};
+const seatKey = (a,b) => a<b ? a+"|"+b : b+"|"+a;
+
+function buildSeatIndex(json){
+ const idx={};
+ for(const r of json.routes){
+  const e = idx[seatKey(r.o,r.d)] ??= {open:0,total:0,best:0,cancelled:0,dirs:[]};
+  const fl = r.flights||[];
+  if(r.status==="cancelled") e.cancelled++;
+  e.total += fl.length;
+  let dirOpen=0;
+  for(const f of fl){ if(f.eco>0){ e.open++; dirOpen++; if(f.eco>e.best) e.best=f.eco; } }
+  e.dirs.push({o:r.o,d:r.d,status:r.status,open:dirOpen,total:fl.length});
+ }
+ return idx;
+}
+/* 区間の状態: ok=十分な空席 / few=残りわずか / full=満席 / cancel=全便欠航 / none=対象外 */
+function seatState(r){
+ const e = SEAT.idx && SEAT.idx[seatKey(r.a,r.b)];
+ if(!e) return "none";
+ if(e.open>0) return e.best>=9 ? "ok" : "few";
+ return e.cancelled ? "cancel" : "full";
+}
+function seatSummary(r){
+ const e = SEAT.idx && SEAT.idx[seatKey(r.a,r.b)];
+ if(!e) return "本日の空席データは羽田発着のみ";
+ return e.dirs.map(d=>{
+  const label = `${AP[d.o][0]}→${AP[d.d][0]}`;
+  if(d.status==="cancelled") return `${label} 全便欠航`;
+  if(!d.total) return `${label} 残りの便なし`;
+  return `${label} ${d.total}便中${d.open}便に空席`;
+ }).join("／");
+}
+function applySeatColors(){
+ ROUTES.forEach((r,i)=>{
+  const line=routeEls[i];
+  if(!SEAT.on){
+   line.setAttribute("stroke",`var(${OPCOLOR[r.op0]})`);
+   line.classList.remove("seat-none","seat-cancel");
+   return;
+  }
+  const st=seatState(r);
+  line.setAttribute("stroke", st==="none" ? "var(--sub)" : `var(--seat-${st})`);
+  // 選択中の区間は対象外でも薄くしない（クリックした路線が消えて見えるのを避ける）
+  line.classList.toggle("seat-none", st==="none" && state.sel!==i);
+  line.classList.toggle("seat-cancel", st==="cancel");
+ });
+}
+function setSeatMode(on){
+ SEAT.on = on && !!SEAT.idx;
+ document.getElementById("seatbtn").setAttribute("aria-pressed",String(SEAT.on));
+ applySeatColors();
+ renderLegend();
+}
+
 /* ============ 表示状態 ============ */
 function routeVisible(r){
  return r.ops.some(o=>state.ops[o]) && (!state.selAc || r.acs.includes(state.selAc));
@@ -760,6 +842,7 @@ function applyDim(){
   routeEls[i].setAttribute("opacity", i===sel?1:.6);
   routeEls[i].setAttribute("stroke-width", i===sel?(baseW(ROUTES[i])*2).toFixed(2):baseW(ROUTES[i]).toFixed(2));
  });
+ applySeatColors();
  document.querySelectorAll(".airport-dot,.ap-label").forEach(n=>{
   const code=n.getAttribute("data-ap");
   let vis;
@@ -896,12 +979,46 @@ function refreshAfterFilter(){
  else if(state.selAc) selectAircraft(state.selAc);
  else if(state.sel==null) renderHome();
 }
-document.getElementById("legend").innerHTML =
- `<div class="lg-title">LEGEND</div>`+
- Object.keys(OPCOLOR).map(o=>
-  `<div class="row"><span class="bar" style="background:var(${OPCOLOR[o]})"></span>${OPS[o][0]} <span style="color:var(--sub)">${OPS[o][1].replace(/\(共同運航\)/,"※")}</span></div>`).join("")+
- `<div class="row"><span class="bar dash" style="color:var(--sub)"></span>季節運航（期間外）</div>
-  <div class="row" style="color:var(--sub)">※=共同運航／太さ＝便数</div>`;
+function renderLegend(){
+ const box=document.getElementById("legend");
+ box.classList.toggle("seat",SEAT.on);
+ if(SEAT.on){
+  const t = SEAT.meta ? `${SEAT.meta.time} 時点` : "";
+  box.innerHTML =
+   `<div class="lg-title">本日の空席 — 普通席</div>
+    <div class="row"><span class="bar" style="background:var(--seat-ok)"></span>空席あり（9席以上）</div>
+    <div class="row"><span class="bar" style="background:var(--seat-few)"></span>残りわずか（1〜8席）</div>
+    <div class="row"><span class="bar" style="background:var(--seat-full)"></span>残り便すべて満席</div>
+    <div class="row"><span class="bar dash" style="color:var(--seat-cancel)"></span>全便欠航</div>
+    <div class="row" style="color:var(--sub)">薄い線＝空席データ対象外</div>
+    <div class="row" style="color:var(--sub)">羽田発着のみ・${t}</div>`;
+ } else {
+  box.innerHTML =
+   `<div class="lg-title">LEGEND</div>`+
+   Object.keys(OPCOLOR).map(o=>
+    `<div class="row"><span class="bar" style="background:var(${OPCOLOR[o]})"></span>${OPS[o][0]} <span style="color:var(--sub)">${OPS[o][1].replace(/\(共同運航\)/,"※")}</span></div>`).join("")+
+   `<div class="row"><span class="bar dash" style="color:var(--sub)"></span>季節運航（期間外）</div>
+    <div class="row" style="color:var(--sub)">※=共同運航／太さ＝便数</div>`;
+ }
+}
+renderLegend();
+
+/* 本日の空席データを読み込み、地図の塗り分けを使えるようにする */
+const seatBtn=document.getElementById("seatbtn");
+seatBtn.addEventListener("click",()=>setSeatMode(!SEAT.on));
+fetch("data/availability.json",{cache:"no-store"})
+ .then(res=>res.ok?res.json():Promise.reject(new Error("HTTP "+res.status)))
+ .then(json=>{
+  SEAT.idx=buildSeatIndex(json);
+  const at=new Date(json.generatedAt);
+  SEAT.meta={date:json.date,time:`${String(at.getHours()).padStart(2,"0")}:${String(at.getMinutes()).padStart(2,"0")}`};
+  const today=new Date(Date.now()+(new Date().getTimezoneOffset()+540)*60000);
+  const isToday = json.date===`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+  seatBtn.disabled=false;
+  seatBtn.title = `${json.date} ${SEAT.meta.time} 時点の羽田発着の普通席の空席状況`
+   + (isToday ? "" : "（本日のデータではありません）");
+ })
+ .catch(()=>{ seatBtn.title="空席データを読み込めませんでした"; });
 const dl=document.getElementById("aplist");
 Object.values(AP).forEach(([n])=>{const o=document.createElement("option");o.value=n;dl.appendChild(o);});
 document.getElementById("apsearch").addEventListener("change",e=>{
