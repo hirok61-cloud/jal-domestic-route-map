@@ -31,12 +31,14 @@
   if (!creds.authToken) return finish(false, { error: "JALのセッションを取得できませんでした" });
   const AUTH = "Bearer " + creds.authToken;
 
-  // 今日と翌日の2日ぶんを取る（JSTのカレンダー日付で数える）
+  /* 収集する日。依頼が指定していればそれに従う（0=今日 / 1=翌日）。
+     座席表まで見ると1日8〜10分かかるので、要る日だけ選べるようにしてある。 */
   const jstDate = (offsetDays) => {
     const t = new Date(Date.now() + 9 * 3600000 + offsetDays * 86400000);
     return t.toISOString().slice(0, 10);
   };
-  const DAYS = [jstDate(0), jstDate(1)];
+  const OFFSETS = Array.isArray(job?.days) && job.days.length ? job.days : [0, 1];
+  const DAYS = OFFSETS.map(jstDate);
 
   async function search(origin, destination, date) {
     const res = await fetch(API, {
@@ -172,7 +174,7 @@
 
   /** 1日ぶん集めて保存する。戻り値はその日の要約。 */
   async function collectDay(date, dayIndex) {
-    const label = dayIndex === 0 ? "今日" : "翌日";
+    const label = OFFSETS[dayIndex] === 0 ? "今日" : "翌日";
     const routes = [];
 
     for (let i = 0; i < pairs.length; i++) {

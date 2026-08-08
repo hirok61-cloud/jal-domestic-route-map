@@ -150,12 +150,39 @@
 
   /* ------------------------------------------------------------------ 収集 */
 
-  // 今日と翌日の2日ぶんを取る（JSTのカレンダー日付で数える）
+  /* 収集する日を選んでもらう。座席表まで見ると1日8〜10分かかるので、
+     両日まとめると20分近くになる。要る日だけ選べるほうが実用的。 */
   const jstDate = (offsetDays) => {
     const t = new Date(Date.now() + 9 * 3600000 + offsetDays * 86400000);
     return t.toISOString().slice(0, 10);
   };
-  const DAYS = [jstDate(0), jstDate(1)];
+
+  const OFFSETS = await new Promise((resolve) => {
+    const md = (n) => {
+      const d = new Date(Date.now() + 9 * 3600000 + n * 86400000);
+      return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+    };
+    show("どの日を更新しますか？",
+      "座席表まで見るので<b>1日あたり8〜10分</b>かかります", 0);
+    const box = document.createElement("div");
+    box.style.cssText = "display:flex;gap:6px;margin-top:10px;flex-wrap:wrap";
+    const mk = (text, value) => {
+      const b = document.createElement("button");
+      b.textContent = text;
+      b.style.cssText = "flex:1;min-width:84px;cursor:pointer;border:1px solid #e2e0da;"
+        + "background:#faf9f7;color:#1b1e24;border-radius:999px;padding:8px 10px;"
+        + "font:700 12px/1 inherit";
+      b.onclick = () => { box.remove(); resolve(value); };
+      return b;
+    };
+    box.append(
+      mk(`今日 ${md(0)}`, [0]),
+      mk(`明日 ${md(1)}`, [1]),
+      mk("両日", [0, 1]),
+    );
+    ui.appendChild(box);
+  });
+  const DAYS = OFFSETS.map(jstDate);
 
   const pairs = [];
   for (const spoke of SPOKES) pairs.push([HUB, spoke], [spoke, HUB]);
@@ -317,7 +344,7 @@
 
   /** 1日ぶん集めて保存する。戻り値はその日の要約テキスト。 */
   async function collectDay(date, dayIndex) {
-    const label = dayIndex === 0 ? "今日" : "翌日";
+    const label = OFFSETS[dayIndex] === 0 ? "今日" : "翌日";
     const routes = [];
 
     for (let i = 0; i < pairs.length; i++) {

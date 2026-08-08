@@ -514,8 +514,12 @@ function runbar(text, cls){
 function setBusy(busy, label){
   $refresh.disabled = busy;
   $refresh.classList.toggle("busy", busy);
-  document.getElementById("refreshlabel").textContent = label || (busy ? "更新中…" : "最新に更新");
+  const dayWord = state.date && state.date !== todayJST() ? "明日" : "今日";
+  document.getElementById("refreshlabel").textContent =
+    label || (busy ? "更新中…" : `${dayWord}ぶんを更新`);
 }
+
+const dayLabel = () => (state.date && state.date !== todayJST() ? "明日" : "今日");
 
 async function pollRequest(id, startedAt){
   const res = await fetch(`${REMOTE}?action=status&id=${id}`, {cache: "no-store"});
@@ -551,17 +555,19 @@ async function pollRequest(id, startedAt){
   }
   const detail = job.message ? `（${job.message}）` : "";
   const stage = job.status === "pending" ? "収集を待っています…" : "更新中…";
-  runbar(`<b>${stage}</b> ${detail} JALから今日と翌日ぶんを取り直しています。座席表も見るので15〜20分かかります。 ${waited}秒経過`);
+  runbar(`<b>${stage}</b> ${detail} JALから取り直しています。座席表も見るので8〜10分かかります。 ${waited}秒経過`);
 }
 
 $refresh.addEventListener("click", async () => {
   setBusy(true);
   runbar("<b>更新を依頼しています…</b>");
   try {
+    // いま見ている日だけを取り直す。両日まとめると20分近くかかるため
+    const offset = state.date === todayJST() ? 0 : 1;
     const res = await fetch(`${REMOTE}?action=request`, {
       method: "POST",
       headers: {"content-type": "application/json"},
-      body: JSON.stringify({from: extPresent ? "このPC" : "別の端末"}),
+      body: JSON.stringify({from: extPresent ? "このPC" : "別の端末", days: [offset]}),
     });
     if (!res.ok) throw new Error("HTTP " + res.status);
     const {id} = await res.json();
@@ -570,7 +576,7 @@ $refresh.addEventListener("click", async () => {
     if (extPresent) window.postMessage({type: "JAL_SEATS_RUN"}, "*");
 
     const startedAt = Date.now();
-    runbar("<b>更新中…</b> JALから今日と翌日ぶんを取り直しています。座席表も見るので15〜20分かかります。");
+    runbar(`<b>更新中…</b> ${dayLabel()}ぶんをJALから取り直しています。座席表も見るので8〜10分かかります。`);
     clearInterval(polling);
     polling = setInterval(() => pollRequest(id, startedAt).catch(() => {}), 3000);
   } catch (e) {
@@ -588,6 +594,7 @@ loadAvailability()
     selectDay(firstUseful || todayJST());
     renderSummary();
     render();
+    setBusy(false); // 更新ボタンのラベルを選択中の日に合わせる
     bindSeg("dirseg", "dir");
     bindSeg("seatseg", "seats");
     document.getElementById("dayseg").addEventListener("click", ev => {
@@ -596,6 +603,7 @@ loadAvailability()
       selectDay(b.dataset.day);
       renderSummary();
       render();
+      setBusy(false);  // ボタンのラベルを選択中の日に合わせ直す
     });
     let timer;
     document.getElementById("apsearch").addEventListener("input", ev => {

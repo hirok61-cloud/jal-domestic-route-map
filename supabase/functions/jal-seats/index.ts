@@ -94,12 +94,21 @@ Deno.serve(async (req: Request) => {
     }
 
     let label = "";
-    try { label = String(((await req.json()) ?? {}).from ?? "").slice(0, 40); } catch { /* bodyなしでもよい */ }
+    let days: number[] = [0, 1];
+    try {
+      const body = (await req.json()) ?? {};
+      label = String(body.from ?? "").slice(0, 40);
+      // 0=今日 / 1=翌日。座席表まで見ると1日8〜10分かかるので、要る日だけ選べるようにする
+      if (Array.isArray(body.days)) {
+        const picked = body.days.map(Number).filter((n: number) => n === 0 || n === 1);
+        if (picked.length) days = [...new Set(picked)].sort();
+      }
+    } catch { /* bodyなしでもよい */ }
 
     const res = await db(REQUESTS, {
       method: "POST",
       headers: { prefer: "return=representation" },
-      body: JSON.stringify({ hub, origin_label: label || null }),
+      body: JSON.stringify({ hub, origin_label: label || null, day_offsets: days }),
     });
     if (!res.ok) return json({ error: "依頼を積めませんでした" }, 502);
     const [row] = await res.json();
@@ -111,7 +120,7 @@ Deno.serve(async (req: Request) => {
     await rpc("jal_expire_stale_requests");
     const id = Number(url.searchParams.get("id"));
     if (!Number.isFinite(id)) return json({ error: "id が不正です" }, 400);
-    const rows = await db(`${REQUESTS}?id=eq.${id}&select=id,status,message,requested_at,updated_at&limit=1`)
+    const rows = await db(`${REQUESTS}?id=eq.${id}&select=id,status,message,requested_at,updated_at,day_offsets&limit=1`)
       .then((r) => r.json()).catch(() => []);
     if (!Array.isArray(rows) || !rows.length) return json({ error: "見つかりません" }, 404);
     return json(rows[0]);
@@ -121,7 +130,7 @@ Deno.serve(async (req: Request) => {
   if (req.method === "GET" && action === "claim") {
     if (!authed) return json({ error: "合言葉が違います" }, 401);
     await rpc("jal_expire_stale_requests");
-    const rows = await db(`${REQUESTS}?status=eq.pending&order=requested_at.asc&limit=1&select=id,hub`)
+    const rows = await db(`${REQUESTS}?status=eq.pending&order=requested_at.asc&limit=1&select=id,hub,day_offsets`)
       .then((r) => r.json()).catch(() => []);
     if (!Array.isArray(rows) || !rows.length) return json({ job: null });
     const job = rows[0];
@@ -133,7 +142,7 @@ Deno.serve(async (req: Request) => {
     });
     const changed = await upd.json().catch(() => []);
     if (!Array.isArray(changed) || !changed.length) return json({ job: null });
-    return json({ job: { id: job.id, hub: job.hub } });
+    return json({ job: { id: job.id, hub: job.hub, days: job.day_offsets ?? [0, 1] } });
   }
 
   /* ------------------------------------------------------ 進捗を書き込む */
