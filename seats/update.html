@@ -151,6 +151,11 @@ footer{padding:14px 22px 26px;color:var(--sub);font-size:11px;border-top:1px sol
       <b>使うとき:</b> JALの空席照会の画面で、<b>ブックマーク一覧</b>（本のアイコン）を開いて
       「JAL空席を更新」をタップします。アドレスバーに直接貼り付けても動きません。
     </div>
+    <div class="callout">
+      <b>動かないときは:</b> 下の「動作テストをコピー」で別のブックマーク（<code>JALテスト</code>）を作り、
+      同じ手順で呼び出してください。白い枠に <code>booking.jal.co.jp</code> と出れば正常です。
+      <p style="margin-top:8px"><button class="copy" data-copy-test>動作テストをコピー</button></p>
+    </div>
   </div>
 
   <div class="plat" data-plat="android" hidden>
@@ -165,7 +170,19 @@ footer{padding:14px 22px 26px;color:var(--sub);font-size:11px;border-top:1px sol
     <div class="callout">
       <b>使うとき:</b> JALの空席照会の画面でアドレスバーに <code>jalseat</code> と入力し、
       出てきた<b>ブックマークの候補</b>をタップします。
+      <b>ブックマーク一覧から開くと、JALのページではなく新しいタブで動いてしまい失敗します。</b>
       （<code>javascript:</code> をアドレスバーに直接貼り付けても、Chromeが消してしまい動きません）
+    </div>
+    <div class="callout">
+      <b>動かないときは、まずこれで切り分けてください。</b>
+      下の「動作テストをコピー」で<b>もう1つ別のブックマーク</b>（名前は <code>jaltest</code>）を作り、
+      JALの画面で同じように呼び出します。
+      <ul style="margin:6px 0 0;padding-left:1.2em">
+        <li>白い枠が出て <code>booking.jal.co.jp</code> と表示 → 正常。本番も動きます</li>
+        <li>白い枠は出るが別のホスト名 → 呼び出し方が違います（アドレスバー経由にしてください）</li>
+        <li><b>何も出ない</b> → お使いのChromeがブックマークレットを実行できません</li>
+      </ul>
+      <p style="margin-top:8px"><button class="copy" data-copy-test>動作テストをコピー</button></p>
     </div>
   </div>
 </section>
@@ -212,34 +229,44 @@ footer{padding:14px 22px 26px;color:var(--sub);font-size:11px;border-top:1px sol
 const SCRIPT_URL = new URL("../tools/collect-in-browser.js", location.href).href;
 const STORE_KEY = "jalSeatsUpdateKey";
 
-/* 収集ロジックはブックマークレットに丸ごと埋め込む（自己完結型）。
-   外部スクリプトを読み込む方式だと、Androidでブックマーク一覧から開いたときに
-   JALのページではなく新しいタブで走ってしまい、読み込みに失敗して動かなかった。
-   埋め込みなら、どこで走っても最低限「この画面では実行できません」と案内できる。
-   代わりに、収集ロジックを直したときは登録し直しが必要になる。 */
-let collectorSrc = null;
-const collectorReady = fetch(SCRIPT_URL, { cache: "no-store" })
-  .then((r) => (r.ok ? r.text() : Promise.reject(new Error("HTTP " + r.status))))
-  .then((src) => { collectorSrc = src; })
-  .catch(() => { collectorSrc = null; });
+/* ブックマークレットは「小さな起動役」に徹する。
+   収集ロジックを丸ごと埋め込むと3万4千字を超え、Chromeのアドレスバーの上限
+   (32768字) で切り捨てられて何も起きなくなる（実測）。日本語は1文字が
+   %XX 表記で9字に膨らむため、すぐ上限に届いてしまう。
+   代わりに、押した瞬間に必ず画面へ小さな枠を出し、どこで動いているか・
+   何に失敗したかが分かるようにしておく。 */
+function bootSnippet(body){
+  return "javascript:(function(){var d=document,b=d.body||d.documentElement,"
+    + "x=d.createElement('div');x.id='jsc-boot';x.style.cssText="
+    + "'position:fixed;right:12px;bottom:12px;z-index:2147483647;background:#fff;"
+    + "color:#1b1e24;border:1px solid #e2e0da;border-radius:12px;padding:12px 14px;"
+    + "max-width:82vw;font:13px/1.6 sans-serif;box-shadow:0 10px 28px rgba(0,0,0,.28)';"
+    + "b.appendChild(x);" + body + "})();";
+}
+
+/** 本番用: 起動枠を出してから収集スクリプトを読み込む。 */
+function buildBookmarklet(key){
+  return bootSnippet(
+    "x.textContent='読み込み中… '+location.hostname;"
+    + "window.__JAL_SEATS_KEY=" + JSON.stringify(key) + ";"
+    + "var s=d.createElement('script');s.src=" + JSON.stringify(SCRIPT_URL) + "+'?v='+Date.now();"
+    + "s.onerror=function(){x.innerHTML='<b>スクリプトを読み込めませんでした</b><br>'"
+    + "+'いま '+location.hostname+' で動いています。JALの画面を表示した状態で実行してください。'};"
+    + "b.appendChild(s);",
+  );
+}
+
+/** 診断用: ブックマークレットが実行できるかどうかだけを確かめる。 */
+function buildTestBookmarklet(){
+  return bootSnippet(
+    "x.innerHTML='<b>ブックマークレットは動いています</b><br>いま '+location.hostname+' で実行されました。"
+    + "<br>ここが booking.jal.co.jp なら本番も動きます。';"
+    + "setTimeout(function(){x.remove();},15000);",
+  );
+}
 
 const $key = document.getElementById("key");
 const $state = document.getElementById("keystate");
-
-function buildBookmarklet(key){
-  if (collectorSrc) {
-    return "javascript:" + encodeURIComponent(
-      "(function(){window.__JAL_SEATS_KEY=" + JSON.stringify(key) + ";\n"
-      + collectorSrc + "\n})();",
-    );
-  }
-  // 収集ロジックを取得できなかったときだけ、外から読み込む形にしておく
-  return "javascript:(function(){window.__JAL_SEATS_KEY="
-    + JSON.stringify(key)
-    + ";var s=document.createElement('script');s.src="
-    + JSON.stringify(SCRIPT_URL)
-    + "+'?v='+Date.now();document.body.appendChild(s);})();";
-}
 
 const $copyBtns = [...document.querySelectorAll("[data-copy]")];
 
@@ -257,8 +284,9 @@ function refresh(){
 
 /* --- コピー（スマホはドラッグできないのでこちらが主役） --- */
 async function copyBookmarklet(btn){
-  await collectorReady;
-  const text = buildBookmarklet($key.value.trim());
+  const text = btn.hasAttribute("data-copy-test")
+    ? buildTestBookmarklet()
+    : buildBookmarklet($key.value.trim());
   try {
     await navigator.clipboard.writeText(text);
   } catch {
@@ -276,7 +304,8 @@ async function copyBookmarklet(btn){
   btn.classList.add("done");
   setTimeout(() => { btn.textContent = label; btn.classList.remove("done"); }, 2500);
 }
-$copyBtns.forEach(b => b.addEventListener("click", () => copyBookmarklet(b)));
+[...$copyBtns, ...document.querySelectorAll("[data-copy-test]")]
+  .forEach(b => b.addEventListener("click", () => copyBookmarklet(b)));
 
 /* --- 端末別の手順切り替え --- */
 const $tabs = document.getElementById("platformtabs");

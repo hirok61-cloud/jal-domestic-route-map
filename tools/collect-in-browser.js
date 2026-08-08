@@ -45,6 +45,7 @@
   /* ---------------------------------------------------------------- 進捗表示 */
 
   document.getElementById("jal-seat-collector")?.remove();
+  document.getElementById("jsc-boot")?.remove(); // ブックマークレットが出した起動枠
   const ui = document.createElement("div");
   ui.id = "jal-seat-collector";
   ui.style.cssText = [
