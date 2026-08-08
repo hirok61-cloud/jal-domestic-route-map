@@ -127,9 +127,13 @@
   }
 
   if (!location.host.startsWith("booking.jal.co.jp")) {
+    // Androidでブックマーク一覧から開くと新規タブ側で走ってしまい、ここに来る
     fail("この画面では実行できません",
-      "<b>JALのサイト</b>を開いた状態で押してください。"
-      + "トップページで押せば、空席照会の画面まで自動で進みます。");
+      "<b>JALのサイトを表示した状態で</b>実行してください。"
+      + "トップページで押せば、空席照会の画面まで自動で進みます。"
+      + "<br>Androidは、JALの画面でアドレスバーに <b>jalseat</b> と入力して"
+      + "<b>ブックマークの候補をタップ</b>してください（ブックマーク一覧から開くと、"
+      + "JALのページではなく新しいタブで動いてしまいます）。");
     return;
   }
   const creds = JSON.parse(sessionStorage.getItem("apiAuthCreds") || "{}");
@@ -143,16 +147,18 @@
 
   /* ------------------------------------------------------------------ 収集 */
 
-  const now = new Date();
-  const date = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 10);
+  // 今日と翌日の2日ぶんを取る（JSTのカレンダー日付で数える）
+  const jstDate = (offsetDays) => {
+    const t = new Date(Date.now() + 9 * 3600000 + offsetDays * 86400000);
+    return t.toISOString().slice(0, 10);
+  };
+  const DAYS = [jstDate(0), jstDate(1)];
 
   const pairs = [];
   for (const spoke of SPOKES) pairs.push([HUB, spoke], [spoke, HUB]);
 
   /** 1区間ぶん空席照会する。 */
-  async function search(origin, destination) {
+  async function search(origin, destination, date) {
     const res = await fetch(API, {
       method: "POST",
       credentials: "include",
@@ -249,103 +255,121 @@
   const onHide = () => { if (document.visibilityState === "hidden") wentHidden = true; };
   document.addEventListener("visibilitychange", onHide);
 
-  const routes = [];
   const started = Date.now();
+  const total = pairs.length * DAYS.length;
 
-  for (let i = 0; i < pairs.length; i++) {
-    const [origin, destination] = pairs[i];
-    const left = Math.ceil((pairs.length - i) * (DELAY_MS + 900) / 1000);
-    show(`空席を取得中… ${i + 1} / ${pairs.length}`,
-      `${origin} → ${destination}　残り約${left}秒`
-      + "<br><span style='color:#b7001e'>この画面を開いたままにしてください</span>",
-      Math.round((i / pairs.length) * 100));
-
-    let res;
-    try {
-      res = await search(origin, destination);
-      if (res.status !== 200) {
-        await new Promise((r) => setTimeout(r, 4000));
-        res = await search(origin, destination);
-      }
-    } catch {
-      res = { status: 0, payload: null };
-    }
-
-    const entry = { o: origin, d: destination };
-    const payload = res.payload || {};
-    if (res.status !== 200) {
-      entry.status = "error";
-      entry.message = "HTTP " + res.status;
-    } else if (payload.errors) {
-      [entry.status, entry.message] = describeError(payload);
-    } else {
-      entry.flights = fold(payload);
-      entry.status = entry.flights.length ? "ok" : "empty";
-      if (!entry.flights.length) entry.message = "残りの便なし";
-    }
-    routes.push(entry);
-    await new Promise((r) => setTimeout(r, DELAY_MS));
-  }
-
-  document.removeEventListener("visibilitychange", onHide);
-  releaseWakeLock();
-
-  const out = {
-    generatedAt: new Date().toISOString(),
-    date,
-    hub: HUB,
-    source: "JAL公式 空席照会API (api.dom.jal.co.jp/rmweb-api/search/air-bounds)",
-    note: "残席数は9が上限（9席以上でも9と返る）。普通席=eco / クラスJ=clsj / ファースト=first。",
-    routes,
-  };
-
-  const flightCount = routes.reduce((n, r) => n + (r.flights || []).length, 0);
-  const withSeats = routes.reduce(
-    (n, r) => n + (r.flights || []).filter((f) => f.eco > 0).length, 0,
-  );
-  const failed = routes.filter((r) => r.status === "error").length;
-  const took = Math.round((Date.now() - started) / 1000);
-  const stats = `${routes.length}区間・${flightCount}便／普通席に空席 <b>${withSeats}便</b>`
-    + (failed ? `／取得失敗 ${failed}区間` : "") + `（${took}秒）`
-    // 画面を消すとタイマーが絞られて取りこぼすので、失敗が多いときは理由を添える
-    + (wentHidden && failed ? "<br>途中で画面が消えたため取りこぼしたようです。もう一度お試しください。" : "");
-
-  /* ------------------------------------------------------------- 保存・送信 */
-
-  function download() {
+  function download(out) {
     const blob = new Blob([JSON.stringify(out)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "availability.json";
+    a.download = `availability-${out.date}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
   }
 
-  show("サイトに反映しています…", stats, 96);
+  /** 1日ぶん集めて保存する。戻り値はその日の要約テキスト。 */
+  async function collectDay(date, dayIndex) {
+    const label = dayIndex === 0 ? "今日" : "翌日";
+    const routes = [];
 
-  if (!UPDATE_KEY) {
-    download();
-    fail("合言葉がないため保存できませんでした",
-      `${stats}<br>availability.json をダウンロードしました。`);
-    return;
-  }
+    for (let i = 0; i < pairs.length; i++) {
+      const [origin, destination] = pairs[i];
+      const done = dayIndex * pairs.length + i;
+      const left = Math.ceil((total - done) * (DELAY_MS + 900) / 1000);
+      show(`${label}ぶんを取得中… ${i + 1} / ${pairs.length}`,
+        `${origin} → ${destination}　全体の残り約${left}秒`
+        + "<br><span style='color:#b7001e'>この画面を開いたままにしてください</span>",
+        Math.round((done / total) * 100));
 
-  try {
+      let res;
+      try {
+        res = await search(origin, destination, date);
+        if (res.status !== 200) {
+          await new Promise((r) => setTimeout(r, 4000));
+          res = await search(origin, destination, date);
+        }
+      } catch {
+        res = { status: 0, payload: null };
+      }
+
+      const entry = { o: origin, d: destination };
+      const payload = res.payload || {};
+      if (res.status !== 200) {
+        entry.status = "error";
+        entry.message = "HTTP " + res.status;
+      } else if (payload.errors) {
+        [entry.status, entry.message] = describeError(payload);
+      } else {
+        entry.flights = fold(payload);
+        entry.status = entry.flights.length ? "ok" : "empty";
+        if (!entry.flights.length) entry.message = "残りの便なし";
+      }
+      routes.push(entry);
+      await new Promise((r) => setTimeout(r, DELAY_MS));
+    }
+
+    const out = {
+      generatedAt: new Date().toISOString(),
+      date,
+      hub: HUB,
+      source: "JAL公式 空席照会API (api.dom.jal.co.jp/rmweb-api/search/air-bounds)",
+      note: "残席数は9が上限（9席以上でも9と返る）。普通席=eco / クラスJ=clsj / ファースト=first。",
+      routes,
+    };
+
+    /* 全区間が error なら、JALにセッションを弾かれている。
+       いまあるデータを壊さないよう保存しない（夜間の全便出発済みは cancelled なのでOK）。 */
+    if (routes.every((r) => r.status === "error")) {
+      throw new Error("JALから空席を取得できませんでした（セッションが弾かれた可能性）");
+    }
+
+    const flights = routes.reduce((n, r) => n + (r.flights || []).length, 0);
+    const withSeats = routes.reduce(
+      (n, r) => n + (r.flights || []).filter((f) => f.eco > 0).length, 0,
+    );
+    const failed = routes.filter((r) => r.status === "error").length;
+
+    if (!UPDATE_KEY) {
+      download(out);
+      throw new Error("合言葉がないため保存できません。JSONをダウンロードしました");
+    }
+
+    show(`${label}ぶんを保存しています…`, `${flights}便中${withSeats}便に空席`, null);
     const res = await fetch(ENDPOINT, {
       method: "POST",
       headers: { "content-type": "application/json", "x-update-key": UPDATE_KEY },
       body: JSON.stringify(out),
     });
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "HTTP " + res.status);
+    if (!res.ok) {
+      download(out);
+      throw new Error((await res.json().catch(() => ({}))).error || "HTTP " + res.status);
+    }
+    return `${label} ${flights}便中<b>${withSeats}便</b>に空席`
+      + (failed ? `（取得失敗 ${failed}区間）` : "");
+  }
+
+  /* ------------------------------------------------------------- 保存・送信 */
+
+  const parts = [];
+  try {
+    for (let d = 0; d < DAYS.length; d++) parts.push(await collectDay(DAYS[d], d));
   } catch (e) {
-    download();
-    fail("送信に失敗しました",
-      `${String(e.message || e)}<br>availability.json をダウンロードしたので、`
-      + `data/ に置いて push すれば反映されます。`);
+    document.removeEventListener("visibilitychange", onHide);
+    releaseWakeLock();
+    fail(parts.length ? "翌日ぶんの途中で止まりました" : "更新できませんでした",
+      `${String(e.message || e)}`
+      + (parts.length ? `<br>${parts.join("<br>")}（ここまでは保存済み）` : "")
+      + (wentHidden ? "<br>途中で画面が消えたのが原因かもしれません。" : ""));
     return;
   }
 
-  show("更新しました ✈", `${stats}<br><a href="${SITE}" target="_blank" style="color:#b7001e;font-weight:700">本日の空席を開く</a>`, 100);
+  document.removeEventListener("visibilitychange", onHide);
+  releaseWakeLock();
+
+  const took = Math.round((Date.now() - started) / 1000);
+  show("更新しました ✈",
+    `${parts.join("<br>")}（${took}秒）`
+    + `<br><a href="${SITE}" target="_blank" style="color:#b7001e;font-weight:700">空席状況を開く</a>`, 100);
   $bar.style.background = "#1a7f4b";
   setTimeout(() => ui.remove(), 30000);
 })();

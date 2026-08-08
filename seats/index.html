@@ -2,9 +2,9 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>本日の空席 — JAL国内線ルートマップ</title>
+<title>空席状況（今日・明日）— JAL国内線ルートマップ</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="JAL国内線（羽田発着）の本日の普通席の残席をまとめて表示する非公式ファンサイト">
+<meta name="description" content="JAL国内線（羽田発着）の今日・明日の普通席の残席をまとめて表示する非公式ファンサイト">
 <style>
 :root{
   color-scheme: light dark;
@@ -169,7 +169,7 @@ footer a{color:var(--hover)}
   <div class="crest" aria-hidden="true"><span>✈</span></div>
   <div class="titlebox">
     <div class="eyebrow">WINGS OF JAPAN — SEAT AVAILABILITY</div>
-    <h1><span class="jp-red">JAL</span>国内線 本日の空席</h1>
+    <h1><span class="jp-red">JAL</span>国内線 空席状況</h1>
     <div class="dateline" id="dateline">読み込み中…</div>
   </div>
   <nav class="navtabs" aria-label="路線マップ切替">
@@ -184,9 +184,11 @@ footer a{color:var(--hover)}
 </header>
 <nav class="subtabs" aria-label="国内線コンテンツ切替">
   <a class="subtab" href="../">ルートマップ</a>
-  <a class="subtab active" href="./" aria-current="page">本日の空席</a>
+  <a class="subtab active" href="./" aria-current="page">空席状況</a>
 </nav>
 <div class="filterbar">
+  <span class="lbl">搭乗日</span>
+  <div class="seg" id="dayseg"></div>
   <span class="lbl">方向</span>
   <div class="seg" id="dirseg">
     <button data-dir="all" class="on">すべて</button>
@@ -252,8 +254,9 @@ const OPNAME = {JL:"JAL", NU:"JTA", JC:"JAC", RAC:"RAC", HAC:"HAC", "3X":"HAC", 
 
 const DOW = ["日","月","火","水","木","金","土"];
 
-const state = {dir:"all", seats:"avail", q:""};
-let DATA = null;
+const state = {dir:"all", seats:"avail", q:"", date:null};
+let DAYS = {};   // { "YYYY-MM-DD": payload }
+let DATA = null; // 選択中の日の payload
 
 /* -------- 残席バッジ --------
    quota は 9 が上限。9 は「10席以上あるかもしれない」なので数字を出さない。 */
@@ -283,6 +286,7 @@ function flightsOf(route){
 function render(){
   const list = document.getElementById("list");
   const visible = DATA.routes.filter(routeMatches);
+  const dayOver = isDayOver(DATA);
   const html = [];
 
   for (const route of visible){
@@ -292,7 +296,10 @@ function render(){
     const total = (route.flights || []).length;
     const open = (route.flights || []).filter(f => f.eco > 0).length;
     // 便が取れなかった区間は理由を本文だけに出す（見出しと二重に書かない）
-    const meta = route.status === "ok" ? `残り${total}便中 ${open}便に普通席の空席` : "";
+    const isToday = DATA.date === todayJST();
+    const meta = route.status === "ok"
+      ? `${isToday ? "残り" : ""}${total}便中 ${open}便に普通席の空席`
+      : "";
 
     html.push(`<section class="route">
       <div class="route-head">
@@ -302,7 +309,10 @@ function render(){
       </div>`);
 
     if (!flights.length){
-      html.push(`<div class="empty">${route.status === "ok" ? "空席のある便はありません。" : (route.message || "情報なし")}</div>`);
+      const reason = route.status === "cancelled" && dayOver
+        ? "本日の運航は終了しました"
+        : (route.message || "情報なし");
+      html.push(`<div class="empty">${route.status === "ok" ? "空席のある便はありません。" : reason}</div>`);
     } else {
       html.push(`<div class="tablewrap"><table>
         <thead><tr><th>便名</th><th>出発 → 到着</th><th>機材</th><th>普通席</th><th>クラスJ</th><th>ファースト</th><th>最安運賃</th></tr></thead><tbody>`);
@@ -341,8 +351,10 @@ function renderSummary(){
   document.getElementById("st-rt").textContent = DATA.routes.length;
 
   const d = new Date(DATA.date + "T00:00:00+09:00");
+  const isToday = DATA.date === todayJST();
   document.getElementById("dateline").textContent =
-    `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${DOW[d.getDay()]}）の残り便・普通席 ※非公式・参考データ`;
+    `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${DOW[d.getDay()]}）の`
+    + `${isToday ? "残り便" : "全便"}・普通席 ※非公式・参考データ`;
 
   const at = new Date(DATA.generatedAt);
   const hh = String(at.getHours()).padStart(2, "0");
@@ -351,16 +363,25 @@ function renderSummary(){
 
   const ageMin = Math.round((Date.now() - at.getTime()) / 60000);
   const notice = document.getElementById("notice");
-  const stale = ageMin > 180 || DATA.date !== todayJST();
+  // 明日ぶんは出発済みの概念がないので、古さだけを見る
+  const stale = ageMin > 180 || DATA.date < todayJST();
   notice.className = "notice" + (stale ? " stale" : "");
   const ageText = ageMin < 60
     ? `${ageMin}分前`
     : `約${Math.round(ageMin / 60)}時間前`;
+  if (isDayOver(DATA)) {
+    const other = Object.keys(DAYS).sort().find(d => d !== DATA.date);
+    notice.className = "notice stale";
+    notice.innerHTML = "<b>本日の運航は終了しました。</b> 羽田発着の便はすべて出発済みです。"
+      + (other ? " 上の搭乗日から<b>翌日</b>をお選びください。" : "");
+    return;
+  }
   notice.innerHTML = stale
     ? `<b>このデータは${ageText}に取得したものです（搭乗日 ${DATA.date}）。</b>`
       + ` 空席状況は刻々と変わるため、現在の状況とは大きく異なります。最新はJAL公式でご確認ください。`
-    : `<b>${ageText}に取得した、羽田発着の未出発便の空席状況です。</b>`
-      + ` 出発済みの便は表示されません。JALは残席を9までしか公開しないため、9席以上はまとめて「空席あり」と表示します。`;
+    : `<b>${ageText}に取得した、羽田発着${isToday ? "の未出発便" : "（翌日）"}の空席状況です。</b>`
+      + (isToday ? " 出発済みの便は表示されません。" : " 当日になると出発済みの便は消えます。")
+      + ` JALは残席を9までしか公開しないため、9席以上はまとめて「空席あり」と表示します。`;
 }
 
 function todayJST(){
@@ -385,14 +406,46 @@ function bindSeg(id, key){
 const REMOTE = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats";
 const FALLBACK = "../data/availability.json";
 
+/** 持っている日ぶんまとめて取る。落ちていたらコミット済みの静止データで代替する。 */
 async function loadAvailability(){
   try {
-    const res = await fetch(REMOTE, {cache: "no-store"});
-    if (res.ok) return await res.json();
+    const res = await fetch(`${REMOTE}?action=all`, {cache: "no-store"});
+    if (res.ok) {
+      const body = await res.json();
+      if (body && body.days && Object.keys(body.days).length) return body.days;
+    }
   } catch (e) { /* オフライン等。静止データで続行する */ }
   const res = await fetch(FALLBACK, {cache: "no-store"});
   if (!res.ok) throw new Error("HTTP " + res.status);
-  return res.json();
+  const one = await res.json();
+  return { [one.date]: one };
+}
+
+/* 全区間が cancelled のときは、台風などの欠航ではなく
+   「その日の便がもう残っていない（最終便まで出発済み）」とみなす。
+   全国どこ行きも一斉に欠航することは実際には起きないため。 */
+function isDayOver(payload){
+  return payload.date <= todayJST()
+    && payload.routes.length > 0
+    && payload.routes.every(r => r.status === "cancelled");
+}
+
+/** 日付タブを組み立てて、選択中の日を DATA に載せる。 */
+function selectDay(date){
+  const dates = Object.keys(DAYS).sort();
+  if (!dates.length) return;
+  state.date = DAYS[date] ? date : dates[0];
+  DATA = DAYS[state.date];
+
+  const today = todayJST();
+  document.getElementById("dayseg").innerHTML = dates.map(d => {
+    const dt = new Date(d + "T00:00:00+09:00");
+    const label = d === today ? "今日"
+      : dates.indexOf(d) === dates.indexOf(today) + 1 || d > today ? "明日" : "";
+    const md = `${dt.getMonth() + 1}/${dt.getDate()}（${DOW[dt.getDay()]}）`;
+    return `<button data-day="${d}"${d === state.date ? ' class="on"' : ""}>`
+      + `${label ? label + " " : ""}${md}</button>`;
+  }).join("");
 }
 
 /* ---------------- 「最新に更新」ボタン ----------------
@@ -433,8 +486,8 @@ async function pollRequest(id, startedAt){
     clearInterval(polling);
     setBusy(false);
     runbar(`<b>更新しました。</b> ${job.message || ""}`, "ok");
-    const fresh = await loadAvailability();
-    DATA = fresh;
+    DAYS = await loadAvailability();
+    selectDay(state.date);
     renderSummary();
     render();
     setTimeout(() => { $runbar.hidden = true; }, 8000);
@@ -458,7 +511,7 @@ async function pollRequest(id, startedAt){
   }
   const detail = job.message ? `（${job.message}）` : "";
   const stage = job.status === "pending" ? "収集を待っています…" : "更新中…";
-  runbar(`<b>${stage}</b> ${detail} JALから70区間ぶん取り直しています。2〜3分かかります。 ${waited}秒経過`);
+  runbar(`<b>${stage}</b> ${detail} JALから今日と翌日の140区間ぶん取り直しています。4〜5分かかります。 ${waited}秒経過`);
 }
 
 $refresh.addEventListener("click", async () => {
@@ -477,7 +530,7 @@ $refresh.addEventListener("click", async () => {
     if (extPresent) window.postMessage({type: "JAL_SEATS_RUN"}, "*");
 
     const startedAt = Date.now();
-    runbar("<b>更新中…</b> JALから70区間ぶん取り直しています。2分ほどかかります。");
+    runbar("<b>更新中…</b> JALから今日と翌日ぶんを取り直しています。4〜5分かかります。");
     clearInterval(polling);
     polling = setInterval(() => pollRequest(id, startedAt).catch(() => {}), 3000);
   } catch (e) {
@@ -487,12 +540,23 @@ $refresh.addEventListener("click", async () => {
 });
 
 loadAvailability()
-  .then(json => {
-    DATA = json;
+  .then(days => {
+    DAYS = days;
+    // 夜間など今日の便が残っていないときは、便のある日（＝翌日）を開く
+    const firstUseful = Object.keys(DAYS).sort()
+      .find(d => (DAYS[d].routes || []).some(r => (r.flights || []).length));
+    selectDay(firstUseful || todayJST());
     renderSummary();
     render();
     bindSeg("dirseg", "dir");
     bindSeg("seatseg", "seats");
+    document.getElementById("dayseg").addEventListener("click", ev => {
+      const b = ev.target.closest("button");
+      if (!b) return;
+      selectDay(b.dataset.day);
+      renderSummary();
+      render();
+    });
     let timer;
     document.getElementById("apsearch").addEventListener("input", ev => {
       clearTimeout(timer);

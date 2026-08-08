@@ -29,12 +29,14 @@
   if (!creds.authToken) return finish(false, { error: "JALのセッションを取得できませんでした" });
   const AUTH = "Bearer " + creds.authToken;
 
-  const now = new Date();
-  const date = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 10);
+  // 今日と翌日の2日ぶんを取る（JSTのカレンダー日付で数える）
+  const jstDate = (offsetDays) => {
+    const t = new Date(Date.now() + 9 * 3600000 + offsetDays * 86400000);
+    return t.toISOString().slice(0, 10);
+  };
+  const DAYS = [jstDate(0), jstDate(1)];
 
-  async function search(origin, destination) {
+  async function search(origin, destination, date) {
     const res = await fetch(API, {
       method: "POST",
       credentials: "include",
@@ -115,23 +117,32 @@
   const pairs = [];
   for (const spoke of SPOKES) pairs.push([HUB, spoke], [spoke, HUB]);
 
-  const routes = [];
-  try {
+  const send = (path, body) => fetch(ENDPOINT + path, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-update-key": updateKey },
+    body: JSON.stringify(body),
+  });
+
+  /** 1日ぶん集めて保存する。戻り値はその日の要約。 */
+  async function collectDay(date, dayIndex) {
+    const label = dayIndex === 0 ? "今日" : "翌日";
+    const routes = [];
+
     for (let i = 0; i < pairs.length; i++) {
       const [origin, destination] = pairs[i];
       if (i % 10 === 0) {
         chrome.runtime.sendMessage({
           type: "collect-progress", job,
-          message: `空席を取得中 ${i + 1}/${pairs.length}`,
+          message: `${label}ぶんを取得中 ${i + 1}/${pairs.length}`,
         });
       }
 
       let res;
       try {
-        res = await search(origin, destination);
+        res = await search(origin, destination, date);
         if (res.status !== 200) {
           await new Promise((r) => setTimeout(r, 4000));
-          res = await search(origin, destination);
+          res = await search(origin, destination, date);
         }
       } catch {
         res = { status: 0, payload: null };
@@ -153,38 +164,42 @@
       await new Promise((r) => setTimeout(r, DELAY_MS));
     }
 
-    // 1区間も取れていないなら、セッションを弾かれたとみなす（誤ったデータを載せない）
-    if (!routes.some((r) => r.status === "ok")) {
-      return finish(false, { error: "JALから空席を取得できませんでした（セッション拒否の可能性）" });
-    }
+    /* 全区間が error のときだけセッションを弾かれたとみなす。
+       夜間は最終便まで出発済みで全区間 cancelled になるが、それは正しい結果。 */
+    if (routes.every((r) => r.status === "error")) return null;
 
-    const out = {
+    const saved = await send("", {
       generatedAt: new Date().toISOString(),
       date,
       hub: HUB,
       source: "JAL公式 空席照会API (api.dom.jal.co.jp/rmweb-api/search/air-bounds)",
       note: "残席数は9が上限（9席以上でも9と返る）。普通席=eco / クラスJ=clsj / ファースト=first。",
       routes,
-    };
-
-    const send = (path, body) => fetch(ENDPOINT + path, {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-update-key": updateKey },
-      body: JSON.stringify(body),
     });
-
-    const saved = await send("", out);
     if (!saved.ok) {
       const detail = await saved.json().catch(() => ({}));
-      return finish(false, { error: detail.error || "保存に失敗しました" });
+      throw new Error(detail.error || "保存に失敗しました");
     }
 
-    const flightCount = routes.reduce((n, r) => n + (r.flights || []).length, 0);
+    const flights = routes.reduce((n, r) => n + (r.flights || []).length, 0);
     const withSeats = routes.reduce(
       (n, r) => n + (r.flights || []).filter((f) => f.eco > 0).length, 0,
     );
-    const summary = `${routes.length}区間・${flightCount}便／普通席に空席 ${withSeats}便`;
+    return `${label} ${flights}便中${withSeats}便に空席`;
+  }
 
+  try {
+    const parts = [];
+    for (let d = 0; d < DAYS.length; d++) {
+      // 今日ぶんが取れた時点で先に保存されるので、翌日ぶんで失敗しても無駄にならない
+      const summary = await collectDay(DAYS[d], d);
+      if (summary) parts.push(summary);
+      else if (d === 0) {
+        return finish(false, { error: "JALから空席を取得できませんでした（セッション拒否の可能性）" });
+      }
+    }
+
+    const summary = parts.join(" / ");
     if (job?.id) await send(`?action=finish&id=${job.id}`, { ok: true, message: summary });
     finish(true, { summary });
   } catch (err) {

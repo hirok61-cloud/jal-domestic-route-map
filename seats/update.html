@@ -212,15 +212,33 @@ footer{padding:14px 22px 26px;color:var(--sub);font-size:11px;border-top:1px sol
 const SCRIPT_URL = new URL("../tools/collect-in-browser.js", location.href).href;
 const STORE_KEY = "jalSeatsUpdateKey";
 
+/* 収集ロジックはブックマークレットに丸ごと埋め込む（自己完結型）。
+   外部スクリプトを読み込む方式だと、Androidでブックマーク一覧から開いたときに
+   JALのページではなく新しいタブで走ってしまい、読み込みに失敗して動かなかった。
+   埋め込みなら、どこで走っても最低限「この画面では実行できません」と案内できる。
+   代わりに、収集ロジックを直したときは登録し直しが必要になる。 */
+let collectorSrc = null;
+const collectorReady = fetch(SCRIPT_URL, { cache: "no-store" })
+  .then((r) => (r.ok ? r.text() : Promise.reject(new Error("HTTP " + r.status))))
+  .then((src) => { collectorSrc = src; })
+  .catch(() => { collectorSrc = null; });
+
 const $key = document.getElementById("key");
 const $state = document.getElementById("keystate");
 
 function buildBookmarklet(key){
+  if (collectorSrc) {
+    return "javascript:" + encodeURIComponent(
+      "(function(){window.__JAL_SEATS_KEY=" + JSON.stringify(key) + ";\n"
+      + collectorSrc + "\n})();",
+    );
+  }
+  // 収集ロジックを取得できなかったときだけ、外から読み込む形にしておく
   return "javascript:(function(){window.__JAL_SEATS_KEY="
     + JSON.stringify(key)
     + ";var s=document.createElement('script');s.src="
     + JSON.stringify(SCRIPT_URL)
-    + "+'?v='+Date.now();s.onerror=function(){alert('\\u53d6\\u5f97\\u30b9\\u30af\\u30ea\\u30d7\\u30c8\\u3092\\u8aad\\u307f\\u8fbc\\u3081\\u307e\\u305b\\u3093\\u3067\\u3057\\u305f');};document.body.appendChild(s);})();";
+    + "+'?v='+Date.now();document.body.appendChild(s);})();";
 }
 
 const $copyBtns = [...document.querySelectorAll("[data-copy]")];
@@ -239,6 +257,7 @@ function refresh(){
 
 /* --- コピー（スマホはドラッグできないのでこちらが主役） --- */
 async function copyBookmarklet(btn){
+  await collectorReady;
   const text = buildBookmarklet($key.value.trim());
   try {
     await navigator.clipboard.writeText(text);
