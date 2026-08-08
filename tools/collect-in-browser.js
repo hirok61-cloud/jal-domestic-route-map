@@ -49,7 +49,7 @@
   ui.id = "jal-seat-collector";
   ui.style.cssText = [
     "position:fixed", "right:18px", "bottom:18px", "z-index:2147483647",
-    "width:320px", "padding:16px 18px", "border-radius:14px",
+    "width:320px", "max-width:calc(100vw - 36px)", "padding:16px 18px", "border-radius:14px",
     "background:#fff", "color:#1b1e24", "border:1px solid #e2e0da",
     "box-shadow:0 12px 34px rgba(30,20,20,.28)",
     'font:13px/1.6 "Hiragino Sans","Yu Gothic UI",-apple-system,sans-serif',
@@ -188,6 +188,19 @@
     return ["error", err.title || err.code || "取得失敗"];
   }
 
+  /* スマホだと収集中に画面が消えるとタイマーが絞られて途中で止まるので、
+     可能なら画面スリープを抑止する（iOS 16.4+ / Android Chrome）。 */
+  let wakeLock = null;
+  try {
+    if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request("screen");
+  } catch { /* 非対応。そのまま続行する */ }
+  const releaseWakeLock = () => { try { wakeLock?.release(); } catch {} wakeLock = null; };
+
+  // 画面を消されたことに気づけるようにしておく（止まった理由がわからないと困るため）
+  let wentHidden = false;
+  const onHide = () => { if (document.visibilityState === "hidden") wentHidden = true; };
+  document.addEventListener("visibilitychange", onHide);
+
   const routes = [];
   const started = Date.now();
 
@@ -195,7 +208,8 @@
     const [origin, destination] = pairs[i];
     const left = Math.ceil((pairs.length - i) * (DELAY_MS + 900) / 1000);
     show(`空席を取得中… ${i + 1} / ${pairs.length}`,
-      `${origin} → ${destination}　残り約${left}秒`,
+      `${origin} → ${destination}　残り約${left}秒`
+      + "<br><span style='color:#b7001e'>この画面を開いたままにしてください</span>",
       Math.round((i / pairs.length) * 100));
 
     let res;
@@ -225,6 +239,9 @@
     await new Promise((r) => setTimeout(r, DELAY_MS));
   }
 
+  document.removeEventListener("visibilitychange", onHide);
+  releaseWakeLock();
+
   const out = {
     generatedAt: new Date().toISOString(),
     date,
@@ -241,7 +258,9 @@
   const failed = routes.filter((r) => r.status === "error").length;
   const took = Math.round((Date.now() - started) / 1000);
   const stats = `${routes.length}区間・${flightCount}便／普通席に空席 <b>${withSeats}便</b>`
-    + (failed ? `／取得失敗 ${failed}区間` : "") + `（${took}秒）`;
+    + (failed ? `／取得失敗 ${failed}区間` : "") + `（${took}秒）`
+    // 画面を消すとタイマーが絞られて取りこぼすので、失敗が多いときは理由を添える
+    + (wentHidden && failed ? "<br>途中で画面が消えたため取りこぼしたようです。もう一度お試しください。" : "");
 
   /* ------------------------------------------------------------- 保存・送信 */
 

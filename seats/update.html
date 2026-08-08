@@ -63,6 +63,16 @@ input[type=text]:focus{border-color:var(--red)}
   box-shadow:0 4px 14px color-mix(in srgb,var(--red) 40%,transparent)}
 .bm.off{background:var(--chipbg);color:var(--sub);box-shadow:none;cursor:not-allowed}
 .hint{margin-top:8px;font-size:12px;color:var(--sub)}
+.tabs{display:flex;gap:6px;margin:2px 0 14px;flex-wrap:wrap}
+.tabs button{border:1px solid var(--panel-edge);background:var(--bg);color:var(--sub);cursor:pointer;
+  border-radius:999px;padding:5px 14px;font-size:12px;font-weight:700;transition:all .15s}
+.tabs button.on{background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff;border-color:var(--red)}
+.tabs button:not(.on):hover{color:var(--red);border-color:var(--red)}
+.copy{border:1px solid var(--panel-edge);background:var(--chipbg);color:var(--ink);cursor:pointer;
+  border-radius:999px;padding:9px 18px;font-size:13px;font-weight:700;transition:all .15s}
+.copy:hover{border-color:var(--red);color:var(--red)}
+.copy.done{background:var(--ok-bg);color:var(--ok);border-color:var(--ok)}
+.copy:disabled{opacity:.45;cursor:not-allowed}
 .ok{color:var(--ok);font-weight:700}
 ol{margin:8px 0 0;padding-left:1.3em}
 ol li{margin:4px 0}
@@ -90,12 +100,53 @@ footer{padding:14px 22px 26px;color:var(--sub);font-size:11px;border-top:1px sol
 </section>
 
 <section>
-  <h2><span class="num">2</span>ボタンをブックマークバーにドラッグ</h2>
-  <p class="muted">下のボタンを、ブラウザのブックマークバーにドラッグ＆ドロップして登録します。</p>
-  <a class="bm off" id="bm" href="#" draggable="true">✈ JAL空席を更新</a>
-  <div class="hint">
-    ブックマークバーが出ていないときは <code>⌘⇧B</code>（Windowsは <code>Ctrl+Shift+B</code>）で表示できます。<br>
-    ドラッグしづらいときは、ブックマークを手で作って「URL」に下のリンク先を貼り付けてもOKです。
+  <h2><span class="num">2</span>ブックマークに登録する</h2>
+  <div class="tabs" id="platformtabs">
+    <button data-plat="pc">パソコン</button>
+    <button data-plat="ios">iPhone / iPad</button>
+    <button data-plat="android">Android</button>
+  </div>
+
+  <div class="plat" data-plat="pc">
+    <p class="muted">下のボタンを、ブラウザのブックマークバーにドラッグ＆ドロップして登録します。</p>
+    <a class="bm off" id="bm" href="#" draggable="true">✈ JAL空席を更新</a>
+    <div class="hint">
+      ブックマークバーが出ていないときは <code>⌘⇧B</code>（Windowsは <code>Ctrl+Shift+B</code>）で表示できます。<br>
+      ドラッグしづらいときは、「コピー」して手作りのブックマークのURL欄に貼り付けてもOKです。
+    </div>
+    <p><button class="copy" data-copy>ブックマークレットをコピー</button></p>
+  </div>
+
+  <div class="plat" data-plat="ios" hidden>
+    <p class="muted">スマホにはブックマークバーがないので、<b>ブックマークを1つ作って、そのURLを差し替えます。</b></p>
+    <ol>
+      <li>下の<b>「ブックマークレットをコピー」</b>を押す</li>
+      <li>Safariの<b>共有ボタン</b>（四角に↑のアイコン）→「ブックマークを追加」→ 保存<br>
+        <span class="muted">（このページをそのままブックマークして構いません）</span></li>
+      <li><b>ブックマーク一覧</b>（本のアイコン）→「編集」→ いま追加したブックマークをタップ</li>
+      <li>名前を <code>JAL空席を更新</code> に、<b>URL欄を全部消して長押し→ペースト</b>→「完了」</li>
+    </ol>
+    <p><button class="copy" data-copy>ブックマークレットをコピー</button></p>
+    <div class="callout">
+      <b>使うとき:</b> JALの空席照会の画面で、<b>ブックマーク一覧</b>（本のアイコン）を開いて
+      「JAL空席を更新」をタップします。アドレスバーに直接貼り付けても動きません。
+    </div>
+  </div>
+
+  <div class="plat" data-plat="android" hidden>
+    <p class="muted">Chromeはブックマークを名前で呼び出します。<b>短い名前</b>を付けるのがコツです。</p>
+    <ol>
+      <li>下の<b>「ブックマークレットをコピー」</b>を押す</li>
+      <li>Chromeの <b>⋮</b> → ☆ でこのページをブックマークする</li>
+      <li><b>⋮</b> →「ブックマーク」→ いま追加したものを長押し →「編集」</li>
+      <li>名前を <code>jalseat</code> に、<b>URL欄を全部消してペースト</b>→ 保存</li>
+    </ol>
+    <p><button class="copy" data-copy>ブックマークレットをコピー</button></p>
+    <div class="callout">
+      <b>使うとき:</b> JALの空席照会の画面でアドレスバーに <code>jalseat</code> と入力し、
+      出てきた<b>ブックマークの候補</b>をタップします。
+      （<code>javascript:</code> をアドレスバーに直接貼り付けても、Chromeが消してしまい動きません）
+    </div>
   </div>
 </section>
 
@@ -104,13 +155,18 @@ footer{padding:14px 22px 26px;color:var(--sub);font-size:11px;border-top:1px sol
   <ol>
     <li><a href="https://www.jal.co.jp/ja-jp/" target="_blank" rel="noopener">JAL公式サイト</a>で国内線をふつうに1回検索して、<b>予約（空席照会）</b>の画面まで進む<br>
       <span class="muted">路線・日付は何でもかまいません。JALのセッションを作るためだけに使います。</span></li>
-    <li>ブックマークバーの <b>「✈ JAL空席を更新」</b> をクリック</li>
+    <li id="runstep">ブックマークバーの <b>「✈ JAL空席を更新」</b> をクリック</li>
     <li>画面の右下に進捗が出ます。90秒ほどで終わり、そのままサイトに反映されます</li>
   </ol>
   <div class="callout">
     JALのサーバーには70回リクエストを送るので、1.2秒ずつ間隔をあけています。
     続けて何度も実行しないでください。
   </div>
+  <p class="muted" id="mobilerun" hidden>
+    <b>スマホの注意:</b> 収集中は<b>その画面を開いたままにしてください。</b>
+    ほかのアプリに切り替えたり画面が消えたりすると、ブラウザが処理を止めてしまい
+    途中で失敗します（自動で画面スリープを抑えますが、手動ロックには勝てません）。
+  </p>
 </section>
 
 <section>
@@ -146,20 +202,69 @@ function buildBookmarklet(key){
     + "+'?v='+Date.now();s.onerror=function(){alert('\\u53d6\\u5f97\\u30b9\\u30af\\u30ea\\u30d7\\u30c8\\u3092\\u8aad\\u307f\\u8fbc\\u3081\\u307e\\u305b\\u3093\\u3067\\u3057\\u305f');};document.body.appendChild(s);})();";
 }
 
+const $copyBtns = [...document.querySelectorAll("[data-copy]")];
+
 function refresh(){
   const key = $key.value.trim();
   if (key) {
     localStorage.setItem(STORE_KEY, key);
     $bm.href = buildBookmarklet(key);
     $bm.classList.remove("off");
-    $state.innerHTML = '<span class="ok">合言葉を保存しました。</span> 下のボタンをブックマークバーへドラッグしてください。';
+    $state.innerHTML = '<span class="ok">合言葉を保存しました。</span> 次の手順でブックマークに登録してください。';
   } else {
     localStorage.removeItem(STORE_KEY);
     $bm.href = "#";
     $bm.classList.add("off");
     $state.textContent = "未入力です。";
   }
+  $copyBtns.forEach(b => { b.disabled = !key; });
 }
+
+/* --- コピー（スマホはドラッグできないのでこちらが主役） --- */
+async function copyBookmarklet(btn){
+  const text = buildBookmarklet($key.value.trim());
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    // 権限が下りない場合の保険。選択状態にして手動コピーしてもらう
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.cssText = "position:fixed;top:50%;left:5%;width:90%;height:80px;z-index:99";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); } catch {}
+    ta.remove();
+  }
+  const label = btn.textContent;
+  btn.textContent = "コピーしました ✓";
+  btn.classList.add("done");
+  setTimeout(() => { btn.textContent = label; btn.classList.remove("done"); }, 2500);
+}
+$copyBtns.forEach(b => b.addEventListener("click", () => copyBookmarklet(b)));
+
+/* --- 端末別の手順切り替え --- */
+const $tabs = document.getElementById("platformtabs");
+function selectPlatform(plat){
+  [...$tabs.children].forEach(b => b.classList.toggle("on", b.dataset.plat === plat));
+  document.querySelectorAll(".plat").forEach(p => { p.hidden = p.dataset.plat !== plat; });
+  document.getElementById("mobilerun").hidden = plat === "pc";
+  document.getElementById("runstep").innerHTML = {
+    pc: 'ブックマークバーの <b>「✈ JAL空席を更新」</b> をクリック',
+    ios: '<b>ブックマーク一覧</b>（本のアイコン）を開いて <b>「JAL空席を更新」</b> をタップ',
+    android: 'アドレスバーに <code>jalseat</code> と入力して、出てきた<b>ブックマークの候補</b>をタップ',
+  }[plat];
+}
+$tabs.addEventListener("click", ev => {
+  const b = ev.target.closest("button");
+  if (b) selectPlatform(b.dataset.plat);
+});
+// いま見ている端末の手順を最初から開いておく
+const ua = navigator.userAgent;
+selectPlatform(
+  /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? "ios"
+  : /Android/.test(ua) ? "android"
+  : "pc"
+);
 
 $key.value = localStorage.getItem(STORE_KEY) || "";
 $key.addEventListener("input", refresh);
