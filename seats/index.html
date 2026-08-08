@@ -140,6 +140,9 @@ td.fno{font-weight:700;color:var(--red)}
 .badge.b-warn{background:var(--warn-bg);color:var(--warn)}
 .badge.b-full{background:var(--full-bg);color:var(--full)}
 .badge.b-na{color:var(--sub);font-weight:400}
+/* 座席表で実際に選べる席数。運賃の在庫とは別管理なのでズレることがある */
+.seatmap{display:block;margin-top:3px;font-size:10.5px;color:var(--sub);white-space:nowrap}
+.seatmap.none{color:var(--warn);font-weight:700}
 .empty{padding:12px 16px;font-size:12.5px;color:var(--sub)}
 .loading{padding:40px 0;text-align:center;color:var(--sub)}
 footer{padding:12px 22px 22px;color:var(--sub);font-size:11px;border-top:1px solid var(--hair);line-height:1.75;background:var(--bg)}
@@ -285,6 +288,14 @@ function badge(quota){
   return `<span class="badge ${cls}">残り${quota}席</span>`;
 }
 
+/* 座席表で実際に選べる席数。運賃が「空席あり」でも座席表は埋まっていることがあり、
+   利用者にはそちらのほうが実感に近いので、普通席のバッジの下に併記する。 */
+function seatmapNote(f){
+  if (f.sa === undefined || f.sa === null) return "";
+  if (f.sa === 0) return '<span class="seatmap none">座席表は満席</span>';
+  return `<span class="seatmap">座席表 ${f.sa}席</span>`;
+}
+
 function routeMatches(route){
   if (state.dir === "out" && route.o !== DATA.hub) return false;
   if (state.dir === "in" && route.d !== DATA.hub) return false;
@@ -348,7 +359,7 @@ function render(){
           <td class="fno mono">${f.no}</td>
           <td class="mono">${f.dep} → ${f.arr}</td>
           <td>${acLabel(f.ac)}${f.op && f.op !== "JL" ? " / " + (OPNAME[f.op] || f.op) : ""}</td>
-          <td>${badge(f.eco)}</td>
+          <td>${badge(f.eco)}${seatmapNote(f)}</td>
           <td>${badge(f.clsj)}</td>
           <td>${badge(f.first)}</td>
           <td class="mono">${fare}</td>
@@ -407,7 +418,10 @@ function renderSummary(){
       + ` 空席状況は刻々と変わるため、現在の状況とは大きく異なります。最新はJAL公式でご確認ください。`
     : `<b>${ageText}に取得した、羽田発着${isToday ? "の未出発便" : "（翌日）"}の空席状況です。</b>`
       + (isToday ? " 出発済みの便は表示されません。" : " 当日になると出発済みの便は消えます。")
-      + ` JALは残席を9までしか公開しないため、9席以上はまとめて「空席あり」と表示します。`;
+      + ` JALは残席を9までしか公開しないため、9席以上はまとめて「空席あり」と表示します。`
+      + `<br><b>「座席表」は、その便で実際に指定できる普通席の数です。</b>`
+      + ` 運賃の在庫とは別管理で、JALが当日空港割り当てぶんを確保しているため、`
+      + ` 空席ありでも座席表は満席ということがあります。`;
 }
 
 function todayJST(){
@@ -537,7 +551,7 @@ async function pollRequest(id, startedAt){
   }
   const detail = job.message ? `（${job.message}）` : "";
   const stage = job.status === "pending" ? "収集を待っています…" : "更新中…";
-  runbar(`<b>${stage}</b> ${detail} JALから今日と翌日の140区間ぶん取り直しています。4〜5分かかります。 ${waited}秒経過`);
+  runbar(`<b>${stage}</b> ${detail} JALから今日と翌日ぶんを取り直しています。座席表も見るので15〜20分かかります。 ${waited}秒経過`);
 }
 
 $refresh.addEventListener("click", async () => {
@@ -556,7 +570,7 @@ $refresh.addEventListener("click", async () => {
     if (extPresent) window.postMessage({type: "JAL_SEATS_RUN"}, "*");
 
     const startedAt = Date.now();
-    runbar("<b>更新中…</b> JALから今日と翌日ぶんを取り直しています。4〜5分かかります。");
+    runbar("<b>更新中…</b> JALから今日と翌日ぶんを取り直しています。座席表も見るので15〜20分かかります。");
     clearInterval(polling);
     polling = setInterval(() => pollRequest(id, startedAt).catch(() => {}), 3000);
   } catch (e) {
