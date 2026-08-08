@@ -1,0 +1,11 @@
+{
+  "name": "jal-domestic-route-map",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:bookmarklet": "node tools/build-bookmarklet.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1"
+  }
+}
