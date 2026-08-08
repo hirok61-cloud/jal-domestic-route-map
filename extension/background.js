@@ -17,9 +17,22 @@ const ALARM = "poll";
    トップページで少し待ってからでないと、空席APIが429(cpr_chlge)で弾かれる。 */
 const MATURE_MS = 30000;
 const NAV_TIMEOUT_MS = 60000;
-const COLLECT_TIMEOUT_MS = 4 * 60 * 1000;
+/* 収集の上限時間。座席表まで見るので1日分で8〜10分かかる。
+   余裕をみて1日あたり20分とる。 */
+const COLLECT_MS_PER_DAY = 20 * 60 * 1000;
 
-let running = false;
+/* 収集中かどうかは storage に置く。Service Worker は数十秒で止められるので、
+   メモリ上のフラグだと再起動後に「動いていない」と誤認して二重に走ってしまう。 */
+async function beginRun() {
+  const { runningSince = 0 } = await chrome.storage.local.get("runningSince");
+  // 上限時間を大きく超えていたら、前回が異常終了したとみなして引き継ぐ
+  if (runningSince && Date.now() - runningSince < 2 * COLLECT_MS_PER_DAY + 10 * 60 * 1000) {
+    return false;
+  }
+  await chrome.storage.local.set({ runningSince: Date.now() });
+  return true;
+}
+const endRun = () => chrome.storage.local.remove("runningSince").catch(() => {});
 
 /* ------------------------------------------------------------------ 小道具 */
 
@@ -76,9 +89,10 @@ function waitForUrl(tabId, re, timeoutMs) {
 /* -------------------------------------------------------------- 収集の本体 */
 
 async function runJob(job) {
-  if (running) return;
-  running = true;
+  if (!(await beginRun())) return;
   setBadge("…");
+  const days = Array.isArray(job?.days) && job.days.length ? job.days.length : 2;
+  const collectTimeoutMs = COLLECT_MS_PER_DAY * days;
 
   let win = null;
   try {
@@ -111,7 +125,7 @@ async function runJob(job) {
       const timer = setTimeout(() => {
         chrome.runtime.onMessage.removeListener(onMsg);
         reject(new Error("収集が時間内に終わりませんでした"));
-      }, COLLECT_TIMEOUT_MS);
+      }, collectTimeoutMs);
       function onMsg(msg) {
         if (msg?.type !== "collect-finished") return;
         clearTimeout(timer);
@@ -138,14 +152,15 @@ async function runJob(job) {
   } finally {
     if (win?.id != null) chrome.windows.remove(win.id).catch(() => {});
     await chrome.storage.local.remove("job").catch(() => {});
-    running = false;
+    await endRun();
   }
 }
 
 /* ------------------------------------------------------------ 依頼を拾う */
 
 async function poll() {
-  if (running) return;
+  const { runningSince = 0 } = await chrome.storage.local.get("runningSince");
+  if (runningSince && Date.now() - runningSince < 50 * 60 * 1000) return; // 収集中
   if (!(await getKey())) return; // 未設定のうちは何もしない
   try {
     const res = await api("?action=claim");
@@ -172,11 +187,13 @@ chrome.alarms.onAlarm.addListener((a) => { if (a.name === ALARM) poll(); });
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === "run-now") {
     poll();
-    sendResponse({ accepted: true, running });
+    sendResponse({ accepted: true });
     return true;
   }
   if (msg?.type === "ping") {
-    getKey().then((k) => sendResponse({ ok: true, configured: !!k, running }));
+    Promise.all([getKey(), chrome.storage.local.get("runningSince")])
+      .then(([k, { runningSince = 0 }]) =>
+        sendResponse({ ok: true, configured: !!k, running: !!runningSince }));
     return true;
   }
   if (msg?.type === "collect-progress" && msg.job?.id) {
