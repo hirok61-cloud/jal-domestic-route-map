@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>本日の空席 — JAL国内線ルートマップ</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="JAL国内線（羽田発着）の本日の普通席の残席をまとめて表示する非公式ファンサイト">
+<style>
+:root{
+  color-scheme: light dark;
+  --red:#b7001e; --red-deep:#8c0017; --red-soft:#fbeef0; --gold:#a98e5e;
+  --bg:#faf9f7;
+  --ink:#1b1e24; --sub:#6b7480; --panel:#ffffff; --panel-edge:#e2e0da; --hair:#eceae5; --chipbg:#f4f2ee;
+  --hover:#0d55a0;
+  --ok:#1a7f4b; --ok-bg:#e7f5ec; --warn:#b06000; --warn-bg:#fdf1e2; --full:#8b98a3; --full-bg:#f2f2f0;
+  --shadow:0 10px 30px rgba(30,20,20,.12); --card-shadow:0 2px 10px rgba(30,20,20,.06);
+}
+@media (prefers-color-scheme: dark){:root{
+  --red:#ff4256; --red-deep:#c2182e; --red-soft:#39141a; --gold:#d7bc85;
+  --bg:#0e1216;
+  --ink:#eceff3; --sub:#95a1ad; --panel:#141a21; --panel-edge:#27303a; --hair:#20272f; --chipbg:#1b222b;
+  --hover:#5ab0ff;
+  --ok:#5ed58f; --ok-bg:#12291d; --warn:#ffb056; --warn-bg:#2e2113; --full:#6c7b87; --full-bg:#1a1f25;
+  --shadow:0 10px 30px rgba(0,0,0,.55); --card-shadow:0 2px 10px rgba(0,0,0,.4);
+}}
+:root[data-theme="light"]{
+  --red:#b7001e; --red-deep:#8c0017; --red-soft:#fbeef0; --gold:#a98e5e;
+  --bg:#faf9f7;
+  --ink:#1b1e24; --sub:#6b7480; --panel:#ffffff; --panel-edge:#e2e0da; --hair:#eceae5; --chipbg:#f4f2ee;
+  --hover:#0d55a0;
+  --ok:#1a7f4b; --ok-bg:#e7f5ec; --warn:#b06000; --warn-bg:#fdf1e2; --full:#8b98a3; --full-bg:#f2f2f0;
+  --shadow:0 10px 30px rgba(30,20,20,.12); --card-shadow:0 2px 10px rgba(30,20,20,.06);
+}
+:root[data-theme="dark"]{
+  --red:#ff4256; --red-deep:#c2182e; --red-soft:#39141a; --gold:#d7bc85;
+  --bg:#0e1216;
+  --ink:#eceff3; --sub:#95a1ad; --panel:#141a21; --panel-edge:#27303a; --hair:#20272f; --chipbg:#1b222b;
+  --hover:#5ab0ff;
+  --ok:#5ed58f; --ok-bg:#12291d; --warn:#ffb056; --warn-bg:#2e2113; --full:#6c7b87; --full-bg:#1a1f25;
+  --shadow:0 10px 30px rgba(0,0,0,.55); --card-shadow:0 2px 10px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);
+  font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP",-apple-system,sans-serif;
+  font-size:14px;line-height:1.6;-webkit-text-size-adjust:100%}
+button,input,select{font-family:inherit;color:inherit}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
+/* ---------- ヘッダー ---------- */
+.brandline{height:4px;background:linear-gradient(90deg,var(--red-deep),var(--red) 30%,var(--red) 70%,var(--red-deep))}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
+  padding:16px 22px 12px;border-bottom:1px solid var(--hair);
+  background:linear-gradient(180deg,var(--panel),var(--bg))}
+.crest{width:44px;height:44px;border-radius:50%;flex:none;
+  background:radial-gradient(circle at 34% 30%, var(--red) 0%, var(--red-deep) 90%);
+  box-shadow:0 4px 14px color-mix(in srgb,var(--red) 45%,transparent);
+  display:flex;align-items:center;justify-content:center}
+.crest span{color:#fff;font-size:21px;transform:rotate(-45deg) translate(1px,1px)}
+.titlebox{min-width:0}
+.eyebrow{font-size:10px;letter-spacing:.32em;color:var(--red);font-weight:700;line-height:1.4}
+.titlebox h1{margin:0;font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
+  font-size:22px;font-weight:600;letter-spacing:.08em;line-height:1.25}
+.titlebox h1 .jp-red{color:var(--red)}
+.dateline{color:var(--sub);font-size:11px;letter-spacing:.06em}
+.navtabs{display:flex;gap:0;margin-left:auto;align-items:center}
+.navtab{font-size:12px;font-weight:700;letter-spacing:.05em;text-decoration:none;color:var(--sub);
+  padding:7px 15px;border:1px solid var(--panel-edge);background:var(--panel);transition:all .15s;white-space:nowrap}
+.navtab:first-child{border-radius:999px 0 0 999px;border-right:none}
+.navtab:last-child{border-radius:0 999px 999px 0}
+.navtab.active{background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff;border-color:var(--red)}
+.navtab:not(.active):hover{color:var(--red);border-color:var(--red)}
+.stats{margin-left:14px;display:flex;gap:8px}
+.stat{background:var(--panel);border:1px solid var(--panel-edge);border-radius:12px;
+  padding:5px 14px;text-align:center;line-height:1.25;box-shadow:var(--card-shadow)}
+.stat b{display:block;font-size:17px;color:var(--red);font-variant-numeric:tabular-nums}
+.stat span{font-size:9.5px;color:var(--sub);letter-spacing:.14em}
+/* ---------- サブタブ ---------- */
+.subtabs{display:flex;gap:22px;padding:0 22px;border-bottom:1px solid var(--hair);background:var(--bg)}
+.subtab{position:relative;text-decoration:none;color:var(--sub);font-size:13px;font-weight:700;
+  letter-spacing:.06em;padding:11px 2px 10px;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s}
+.subtab:hover{color:var(--red)}
+.subtab.active{color:var(--red);border-bottom-color:var(--red)}
+/* ---------- フィルタバー ---------- */
+.filterbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px 14px;padding:10px 22px;
+  border-bottom:1px solid var(--hair);background:var(--panel)}
+.filterbar .lbl{font-size:10.5px;letter-spacing:.16em;color:var(--sub);font-weight:700}
+.seg{display:flex;border:1px solid var(--panel-edge);border-radius:999px;overflow:hidden;background:var(--bg)}
+.seg button{border:none;background:transparent;cursor:pointer;font-size:12px;font-weight:700;
+  padding:6px 14px;color:var(--sub);transition:all .15s;white-space:nowrap}
+.seg button.on{background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff}
+.seg button:not(.on):hover{color:var(--red)}
+.filterbar input[type=search]{background:var(--bg);border:1px solid var(--panel-edge);border-radius:999px;
+  padding:6px 14px;font-size:12.5px;width:180px;outline:none}
+.filterbar input[type=search]:focus{border-color:var(--red)}
+.asof{margin-left:auto;font-size:11.5px;color:var(--sub);letter-spacing:.04em}
+.asof b{color:var(--ink);font-variant-numeric:tabular-nums}
+/* ---------- 本体 ---------- */
+main{padding:18px 22px 40px;max-width:1180px;margin:0 auto}
+.notice{border:1px solid var(--panel-edge);background:var(--panel);border-radius:12px;
+  padding:11px 15px;font-size:12px;color:var(--sub);line-height:1.7;margin-bottom:16px;box-shadow:var(--card-shadow)}
+.notice b{color:var(--ink)}
+.stale{border-color:color-mix(in srgb,var(--red) 45%,var(--panel-edge));background:var(--red-soft);color:var(--ink)}
+.route{border:1px solid var(--panel-edge);background:var(--panel);border-radius:14px;
+  margin-bottom:12px;overflow:hidden;box-shadow:var(--card-shadow)}
+.route-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:11px 16px;border-bottom:1px solid var(--hair);background:linear-gradient(180deg,var(--chipbg),var(--panel))}
+.route-head h2{margin:0;font-size:15px;font-weight:700;letter-spacing:.03em}
+.route-head h2 .arrow{color:var(--red);margin:0 7px}
+.route-head .meta{font-size:11.5px;color:var(--sub);font-variant-numeric:tabular-nums}
+.route-head .jal{margin-left:auto;font-size:11.5px;font-weight:700;color:var(--red);text-decoration:none;
+  border:1px solid color-mix(in srgb,var(--red) 40%,transparent);border-radius:999px;padding:4px 12px;transition:all .15s}
+.route-head .jal:hover{background:var(--red);color:#fff}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{padding:7px 12px;text-align:left;border-bottom:1px solid var(--hair);white-space:nowrap}
+th{font-size:10.5px;letter-spacing:.1em;color:var(--sub);font-weight:700;background:var(--bg)}
+tr:last-child td{border-bottom:none}
+tbody tr.full{opacity:.5}
+td.fno{font-weight:700;color:var(--red)}
+.badge{display:inline-block;border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:700;
+  font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.badge.b-ok{background:var(--ok-bg);color:var(--ok)}
+.badge.b-warn{background:var(--warn-bg);color:var(--warn)}
+.badge.b-full{background:var(--full-bg);color:var(--full)}
+.badge.b-na{color:var(--sub);font-weight:400}
+.empty{padding:12px 16px;font-size:12.5px;color:var(--sub)}
+.loading{padding:40px 0;text-align:center;color:var(--sub)}
+footer{padding:12px 22px 22px;color:var(--sub);font-size:11px;border-top:1px solid var(--hair);line-height:1.75;background:var(--bg)}
+footer a{color:var(--hover)}
+.fan{display:block;margin-top:4px;opacity:.85}
+@media (max-width:900px){
+  header{padding:12px 14px 10px;gap:8px 12px}
+  .crest{width:36px;height:36px}
+  .crest span{font-size:17px}
+  .titlebox{flex:1 1 200px;min-width:0}
+  .titlebox h1{font-size:16px}
+  .eyebrow{font-size:8.5px;letter-spacing:.24em}
+  .navtabs{order:2;margin-left:0}
+  .stats{order:3;margin-left:auto;gap:6px}
+  .stat{padding:5px 10px}
+  .subtabs,.filterbar{padding-left:14px;padding-right:14px}
+  main{padding:14px}
+  .asof{margin-left:0;width:100%}
+  .route-head h2{font-size:14px}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="brandline"></div>
+<header>
+  <div class="crest" aria-hidden="true"><span>✈</span></div>
+  <div class="titlebox">
+    <div class="eyebrow">WINGS OF JAPAN — SEAT AVAILABILITY</div>
+    <h1><span class="jp-red">JAL</span>国内線 本日の空席</h1>
+    <div class="dateline" id="dateline">読み込み中…</div>
+  </div>
+  <nav class="navtabs" aria-label="路線マップ切替">
+    <a class="navtab active" href="../" aria-current="page">国内線</a>
+    <a class="navtab" href="../international/">国際線</a>
+  </nav>
+  <div class="stats">
+    <div class="stat"><b id="st-seat">–</b><span>空席あり便</span></div>
+    <div class="stat"><b id="st-full">–</b><span>満席便</span></div>
+    <div class="stat"><b id="st-rt">–</b><span>区間</span></div>
+  </div>
+</header>
+<nav class="subtabs" aria-label="国内線コンテンツ切替">
+  <a class="subtab" href="../">ルートマップ</a>
+  <a class="subtab active" href="./" aria-current="page">本日の空席</a>
+</nav>
+<div class="filterbar">
+  <span class="lbl">方向</span>
+  <div class="seg" id="dirseg">
+    <button data-dir="all" class="on">すべて</button>
+    <button data-dir="out">羽田発</button>
+    <button data-dir="in">羽田着</button>
+  </div>
+  <span class="lbl">表示</span>
+  <div class="seg" id="seatseg">
+    <button data-seats="avail" class="on">空席のある便のみ</button>
+    <button data-seats="all">全便</button>
+  </div>
+  <input type="search" id="apsearch" placeholder="空港名で絞り込み" aria-label="空港名で絞り込み">
+  <div class="asof" id="asof"></div>
+</div>
+<main>
+  <div class="notice" id="notice"></div>
+  <div id="list" class="loading">読み込み中…</div>
+</main>
+<footer>
+  普通席（エコノミー）の残席をJAL公式の空席照会（大人1名・当日搭乗）で取得した参考データです。
+  <b>残席は9が上限で、10席以上あっても「9席以上」と表示されます。</b>
+  空席状況は刻々と変わるため、実際のご予約時には取得できない場合があります。
+  ご搭乗・ご予約の際は必ず<a href="https://www.jal.co.jp/ja-jp/" target="_blank" rel="noopener">JAL公式サイト</a>でご確認ください。
+  <span class="fan">本サイトは個人が作成した非公式のファンサイトであり、日本航空株式会社およびJALグループ各社とは一切関係ありません。</span>
+</footer>
+
+<script>
+"use strict";
+
+const AP = {
+ HND:"東京(羽田)", NRT:"成田", CTS:"札幌(新千歳)", OKD:"札幌(丘珠)", HKD:"函館", AKJ:"旭川",
+ KUH:"釧路", OBO:"帯広", MMB:"女満別", SHB:"根室中標津", RIS:"利尻", OIR:"奥尻",
+ AOJ:"青森", MSJ:"三沢", AXT:"秋田", GAJ:"山形", HNA:"花巻", SDJ:"仙台", KIJ:"新潟",
+ MMJ:"松本", KMQ:"小松", FSZ:"静岡", NKM:"名古屋(小牧)", NGO:"名古屋(中部)",
+ ITM:"大阪(伊丹)", KIX:"大阪(関西)", UKB:"神戸", SHM:"南紀白浜", TJH:"但馬",
+ OKI:"隠岐", IZO:"出雲", OKJ:"岡山", HIJ:"広島", UBJ:"山口宇部",
+ TAK:"高松", TKS:"徳島", KCZ:"高知", MYJ:"松山",
+ FUK:"福岡", KKJ:"北九州", OIT:"大分", NGS:"長崎", TSJ:"対馬", IKI:"壱岐", FUJ:"五島福江",
+ KMJ:"熊本", AXJ:"天草", KMI:"宮崎", KOJ:"鹿児島", TNE:"種子島", KUM:"屋久島",
+ ASJ:"奄美大島", KKX:"喜界島", TKN:"徳之島", OKE:"沖永良部", RNJ:"与論",
+ OKA:"沖縄(那覇)", UEO:"久米島", KTD:"北大東", MMD:"南大東",
+ MMY:"宮古", TRA:"多良間", ISG:"石垣", OGN:"与那国"
+};
+
+/* JAL公式APIが返す IATA 機材コード → 表示名 */
+const ACNAME = {
+ "359":"A350-900","351":"A350-1000","388":"A380",
+ "788":"787-8","789":"787-9","78W":"787-9",
+ "767":"767-300","763":"767-300","76W":"767-300","762":"767-200",
+ "738":"737-800","73H":"737-800","737":"737",
+ "E90":"E190","E9X":"E190","E70":"E170","E75":"E175","E7W":"E175",
+ "AT7":"ATR72","AT4":"ATR42","ATR":"ATR42",
+ "DH4":"Q400","DH8":"Q400","SF3":"Saab340"
+};
+const acLabel = code => ACNAME[code] || code || "";
+
+const OPNAME = {JL:"JAL", NU:"JTA", JC:"JAC", RAC:"RAC", HAC:"HAC", "3X":"HAC", FW:"FDA", OC:"ORC", MZ:"AMX"};
+
+const DOW = ["日","月","火","水","木","金","土"];
+
+const state = {dir:"all", seats:"avail", q:""};
+let DATA = null;
+
+/* -------- 残席バッジ --------
+   quota は 9 が上限。9 は「10席以上あるかもしれない」なので数字を出さない。 */
+function badge(quota){
+  if (quota === null || quota === undefined) return '<span class="badge b-na">—</span>';
+  if (quota <= 0) return '<span class="badge b-full">満席</span>';
+  if (quota >= 9) return '<span class="badge b-ok">空席あり</span>';
+  const cls = quota <= 3 ? "b-warn" : "b-ok";
+  return `<span class="badge ${cls}">残り${quota}席</span>`;
+}
+
+function routeMatches(route){
+  if (state.dir === "out" && route.o !== DATA.hub) return false;
+  if (state.dir === "in" && route.d !== DATA.hub) return false;
+  if (state.q){
+    const hay = (AP[route.o] || route.o) + route.o + (AP[route.d] || route.d) + route.d;
+    if (!hay.toLowerCase().includes(state.q)) return false;
+  }
+  return true;
+}
+
+function flightsOf(route){
+  const list = route.flights || [];
+  return state.seats === "avail" ? list.filter(f => f.eco > 0) : list;
+}
+
+function render(){
+  const list = document.getElementById("list");
+  const visible = DATA.routes.filter(routeMatches);
+  const html = [];
+
+  for (const route of visible){
+    const flights = flightsOf(route);
+    if (state.seats === "avail" && !flights.length) continue;
+
+    const total = (route.flights || []).length;
+    const open = (route.flights || []).filter(f => f.eco > 0).length;
+    // 便が取れなかった区間は理由を本文だけに出す（見出しと二重に書かない）
+    const meta = route.status === "ok" ? `残り${total}便中 ${open}便に普通席の空席` : "";
+
+    html.push(`<section class="route">
+      <div class="route-head">
+        <h2>${AP[route.o] || route.o}<span class="arrow">→</span>${AP[route.d] || route.d}</h2>
+        <span class="meta">${meta}</span>
+        <a class="jal" href="https://www.jal.co.jp/ja-jp/" target="_blank" rel="noopener">JAL公式で照会</a>
+      </div>`);
+
+    if (!flights.length){
+      html.push(`<div class="empty">${route.status === "ok" ? "空席のある便はありません。" : (route.message || "情報なし")}</div>`);
+    } else {
+      html.push(`<div class="tablewrap"><table>
+        <thead><tr><th>便名</th><th>出発 → 到着</th><th>機材</th><th>普通席</th><th>クラスJ</th><th>ファースト</th><th>最安運賃</th></tr></thead><tbody>`);
+      for (const f of flights){
+        const fare = f.fare ? "¥" + f.fare.toLocaleString("ja-JP") : "—";
+        html.push(`<tr class="${f.eco > 0 ? "" : "full"}">
+          <td class="fno mono">${f.no}</td>
+          <td class="mono">${f.dep} → ${f.arr}</td>
+          <td>${acLabel(f.ac)}${f.op && f.op !== "JL" ? " / " + (OPNAME[f.op] || f.op) : ""}</td>
+          <td>${badge(f.eco)}</td>
+          <td>${badge(f.clsj)}</td>
+          <td>${badge(f.first)}</td>
+          <td class="mono">${fare}</td>
+        </tr>`);
+      }
+      html.push(`</tbody></table></div>`);
+    }
+    html.push(`</section>`);
+  }
+
+  list.className = "";
+  list.innerHTML = html.length
+    ? html.join("")
+    : `<div class="empty">条件に合う便はありません。</div>`;
+}
+
+function renderSummary(){
+  let seat = 0, full = 0;
+  for (const route of DATA.routes){
+    for (const f of route.flights || []){
+      if (f.eco > 0) seat++; else full++;
+    }
+  }
+  document.getElementById("st-seat").textContent = seat;
+  document.getElementById("st-full").textContent = full;
+  document.getElementById("st-rt").textContent = DATA.routes.length;
+
+  const d = new Date(DATA.date + "T00:00:00+09:00");
+  document.getElementById("dateline").textContent =
+    `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${DOW[d.getDay()]}）の残り便・普通席 ※非公式・参考データ`;
+
+  const at = new Date(DATA.generatedAt);
+  const hh = String(at.getHours()).padStart(2, "0");
+  const mm = String(at.getMinutes()).padStart(2, "0");
+  document.getElementById("asof").innerHTML = `取得時点 <b>${hh}:${mm}</b>`;
+
+  const ageMin = Math.round((Date.now() - at.getTime()) / 60000);
+  const notice = document.getElementById("notice");
+  const stale = ageMin > 180 || DATA.date !== todayJST();
+  notice.className = "notice" + (stale ? " stale" : "");
+  const ageText = ageMin < 60
+    ? `${ageMin}分前`
+    : `約${Math.round(ageMin / 60)}時間前`;
+  notice.innerHTML = stale
+    ? `<b>このデータは${ageText}に取得したものです（搭乗日 ${DATA.date}）。</b>`
+      + ` 空席状況は刻々と変わるため、現在の状況とは大きく異なります。最新はJAL公式でご確認ください。`
+    : `<b>${ageText}に取得した、羽田発着の未出発便の空席状況です。</b>`
+      + ` 出発済みの便は表示されません。残席は最大9までしか公開されないため、10席以上は「空席あり」と表示します。`;
+}
+
+function todayJST(){
+  const now = new Date();
+  const jst = new Date(now.getTime() + (now.getTimezoneOffset() + 540) * 60000);
+  return `${jst.getFullYear()}-${String(jst.getMonth() + 1).padStart(2, "0")}-${String(jst.getDate()).padStart(2, "0")}`;
+}
+
+function bindSeg(id, key){
+  document.getElementById(id).addEventListener("click", ev => {
+    const btn = ev.target.closest("button");
+    if (!btn) return;
+    state[key] = btn.dataset[key === "dir" ? "dir" : "seats"];
+    [...ev.currentTarget.children].forEach(b => b.classList.toggle("on", b === btn));
+    render();
+  });
+}
+
+fetch("../data/availability.json", {cache: "no-store"})
+  .then(r => {
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  })
+  .then(json => {
+    DATA = json;
+    renderSummary();
+    render();
+    bindSeg("dirseg", "dir");
+    bindSeg("seatseg", "seats");
+    let timer;
+    document.getElementById("apsearch").addEventListener("input", ev => {
+      clearTimeout(timer);
+      const v = ev.target.value.trim().toLowerCase();
+      timer = setTimeout(() => { state.q = v; render(); }, 150);
+    });
+  })
+  .catch(err => {
+    document.getElementById("list").className = "";
+    document.getElementById("list").innerHTML =
+      `<div class="empty">空席データを読み込めませんでした（${err.message}）。</div>`;
+    document.getElementById("dateline").textContent = "データ未取得";
+  });
+</script>
+</body>
+</html>

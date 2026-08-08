@@ -73,6 +73,11 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
 .navtab:last-child{border-radius:0 999px 999px 0}
 .navtab.active{background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff;border-color:var(--red)}
 .navtab:not(.active):hover{color:var(--red);border-color:var(--red)}
+.subtabs{display:flex;gap:22px;padding:0 22px;border-bottom:1px solid var(--hair);background:var(--bg)}
+.subtab{position:relative;text-decoration:none;color:var(--sub);font-size:13px;font-weight:700;
+  letter-spacing:.06em;padding:11px 2px 10px;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s}
+.subtab:hover{color:var(--red)}
+.subtab.active{color:var(--red);border-bottom-color:var(--red)}
 .stats{margin-left:14px;display:flex;gap:8px}
 .stat{background:var(--panel);border:1px solid var(--panel-edge);border-radius:12px;
   padding:5px 14px;text-align:center;line-height:1.25;box-shadow:var(--card-shadow)}
@@ -109,7 +114,7 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
 .searchwrap input::placeholder{color:var(--sub)}
 .searchwrap input:focus-visible{outline:2px solid var(--red);outline-offset:1px}
 /* ---------- レイアウト ---------- */
-main{display:grid;grid-template-columns:minmax(0,1fr) 415px;height:calc(100vh - 132px);min-height:520px}
+main{display:grid;grid-template-columns:minmax(0,1fr) 415px;height:calc(100vh - 175px);min-height:520px}
 #mapwrap{position:relative;overflow:hidden;background:var(--sea)}
 #mapwrap svg{width:100%;height:100%;display:block}
 aside{border-left:1px solid var(--hair);background:var(--panel);overflow-y:auto;padding:18px 20px 34px}
@@ -276,6 +281,10 @@ footer .fan{color:var(--sub);letter-spacing:.04em}
   </div>
   <button id="sharebtn" title="このマップのリンクを共有">✈<span class="lbl-share"> 共有</span></button>
 </header>
+<nav class="subtabs" aria-label="国内線コンテンツ切替">
+  <a class="subtab active" href="./" aria-current="page">ルートマップ</a>
+  <a class="subtab" href="seats/">本日の空席</a>
+</nav>
 <div class="opbar">
   <span class="lbl">運航会社</span>
   <div class="ops" id="ops"></div>
