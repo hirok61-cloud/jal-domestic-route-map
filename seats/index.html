@@ -197,7 +197,8 @@ footer a{color:var(--hover)}
   </div>
   <span class="lbl">表示</span>
   <div class="seg" id="seatseg">
-    <button data-seats="avail" class="on">空席のある便のみ</button>
+    <button data-seats="avail" class="on">空席あり</button>
+    <button data-seats="full">満席のみ</button>
     <button data-seats="all">全便</button>
   </div>
   <input type="search" id="apsearch" placeholder="空港名で絞り込み" aria-label="空港名で絞り込み">
@@ -254,6 +255,22 @@ const OPNAME = {JL:"JAL", NU:"JTA", JC:"JAC", RAC:"RAC", HAC:"HAC", "3X":"HAC", 
 
 const DOW = ["日","月","火","水","木","金","土"];
 
+/* 区間の並び順。羽田の相手先を緯度の高い順（北→南）に並べる。
+   沖縄県内だけは、島の緯度より県庁所在地の那覇を先に置いたほうが探しやすいので入れ替えている。 */
+const GEO_ORDER = [
+  "MMB","AKJ","KUH","CTS","OBO","HKD",            // 北海道
+  "AOJ","MSJ","AXT","GAJ",                        // 東北
+  "KMQ","NGO","ITM","KIX","SHM",                  // 北陸・中部・関西
+  "IZO","OKJ","HIJ","UBJ",                        // 中国
+  "TAK","TKS","MYJ","KCZ",                        // 四国
+  "KKJ","FUK","OIT","NGS","KMJ","KMI","KOJ",      // 九州
+  "ASJ","OKA","UEO","MMY","ISG",                  // 奄美・沖縄
+];
+const geoRank = code => {
+  const i = GEO_ORDER.indexOf(code);
+  return i < 0 ? GEO_ORDER.length : i;
+};
+
 const state = {dir:"all", seats:"avail", q:"", date:null};
 let DAYS = {};   // { "YYYY-MM-DD": payload }
 let DATA = null; // 選択中の日の payload
@@ -280,18 +297,26 @@ function routeMatches(route){
 
 function flightsOf(route){
   const list = route.flights || [];
-  return state.seats === "avail" ? list.filter(f => f.eco > 0) : list;
+  if (state.seats === "avail") return list.filter(f => f.eco > 0);
+  if (state.seats === "full") return list.filter(f => !(f.eco > 0));
+  return list;
 }
 
 function render(){
   const list = document.getElementById("list");
-  const visible = DATA.routes.filter(routeMatches);
+  const visible = DATA.routes.filter(routeMatches).sort((a, b) => {
+    // 羽田側ではないほうの空港（＝相手先）の位置で北から並べる
+    const ra = geoRank(a.o === DATA.hub ? a.d : a.o);
+    const rb = geoRank(b.o === DATA.hub ? b.d : b.o);
+    if (ra !== rb) return ra - rb;
+    return (a.o === DATA.hub ? 0 : 1) - (b.o === DATA.hub ? 0 : 1); // 羽田発 → 羽田着
+  });
   const dayOver = isDayOver(DATA);
   const html = [];
 
   for (const route of visible){
     const flights = flightsOf(route);
-    if (state.seats === "avail" && !flights.length) continue;
+    if (state.seats !== "all" && !flights.length) continue;
 
     const total = (route.flights || []).length;
     const open = (route.flights || []).filter(f => f.eco > 0).length;
@@ -312,7 +337,8 @@ function render(){
       const reason = route.status === "cancelled" && dayOver
         ? "本日の運航は終了しました"
         : (route.message || "情報なし");
-      html.push(`<div class="empty">${route.status === "ok" ? "空席のある便はありません。" : reason}</div>`);
+      const none = state.seats === "full" ? "満席の便はありません。" : "空席のある便はありません。";
+      html.push(`<div class="empty">${route.status === "ok" ? none : reason}</div>`);
     } else {
       html.push(`<div class="tablewrap"><table>
         <thead><tr><th>便名</th><th>出発 → 到着</th><th>機材</th><th>普通席</th><th>クラスJ</th><th>ファースト</th><th>最安運賃</th></tr></thead><tbody>`);
