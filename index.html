@@ -1006,8 +1006,15 @@ renderLegend();
 /* 本日の空席データを読み込み、地図の塗り分けを使えるようにする */
 const seatBtn=document.getElementById("seatbtn");
 seatBtn.addEventListener("click",()=>setSeatMode(!SEAT.on));
-fetch("data/availability.json",{cache:"no-store"})
- .then(res=>res.ok?res.json():Promise.reject(new Error("HTTP "+res.status)))
+/* ふだんはブックマークレットが直接書き込む Supabase の最新スナップショットを読み、
+   落ちていたらリポジトリにコミットしてある静止データにフォールバックする。 */
+(async ()=>{
+ const REMOTE="https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats";
+ try{ const r=await fetch(REMOTE,{cache:"no-store"}); if(r.ok) return r.json(); }catch(e){}
+ const r=await fetch("data/availability.json",{cache:"no-store"});
+ if(!r.ok) throw new Error("HTTP "+r.status);
+ return r.json();
+})()
  .then(json=>{
   SEAT.idx=buildSeatIndex(json);
   const at=new Date(json.generatedAt);

@@ -94,6 +94,8 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
 .filterbar input[type=search]:focus{border-color:var(--red)}
 .asof{margin-left:auto;font-size:11.5px;color:var(--sub);letter-spacing:.04em}
 .asof b{color:var(--ink);font-variant-numeric:tabular-nums}
+.updatelink{font-size:11.5px;color:var(--sub);text-decoration:none;border-bottom:1px dotted var(--sub);white-space:nowrap}
+.updatelink:hover{color:var(--red);border-bottom-color:var(--red)}
 /* ---------- 本体 ---------- */
 main{padding:18px 22px 40px;max-width:1180px;margin:0 auto}
 .notice{border:1px solid var(--panel-edge);background:var(--panel);border-radius:12px;
@@ -140,7 +142,7 @@ footer a{color:var(--hover)}
   .stat{padding:5px 10px}
   .subtabs,.filterbar{padding-left:14px;padding-right:14px}
   main{padding:14px}
-  .asof{margin-left:0;width:100%}
+  .asof{margin-left:auto}
   .route-head h2{font-size:14px}
 }
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
@@ -183,6 +185,7 @@ footer a{color:var(--hover)}
   </div>
   <input type="search" id="apsearch" placeholder="空港名で絞り込み" aria-label="空港名で絞り込み">
   <div class="asof" id="asof"></div>
+  <a class="updatelink" href="update.html">更新のしかた</a>
 </div>
 <main>
   <div class="notice" id="notice"></div>
@@ -357,11 +360,23 @@ function bindSeg(id, key){
   });
 }
 
-fetch("../data/availability.json", {cache: "no-store"})
-  .then(r => {
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    return r.json();
-  })
+/* 空席データの取得先。
+   ふだんはブックマークレットが直接書き込む Supabase の最新スナップショットを読む。
+   落ちていたり未登録のときは、リポジトリにコミットしてある静止データにフォールバックする。 */
+const REMOTE = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats";
+const FALLBACK = "../data/availability.json";
+
+async function loadAvailability(){
+  try {
+    const res = await fetch(REMOTE, {cache: "no-store"});
+    if (res.ok) return await res.json();
+  } catch (e) { /* オフライン等。静止データで続行する */ }
+  const res = await fetch(FALLBACK, {cache: "no-store"});
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  return res.json();
+}
+
+loadAvailability()
   .then(json => {
     DATA = json;
     renderSummary();

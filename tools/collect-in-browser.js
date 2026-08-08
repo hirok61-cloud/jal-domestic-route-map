@@ -1,31 +1,32 @@
 /* ===========================================================================
-   JAL国内線 本日の空席 コレクタ（ブラウザのコンソールに貼り付けて実行）
+   JAL国内線 本日の空席 コレクタ
 
-   使い方
-   ------
-   1. https://www.jal.co.jp/ja-jp/ から国内線をふつうに1回検索して、
-      「予約（空席照会）」の画面（booking.jal.co.jp/jl/dom-bkg/upsell/…）を開く。
-      ※ 路線・日付は何でもよい。セッションを作るためだけに使う。
-   2. その画面で DevTools のコンソールを開き、このファイルの中身を全部貼り付けて Enter。
-      （初回は「Allow pasting」と打つよう求められることがある）
-   3. 進捗がコンソールに出て、終わると availability.json が自動でダウンロードされる。
-   4. そのファイルを このリポジトリの data/availability.json に上書きして git push。
+   JALの「予約（空席照会）」画面でブックマークレットから読み込まれ、
+   羽田発着35路線(往復70区間)の当日・普通席の残席をまとめて取得して、
+   サイトの保存先(Supabase Edge Function)へ送る。送信できない場合は
+   availability.json としてダウンロードするので、手動で差し替えもできる。
 
-   なぜこの方式か
-   --------------
+   使い方は /seats/update.html を参照。
+
+   なぜブラウザ上で動かすのか
+   --------------------------
    jal.co.jp / booking.jal.co.jp は Akamai Bot Manager 配下で、curl も
-   Playwright/Selenium で起動したブラウザも弾かれる（アプリ自身のAPI呼び出しごと
-   失敗する）。空席APIも booking.jal.co.jp オリジンからしか呼べない。
-   人が普通に開いたブラウザのセッションを間借りするのが、いちばん確実で軽い。
+   Playwright/Selenium で起動したブラウザも弾かれる(JALのアプリ自身のAPI
+   呼び出しごと失敗する)。空席APIも booking.jal.co.jp オリジンからしか
+   呼べない。人が普通に開いたブラウザのセッションを間借りするのが、
+   いちばん確実で JAL 側への負荷も小さい。
 
-   取れるもの
-   ----------
-   便ごとの 普通席 / クラスJ / ファーストクラス の残席数。
-   残席は最大9で頭打ち（10席以上あっても 9 と返る = 画面上の「空席あり」）。
+   合言葉について
+   --------------
+   このファイルは公開サイトから配信されるので、書き込み用の合言葉は
+   持たせない。ブックマークレットが window.__JAL_SEATS_KEY に入れて渡す。
    =========================================================================== */
 
 (async () => {
   "use strict";
+
+  const ENDPOINT = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats";
+  const SITE = "https://jal-domestic-route-map.vercel.app/seats/";
 
   // ---- 収集対象: 羽田発着の主要路線（index.html の ROUTES と揃えている） ----
   const HUB = "HND";
@@ -41,17 +42,58 @@
   const DELAY_MS = 1200; // JALのサーバを叩く間隔。短くしないこと
   const CABIN = { eco: "eco", business: "clsj", first: "first" };
 
+  /* ---------------------------------------------------------------- 進捗表示 */
+
+  document.getElementById("jal-seat-collector")?.remove();
+  const ui = document.createElement("div");
+  ui.id = "jal-seat-collector";
+  ui.style.cssText = [
+    "position:fixed", "right:18px", "bottom:18px", "z-index:2147483647",
+    "width:320px", "padding:16px 18px", "border-radius:14px",
+    "background:#fff", "color:#1b1e24", "border:1px solid #e2e0da",
+    "box-shadow:0 12px 34px rgba(30,20,20,.28)",
+    'font:13px/1.6 "Hiragino Sans","Yu Gothic UI",-apple-system,sans-serif',
+  ].join(";");
+  ui.innerHTML = `
+    <div style="font-size:10px;letter-spacing:.22em;color:#b7001e;font-weight:700">JAL SEAT COLLECTOR</div>
+    <div id="jsc-msg" style="margin-top:6px;font-weight:700">準備しています…</div>
+    <div style="margin-top:10px;height:6px;border-radius:99px;background:#eceae5;overflow:hidden">
+      <div id="jsc-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#b7001e,#8c0017);transition:width .2s"></div>
+    </div>
+    <div id="jsc-sub" style="margin-top:7px;font-size:11.5px;color:#6b7480">&nbsp;</div>`;
+  document.body.appendChild(ui);
+
+  const $msg = ui.querySelector("#jsc-msg");
+  const $sub = ui.querySelector("#jsc-sub");
+  const $bar = ui.querySelector("#jsc-bar");
+  const show = (msg, sub, pct) => {
+    if (msg != null) $msg.textContent = msg;
+    if (sub != null) $sub.innerHTML = sub;
+    if (pct != null) $bar.style.width = pct + "%";
+  };
+  const fail = (msg, sub) => {
+    show(msg, sub, 100);
+    $bar.style.background = "#b7001e";
+    setTimeout(() => ui.remove(), 20000);
+  };
+
+  /* -------------------------------------------------------------- 事前チェック */
+
   if (!location.host.startsWith("booking.jal.co.jp")) {
-    console.error("[JAL] booking.jal.co.jp の空席照会画面で実行してください。");
+    fail("この画面では実行できません",
+      "JALで国内線を1回検索して、<b>予約（空席照会）</b>の画面を開いてから実行してください。");
     return;
   }
-
   const creds = JSON.parse(sessionStorage.getItem("apiAuthCreds") || "{}");
   if (!creds.authToken) {
-    console.error("[JAL] 認証トークンが見つかりません。先に国内線を1回検索してください。");
+    fail("ログイン情報が見つかりません",
+      "先に国内線を1回検索して、便が並んだ画面で実行してください。");
     return;
   }
   const AUTH = "Bearer " + creds.authToken;
+  const UPDATE_KEY = window.__JAL_SEATS_KEY || "";
+
+  /* ------------------------------------------------------------------ 収集 */
 
   const now = new Date();
   const date = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
@@ -59,9 +101,7 @@
     .slice(0, 10);
 
   const pairs = [];
-  for (const spoke of SPOKES) {
-    pairs.push([HUB, spoke], [spoke, HUB]);
-  }
+  for (const spoke of SPOKES) pairs.push([HUB, spoke], [spoke, HUB]);
 
   /** 1区間ぶん空席照会する。 */
   async function search(origin, destination) {
@@ -149,10 +189,15 @@
   }
 
   const routes = [];
-  console.log(`[JAL] ${date} / ${pairs.length}区間の空席を取得します…`);
+  const started = Date.now();
 
   for (let i = 0; i < pairs.length; i++) {
     const [origin, destination] = pairs[i];
+    const left = Math.ceil((pairs.length - i) * (DELAY_MS + 900) / 1000);
+    show(`空席を取得中… ${i + 1} / ${pairs.length}`,
+      `${origin} → ${destination}　残り約${left}秒`,
+      Math.round((i / pairs.length) * 100));
+
     let res;
     try {
       res = await search(origin, destination);
@@ -160,7 +205,7 @@
         await new Promise((r) => setTimeout(r, 4000));
         res = await search(origin, destination);
       }
-    } catch (e) {
+    } catch {
       res = { status: 0, payload: null };
     }
 
@@ -177,12 +222,6 @@
       if (!entry.flights.length) entry.message = "残りの便なし";
     }
     routes.push(entry);
-
-    const mark = { ok: "✓", cancelled: "✕", empty: "-" }[entry.status] || "!";
-    console.log(
-      `[JAL] ${String(i + 1).padStart(2)}/${pairs.length} ${mark} ` +
-      `${origin}→${destination} ${(entry.flights || []).length}便`
-    );
     await new Promise((r) => setTimeout(r, DELAY_MS));
   }
 
@@ -191,23 +230,55 @@
     date,
     hub: HUB,
     source: "JAL公式 空席照会API (api.dom.jal.co.jp/rmweb-api/search/air-bounds)",
-    note: "残席数は9が上限（10席以上でも9と返る）。普通席=eco / クラスJ=clsj / ファースト=first。",
+    note: "残席数は9が上限（9席以上でも9と返る）。普通席=eco / クラスJ=clsj / ファースト=first。",
     routes,
   };
 
+  const flightCount = routes.reduce((n, r) => n + (r.flights || []).length, 0);
   const withSeats = routes.reduce(
-    (n, r) => n + (r.flights || []).filter((f) => f.eco > 0).length, 0
+    (n, r) => n + (r.flights || []).filter((f) => f.eco > 0).length, 0,
   );
-  console.log(
-    `[JAL] 完了: ${routes.filter((r) => r.status === "ok").length}/${routes.length}区間・` +
-    `普通席に空席あり ${withSeats}便`
-  );
+  const failed = routes.filter((r) => r.status === "error").length;
+  const took = Math.round((Date.now() - started) / 1000);
+  const stats = `${routes.length}区間・${flightCount}便／普通席に空席 <b>${withSeats}便</b>`
+    + (failed ? `／取得失敗 ${failed}区間` : "") + `（${took}秒）`;
 
-  const blob = new Blob([JSON.stringify(out)], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "availability.json";
-  a.click();
-  URL.revokeObjectURL(a.href);
-  console.log("[JAL] availability.json をダウンロードしました。");
+  /* ------------------------------------------------------------- 保存・送信 */
+
+  function download() {
+    const blob = new Blob([JSON.stringify(out)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "availability.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  show("サイトに反映しています…", stats, 96);
+
+  if (!UPDATE_KEY) {
+    download();
+    fail("合言葉がないため保存できませんでした",
+      `${stats}<br>availability.json をダウンロードしました。`);
+    return;
+  }
+
+  try {
+    const res = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-update-key": UPDATE_KEY },
+      body: JSON.stringify(out),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "HTTP " + res.status);
+  } catch (e) {
+    download();
+    fail("送信に失敗しました",
+      `${String(e.message || e)}<br>availability.json をダウンロードしたので、`
+      + `data/ に置いて push すれば反映されます。`);
+    return;
+  }
+
+  show("更新しました ✈", `${stats}<br><a href="${SITE}" target="_blank" style="color:#b7001e;font-weight:700">本日の空席を開く</a>`, 100);
+  $bar.style.background = "#1a7f4b";
+  setTimeout(() => ui.remove(), 30000);
 })();

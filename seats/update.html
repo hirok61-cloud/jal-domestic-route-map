@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>空席データの更新 — JAL国内線ルートマップ</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="description" content="「本日の空席」を1クリックで更新するためのブックマークレットの設定ページ">
+<style>
+:root{
+  color-scheme: light dark;
+  --red:#b7001e; --red-deep:#8c0017; --red-soft:#fbeef0;
+  --bg:#faf9f7; --ink:#1b1e24; --sub:#6b7480; --panel:#ffffff; --panel-edge:#e2e0da; --hair:#eceae5; --chipbg:#f4f2ee;
+  --hover:#0d55a0; --ok:#1a7f4b; --ok-bg:#e7f5ec;
+  --card-shadow:0 2px 10px rgba(30,20,20,.06);
+}
+@media (prefers-color-scheme: dark){:root{
+  --red:#ff4256; --red-deep:#c2182e; --red-soft:#39141a;
+  --bg:#0e1216; --ink:#eceff3; --sub:#95a1ad; --panel:#141a21; --panel-edge:#27303a; --hair:#20272f; --chipbg:#1b222b;
+  --hover:#5ab0ff; --ok:#5ed58f; --ok-bg:#12291d;
+  --card-shadow:0 2px 10px rgba(0,0,0,.4);
+}}
+:root[data-theme="light"]{
+  --red:#b7001e; --red-deep:#8c0017; --red-soft:#fbeef0;
+  --bg:#faf9f7; --ink:#1b1e24; --sub:#6b7480; --panel:#ffffff; --panel-edge:#e2e0da; --hair:#eceae5; --chipbg:#f4f2ee;
+  --hover:#0d55a0; --ok:#1a7f4b; --ok-bg:#e7f5ec;
+  --card-shadow:0 2px 10px rgba(30,20,20,.06);
+}
+:root[data-theme="dark"]{
+  --red:#ff4256; --red-deep:#c2182e; --red-soft:#39141a;
+  --bg:#0e1216; --ink:#eceff3; --sub:#95a1ad; --panel:#141a21; --panel-edge:#27303a; --hair:#20272f; --chipbg:#1b222b;
+  --hover:#5ab0ff; --ok:#5ed58f; --ok-bg:#12291d;
+  --card-shadow:0 2px 10px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);
+  font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP",-apple-system,sans-serif;
+  font-size:14px;line-height:1.75;-webkit-text-size-adjust:100%}
+a{color:var(--hover)}
+.brandline{height:4px;background:linear-gradient(90deg,var(--red-deep),var(--red) 30%,var(--red) 70%,var(--red-deep))}
+header{padding:20px 22px 14px;border-bottom:1px solid var(--hair);background:linear-gradient(180deg,var(--panel),var(--bg))}
+.eyebrow{font-size:10px;letter-spacing:.32em;color:var(--red);font-weight:700}
+h1{margin:2px 0 0;font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
+  font-size:22px;font-weight:600;letter-spacing:.06em}
+.back{display:inline-block;margin-top:6px;font-size:12px;text-decoration:none;color:var(--sub)}
+.back:hover{color:var(--red)}
+main{max-width:760px;margin:0 auto;padding:22px}
+section{border:1px solid var(--panel-edge);background:var(--panel);border-radius:14px;
+  padding:18px 20px;margin-bottom:14px;box-shadow:var(--card-shadow)}
+h2{margin:0 0 8px;font-size:15px;letter-spacing:.04em;display:flex;align-items:center;gap:9px}
+.num{display:inline-flex;align-items:center;justify-content:center;flex:none;
+  width:22px;height:22px;border-radius:50%;background:var(--red);color:#fff;font-size:12px;font-weight:700}
+p{margin:6px 0}
+.muted{color:var(--sub);font-size:12.5px}
+input[type=text]{width:100%;margin-top:6px;padding:9px 13px;border-radius:10px;
+  border:1px solid var(--panel-edge);background:var(--bg);color:var(--ink);font-size:13px;
+  font-family:ui-monospace,"SF Mono",Menlo,monospace;outline:none}
+input[type=text]:focus{border-color:var(--red)}
+.bm{display:inline-flex;align-items:center;gap:8px;margin-top:12px;
+  padding:11px 22px;border-radius:999px;text-decoration:none;font-weight:700;font-size:14px;
+  background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff;cursor:grab;
+  box-shadow:0 4px 14px color-mix(in srgb,var(--red) 40%,transparent)}
+.bm.off{background:var(--chipbg);color:var(--sub);box-shadow:none;cursor:not-allowed}
+.hint{margin-top:8px;font-size:12px;color:var(--sub)}
+.ok{color:var(--ok);font-weight:700}
+ol{margin:8px 0 0;padding-left:1.3em}
+ol li{margin:4px 0}
+code{background:var(--chipbg);border-radius:5px;padding:1px 6px;font-size:12.5px;
+  font-family:ui-monospace,"SF Mono",Menlo,monospace}
+.callout{border-left:3px solid var(--red);background:var(--red-soft);border-radius:0 10px 10px 0;
+  padding:10px 14px;margin-top:10px;font-size:12.5px;line-height:1.7}
+footer{padding:14px 22px 26px;color:var(--sub);font-size:11px;border-top:1px solid var(--hair);line-height:1.7}
+</style>
+</head>
+<body>
+<div class="brandline"></div>
+<header>
+  <div class="eyebrow">SETUP</div>
+  <h1>空席データの更新</h1>
+  <a class="back" href="./">← 本日の空席にもどる</a>
+</header>
+<main>
+
+<section>
+  <h2><span class="num">1</span>合言葉を入れる（最初の1回だけ）</h2>
+  <p class="muted">書き込み用の合言葉です。この端末のブラウザにだけ保存され、どこにも送信しません。</p>
+  <input type="text" id="key" placeholder="合言葉を貼り付け" autocomplete="off" spellcheck="false">
+  <div class="hint" id="keystate">未入力です。</div>
+</section>
+
+<section>
+  <h2><span class="num">2</span>ボタンをブックマークバーにドラッグ</h2>
+  <p class="muted">下のボタンを、ブラウザのブックマークバーにドラッグ＆ドロップして登録します。</p>
+  <a class="bm off" id="bm" href="#" draggable="true">✈ JAL空席を更新</a>
+  <div class="hint">
+    ブックマークバーが出ていないときは <code>⌘⇧B</code>（Windowsは <code>Ctrl+Shift+B</code>）で表示できます。<br>
+    ドラッグしづらいときは、ブックマークを手で作って「URL」に下のリンク先を貼り付けてもOKです。
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">3</span>使うとき</h2>
+  <ol>
+    <li><a href="https://www.jal.co.jp/ja-jp/" target="_blank" rel="noopener">JAL公式サイト</a>で国内線をふつうに1回検索して、<b>予約（空席照会）</b>の画面まで進む<br>
+      <span class="muted">路線・日付は何でもかまいません。JALのセッションを作るためだけに使います。</span></li>
+    <li>ブックマークバーの <b>「✈ JAL空席を更新」</b> をクリック</li>
+    <li>画面の右下に進捗が出ます。90秒ほどで終わり、そのままサイトに反映されます</li>
+  </ol>
+  <div class="callout">
+    JALのサーバーには70回リクエストを送るので、1.2秒ずつ間隔をあけています。
+    続けて何度も実行しないでください。
+  </div>
+</section>
+
+<section>
+  <h2>うまくいかないとき</h2>
+  <p class="muted">
+    <b>「この画面では実行できません」</b>と出た → JALの予約（空席照会）画面ではないところで押しています。手順3の1からやり直してください。<br>
+    <b>「送信に失敗しました」</b>と出た → 合言葉が違うか、保存先が落ちています。このとき <code>availability.json</code> が自動でダウンロードされるので、リポジトリの <code>data/</code> に置いて push すれば反映できます。<br>
+    <b>ボタンを押しても何も出ない</b> → 合言葉を入れ直して、ブックマークを登録し直してください。
+  </p>
+</section>
+
+</main>
+<footer>
+  本サイトは個人が作成した非公式のファンサイトであり、日本航空株式会社およびJALグループ各社とは一切関係ありません。
+</footer>
+
+<script>
+"use strict";
+// 収集ロジック本体はサイトから配信し、ブックマークレットには合言葉と読み込み処理だけ持たせる。
+// こうすると、収集の中身を直したいときにブックマークを登録し直さなくて済む。
+const SCRIPT_URL = new URL("../tools/collect-in-browser.js", location.href).href;
+const STORE_KEY = "jalSeatsUpdateKey";
+
+const $key = document.getElementById("key");
+const $bm = document.getElementById("bm");
+const $state = document.getElementById("keystate");
+
+function buildBookmarklet(key){
+  return "javascript:(function(){window.__JAL_SEATS_KEY="
+    + JSON.stringify(key)
+    + ";var s=document.createElement('script');s.src="
+    + JSON.stringify(SCRIPT_URL)
+    + "+'?v='+Date.now();s.onerror=function(){alert('\\u53d6\\u5f97\\u30b9\\u30af\\u30ea\\u30d7\\u30c8\\u3092\\u8aad\\u307f\\u8fbc\\u3081\\u307e\\u305b\\u3093\\u3067\\u3057\\u305f');};document.body.appendChild(s);})();";
+}
+
+function refresh(){
+  const key = $key.value.trim();
+  if (key) {
+    localStorage.setItem(STORE_KEY, key);
+    $bm.href = buildBookmarklet(key);
+    $bm.classList.remove("off");
+    $state.innerHTML = '<span class="ok">合言葉を保存しました。</span> 下のボタンをブックマークバーへドラッグしてください。';
+  } else {
+    localStorage.removeItem(STORE_KEY);
+    $bm.href = "#";
+    $bm.classList.add("off");
+    $state.textContent = "未入力です。";
+  }
+}
+
+$key.value = localStorage.getItem(STORE_KEY) || "";
+$key.addEventListener("input", refresh);
+refresh();
+
+// 合言葉が未入力のままクリックされても、JALのページに飛ばないようにする
+$bm.addEventListener("click", ev => {
+  if ($bm.classList.contains("off")) {
+    ev.preventDefault();
+    $key.focus();
+    return;
+  }
+  ev.preventDefault();
+  alert("このボタンはクリックではなく、ブックマークバーにドラッグして登録してください。");
+});
+</script>
+</body>
+</html>
