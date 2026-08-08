@@ -96,6 +96,21 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
 .asof b{color:var(--ink);font-variant-numeric:tabular-nums}
 .updatelink{font-size:11.5px;color:var(--sub);text-decoration:none;border-bottom:1px dotted var(--sub);white-space:nowrap}
 .updatelink:hover{color:var(--red);border-bottom-color:var(--red)}
+.refresh{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;cursor:pointer;border:none;
+  background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff;border-radius:999px;
+  padding:7px 16px;font-size:12.5px;font-weight:700;letter-spacing:.04em;
+  box-shadow:0 3px 12px color-mix(in srgb,var(--red) 38%,transparent);transition:transform .15s,opacity .15s}
+.refresh:hover:not(:disabled){transform:translateY(-1px)}
+.refresh:disabled{opacity:.6;cursor:default;transform:none}
+.refresh .spin{width:11px;height:11px;border-radius:50%;flex:none;
+  border:2px solid rgba(255,255,255,.45);border-top-color:#fff;display:none}
+.refresh.busy .spin{display:block;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.runbar{padding:9px 22px;font-size:12.5px;border-bottom:1px solid var(--hair);
+  background:var(--chipbg);color:var(--sub);line-height:1.6}
+.runbar b{color:var(--ink)}
+.runbar.err{background:var(--red-soft);color:var(--ink)}
+.runbar.ok{background:var(--ok-bg);color:var(--ok);font-weight:700}
 /* ---------- 本体 ---------- */
 main{padding:18px 22px 40px;max-width:1180px;margin:0 auto}
 .notice{border:1px solid var(--panel-edge);background:var(--panel);border-radius:12px;
@@ -185,8 +200,12 @@ footer a{color:var(--hover)}
   </div>
   <input type="search" id="apsearch" placeholder="空港名で絞り込み" aria-label="空港名で絞り込み">
   <div class="asof" id="asof"></div>
+  <button class="refresh" id="refresh" title="JALから最新の空席を取り直します">
+    <span class="spin" aria-hidden="true"></span><span id="refreshlabel">最新に更新</span>
+  </button>
   <a class="updatelink" href="update.html">更新のしかた</a>
 </div>
+<div class="runbar" id="runbar" hidden></div>
 <main>
   <div class="notice" id="notice"></div>
   <div id="list" class="loading">読み込み中…</div>
@@ -375,6 +394,88 @@ async function loadAvailability(){
   if (!res.ok) throw new Error("HTTP " + res.status);
   return res.json();
 }
+
+/* ---------------- 「最新に更新」ボタン ----------------
+   収集そのものはJALの予約画面の上でしか動かせないので、このボタンは
+   Supabaseに依頼を1件積むだけ。実際の収集はMacのChrome拡張が拾って行う。
+   同じPCに拡張が入っていれば、次の巡回を待たずにすぐ動くよう合図も送る。 */
+const $refresh = document.getElementById("refresh");
+const $runbar = document.getElementById("runbar");
+let extPresent = false;
+let polling = null;
+
+window.addEventListener("message", ev => {
+  if (ev.source === window && ev.data?.type === "JAL_SEATS_PONG") extPresent = true;
+});
+if (document.documentElement.dataset.jalSeatsExt) {
+  extPresent = true;
+  window.postMessage({type: "JAL_SEATS_PING"}, "*");
+}
+
+function runbar(text, cls){
+  $runbar.hidden = false;
+  $runbar.className = "runbar" + (cls ? " " + cls : "");
+  $runbar.innerHTML = text;
+}
+
+function setBusy(busy, label){
+  $refresh.disabled = busy;
+  $refresh.classList.toggle("busy", busy);
+  document.getElementById("refreshlabel").textContent = label || (busy ? "更新中…" : "最新に更新");
+}
+
+async function pollRequest(id, startedAt){
+  const res = await fetch(`${REMOTE}?action=status&id=${id}`, {cache: "no-store"});
+  const job = await res.json();
+  const waited = Math.round((Date.now() - startedAt) / 1000);
+
+  if (job.status === "done"){
+    clearInterval(polling);
+    setBusy(false);
+    runbar(`<b>更新しました。</b> ${job.message || ""}`, "ok");
+    const fresh = await loadAvailability();
+    DATA = fresh;
+    renderSummary();
+    render();
+    setTimeout(() => { $runbar.hidden = true; }, 8000);
+    return;
+  }
+  if (job.status === "failed"){
+    clearInterval(polling);
+    setBusy(false);
+    runbar(`<b>更新できませんでした。</b> ${job.message || ""}<br>`
+      + `Macが起動していてChromeが動いているときだけ実行できます。`
+      + `<a href="update.html" style="color:inherit"> ほかの更新方法</a>`, "err");
+    return;
+  }
+  const detail = job.message ? `（${job.message}）` : "";
+  runbar(`<b>更新中…</b> ${detail} JALから70区間ぶん取り直しています。2分ほどかかります。 ${waited}秒経過`);
+}
+
+$refresh.addEventListener("click", async () => {
+  setBusy(true);
+  runbar("<b>更新を依頼しています…</b>");
+  try {
+    const res = await fetch(`${REMOTE}?action=request`, {
+      method: "POST",
+      headers: {"content-type": "application/json"},
+      body: JSON.stringify({from: extPresent ? "このPC" : "別の端末"}),
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const {id} = await res.json();
+
+    // 同じPCに拡張があるなら、1分の巡回を待たずに動いてもらう
+    if (extPresent) window.postMessage({type: "JAL_SEATS_RUN"}, "*");
+
+    const startedAt = Date.now();
+    runbar("<b>更新中…</b> JALから70区間ぶん取り直しています。2分ほどかかります。");
+    clearInterval(polling);
+    polling = setInterval(() => pollRequest(id, startedAt).catch(() => {}), 3000);
+  } catch (e) {
+    setBusy(false);
+    runbar(`<b>依頼を送れませんでした。</b> ${e.message}`, "err");
+  }
+});
 
 loadAvailability()
   .then(json => {

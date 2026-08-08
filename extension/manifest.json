@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "JAL国内線 本日の空席 コレクタ",
+  "version": "1.0.0",
+  "description": "JALの空席照会を裏で実行して、国内線ルートマップの「本日の空席」を更新します。",
+  "permissions": ["storage", "alarms", "tabs", "scripting"],
+  "host_permissions": [
+    "https://*.jal.co.jp/*",
+    "https://xymbknvwllwhmqlexege.supabase.co/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "options_page": "options.html",
+  "action": { "default_title": "JAL空席を更新", "default_popup": "options.html" },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://jal-domestic-route-map.vercel.app/*",
+        "https://hirok61-cloud.github.io/jal-domestic-route-map/*",
+        "http://localhost/*"
+      ],
+      "js": ["site-bridge.js"],
+      "run_at": "document_start"
+    }
+  ]
+}

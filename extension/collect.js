@@ -1,0 +1,194 @@
+/* 空席照会ページに注入され、羽田発着70区間の空席を集めて送信する。
+ *
+ * ページと同じオリジンで動くので、booking.jal.co.jp 限定の空席APIをそのまま呼べる。
+ * 認証はページが持っているトークン（sessionStorage.apiAuthCreds）を借りる。
+ */
+
+(async () => {
+  const ENDPOINT = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats";
+  const API = "https://api.dom.jal.co.jp/rmweb-api/search/air-bounds";
+  const API_KEY = "JZWuY6OJ5M2IfvIgZVRMA7dhbjk7jTtga0lclevt";
+  const DELAY_MS = 1200; // JALのサーバを叩く間隔。短くしないこと
+  const CABIN = { eco: "eco", business: "clsj", first: "first" };
+
+  const HUB = "HND";
+  const SPOKES = [
+    "AKJ", "AOJ", "ASJ", "AXT", "CTS", "FUK", "GAJ", "HIJ", "HKD", "ISG",
+    "ITM", "IZO", "KCZ", "KIX", "KKJ", "KMI", "KMJ", "KMQ", "KOJ", "KUH",
+    "MMB", "MMY", "MSJ", "MYJ", "NGO", "NGS", "OBO", "OIT", "OKA", "OKJ",
+    "SHM", "TAK", "TKS", "UBJ", "UEO",
+  ];
+
+  const finish = (ok, extra) =>
+    chrome.runtime.sendMessage({ type: "collect-finished", ok, ...extra });
+
+  const { job } = await chrome.storage.session.get("job");
+  const { updateKey } = await chrome.storage.local.get("updateKey");
+  if (!updateKey) return finish(false, { error: "合言葉が未設定です" });
+
+  const creds = JSON.parse(sessionStorage.getItem("apiAuthCreds") || "{}");
+  if (!creds.authToken) return finish(false, { error: "JALのセッションを取得できませんでした" });
+  const AUTH = "Bearer " + creds.authToken;
+
+  const now = new Date();
+  const date = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 10);
+
+  async function search(origin, destination) {
+    const res = await fetch(API, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+        authorization: AUTH,
+        "x-api-key": API_KEY,
+        "ama-client-ref": crypto.randomUUID() + "--" + crypto.randomUUID(),
+      },
+      body: JSON.stringify({
+        travelers: [{ passengerTypeCode: "ADT" }],
+        itineraries: [{
+          originLocationCode: origin,
+          destinationLocationCode: destination,
+          departureDateTime: date + "T00:00:00.000",
+          isRequestedBound: true,
+        }],
+        jalSearchPreferences: { discountCode: "JCF", isCorporate: false },
+        searchPreferences: { showSoldOut: true, includeWaitlist: true },
+        contentVersionId: "/jl/statics/dom-bkg/content/1.0.170/",
+      }),
+    });
+    return { status: res.status, payload: await res.json().catch(() => null) };
+  }
+
+  /* statusCode は HK=確保可 / HL=キャンセル待ち(満席)。ただし「対象者限定」の運賃は
+     満席の便でも HK・quota 0 を返すので、空席の判定は quota の最大値で行う。 */
+  function fold(payload) {
+    const flights = (payload.dictionaries || {}).flight || {};
+    const byFlight = new Map();
+
+    for (const group of (payload.data || {}).airBoundGroups || []) {
+      const segments = (group.boundDetails || {}).segments || [];
+      if (segments.length !== 1) continue; // 乗り継ぎ旅程は対象外
+      const info = flights[segments[0].flightId];
+      if (!info) continue;
+
+      let rec = byFlight.get(segments[0].flightId);
+      if (!rec) {
+        rec = {
+          no: info.marketingAirlineCode + info.marketingFlightNumber,
+          op: info.operatingAirlineCode || info.marketingAirlineCode,
+          dep: info.departure.dateTime.slice(11, 16),
+          arr: info.arrival.dateTime.slice(11, 16),
+          ac: info.aircraftCode || "",
+          eco: 0, clsj: null, first: null, fare: null,
+        };
+        byFlight.set(segments[0].flightId, rec);
+      }
+
+      for (const bound of group.airBounds || []) {
+        const unit = ((bound.prices || {}).unitPrices || [])[0];
+        const price = unit && unit.prices && unit.prices[0] ? unit.prices[0].total : null;
+        for (const avail of bound.availabilityDetails || []) {
+          const key = CABIN[avail.cabin];
+          if (!key) continue;
+          const quota = avail.statusCode === "HK" ? (avail.quota || 0) : 0;
+          if (rec[key] === null || quota > rec[key]) rec[key] = quota;
+          if (key === "eco" && quota > 0 && price != null) {
+            if (rec.fare === null || price < rec.fare) rec.fare = price;
+          }
+        }
+      }
+    }
+    return [...byFlight.values()].sort((a, b) => a.dep.localeCompare(b.dep));
+  }
+
+  function describeError(payload) {
+    const err = (payload.errors || [])[0];
+    if (!err) return ["empty", "残りの便なし"];
+    const text = (err.title || err.detail || err.code || "").toLowerCase();
+    if (text.includes("cancel")) return ["cancelled", "全便欠航"];
+    if (text.includes("no flight") || text.includes("not found")) return ["empty", "残りの便なし"];
+    return ["error", err.title || err.code || "取得失敗"];
+  }
+
+  const pairs = [];
+  for (const spoke of SPOKES) pairs.push([HUB, spoke], [spoke, HUB]);
+
+  const routes = [];
+  try {
+    for (let i = 0; i < pairs.length; i++) {
+      const [origin, destination] = pairs[i];
+      if (i % 10 === 0) {
+        chrome.runtime.sendMessage({
+          type: "collect-progress", job,
+          message: `空席を取得中 ${i + 1}/${pairs.length}`,
+        });
+      }
+
+      let res;
+      try {
+        res = await search(origin, destination);
+        if (res.status !== 200) {
+          await new Promise((r) => setTimeout(r, 4000));
+          res = await search(origin, destination);
+        }
+      } catch {
+        res = { status: 0, payload: null };
+      }
+
+      const entry = { o: origin, d: destination };
+      const payload = res.payload || {};
+      if (res.status !== 200) {
+        entry.status = "error";
+        entry.message = "HTTP " + res.status;
+      } else if (payload.errors) {
+        [entry.status, entry.message] = describeError(payload);
+      } else {
+        entry.flights = fold(payload);
+        entry.status = entry.flights.length ? "ok" : "empty";
+        if (!entry.flights.length) entry.message = "残りの便なし";
+      }
+      routes.push(entry);
+      await new Promise((r) => setTimeout(r, DELAY_MS));
+    }
+
+    // 1区間も取れていないなら、セッションを弾かれたとみなす（誤ったデータを載せない）
+    if (!routes.some((r) => r.status === "ok")) {
+      return finish(false, { error: "JALから空席を取得できませんでした（セッション拒否の可能性）" });
+    }
+
+    const out = {
+      generatedAt: new Date().toISOString(),
+      date,
+      hub: HUB,
+      source: "JAL公式 空席照会API (api.dom.jal.co.jp/rmweb-api/search/air-bounds)",
+      note: "残席数は9が上限（9席以上でも9と返る）。普通席=eco / クラスJ=clsj / ファースト=first。",
+      routes,
+    };
+
+    const send = (path, body) => fetch(ENDPOINT + path, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-update-key": updateKey },
+      body: JSON.stringify(body),
+    });
+
+    const saved = await send("", out);
+    if (!saved.ok) {
+      const detail = await saved.json().catch(() => ({}));
+      return finish(false, { error: detail.error || "保存に失敗しました" });
+    }
+
+    const flightCount = routes.reduce((n, r) => n + (r.flights || []).length, 0);
+    const withSeats = routes.reduce(
+      (n, r) => n + (r.flights || []).filter((f) => f.eco > 0).length, 0,
+    );
+    const summary = `${routes.length}区間・${flightCount}便／普通席に空席 ${withSeats}便`;
+
+    if (job?.id) await send(`?action=finish&id=${job.id}`, { ok: true, message: summary });
+    finish(true, { summary });
+  } catch (err) {
+    finish(false, { error: String(err?.message || err) });
+  }
+})();

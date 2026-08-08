@@ -93,6 +93,30 @@ footer{padding:14px 22px 26px;color:var(--sub);font-size:11px;border-top:1px sol
 <main>
 
 <section>
+  <h2>いちばん楽な方法：Chrome拡張（PCに1回入れるだけ）</h2>
+  <p class="muted">
+    これを入れておくと、<b>「本日の空席」ページの「最新に更新」ボタンを押すだけ</b>で更新できます。
+    JALのページを開く必要はありません。<b>スマホから押したときも、このPCが代わりに取りに行きます。</b>
+  </p>
+  <ol>
+    <li>リポジトリの <code>extension/</code> フォルダをローカルに用意する<br>
+      <span class="muted">（<code>git clone</code> 済みならそのフォルダでOK）</span></li>
+    <li>Chromeで <code>chrome://extensions</code> を開き、右上の<b>「デベロッパーモード」</b>をON</li>
+    <li><b>「パッケージ化されていない拡張機能を読み込む」</b>→ <code>extension/</code> フォルダを選ぶ</li>
+    <li>拡張のアイコンを押して、<b>合言葉</b>（下と同じもの）を貼り付ける</li>
+  </ol>
+  <div class="callout">
+    <b>PCが起きている必要があります。</b> スマホから押した更新は、このPCのChromeが動いているときだけ通ります。
+    スリープ中は「更新できませんでした」と表示されるので、そのときは下のブックマークレットを使ってください。
+  </div>
+</section>
+
+<section>
+  <h2>Macが寝ているとき用：ブックマークレット</h2>
+  <p class="muted">スマホだけで完結する方法です。以下の1〜3で設定します。</p>
+</section>
+
+<section>
   <h2><span class="num">1</span>合言葉を入れる（最初の1回だけ）</h2>
   <p class="muted">書き込み用の合言葉です。この端末のブラウザにだけ保存され、どこにも送信しません。</p>
   <input type="text" id="key" placeholder="合言葉を貼り付け" autocomplete="off" spellcheck="false">
@@ -153,9 +177,11 @@ footer{padding:14px 22px 26px;color:var(--sub);font-size:11px;border-top:1px sol
 <section>
   <h2><span class="num">3</span>使うとき</h2>
   <ol>
-    <li><a href="https://www.jal.co.jp/ja-jp/" target="_blank" rel="noopener">JAL公式サイト</a>で国内線をふつうに1回検索して、<b>予約（空席照会）</b>の画面まで進む<br>
-      <span class="muted">路線・日付は何でもかまいません。JALのセッションを作るためだけに使います。</span></li>
+    <li><a href="https://www.jal.co.jp/ja-jp/" target="_blank" rel="noopener">JAL公式サイト</a>を開く<br>
+      <span class="muted">検索は不要です。開くだけでかまいません。</span></li>
     <li id="runstep">ブックマークバーの <b>「✈ JAL空席を更新」</b> をクリック</li>
+    <li>30秒ほど待つと空席照会の画面に切り替わるので、<b>そこでもう一度</b>同じブックマークを押す<br>
+      <span class="muted">JALの空席は、この画面の上からしか取得できない決まりになっています。</span></li>
     <li>画面の右下に進捗が出ます。90秒ほどで終わり、そのままサイトに反映されます</li>
   </ol>
   <div class="callout">

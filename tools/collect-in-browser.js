@@ -79,9 +79,57 @@
 
   /* -------------------------------------------------------------- 事前チェック */
 
+  /* JALのトップページなど www 側で押された場合は、空席照会画面まで自分で進む。
+     （空席APIは booking.jal.co.jp オリジンからしか呼べないため）
+     ページ遷移でこのスクリプトは消えるので、着いたらもう一度押してもらう。 */
+  if (/(^|\.)jal\.co\.jp$/.test(location.host) && !location.host.startsWith("booking.")) {
+    try {
+      // Akamaiは開いた直後のセッションを信用しない。読み込みから30秒経つまで待つ
+      const openedFor = performance.now();
+      const waitMs = Math.max(0, 30000 - openedFor);
+      if (waitMs > 0) {
+        for (let left = Math.ceil(waitMs / 1000); left > 0; left--) {
+          show("JALの空席照会を開きます", `あと${left}秒お待ちください`,
+            Math.round((1 - left / (waitMs / 1000)) * 100));
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+      }
+      show("空席照会の画面へ移動します…", "移動したら、もう一度このブックマークを押してください", 100);
+
+      const seed = await fetch(
+        "https://www.jal.co.jp/cgi-bin/jal/common_rn/domEnc/getDomEnc.cgi?_=" + Date.now(),
+        { headers: { Accept: "application/json" }, credentials: "include" },
+      ).then((r) => r.json());
+
+      const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+        .toISOString().slice(0, 10);
+      const fields = {
+        linkId: "02", langCd: "ja", hv_sid: seed.hv_sid, dt_sid: seed.dt_sid,
+        tripType: "OW", depDate: today, depAirportCode1: "HND", arrAirportCode1: "ITM",
+        adult: "1", child: "0", infant: "0", class: "ecoBusiness", discountType: "JCF",
+      };
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = "https://booking.jal.co.jp/jl/dom-bkg/upsell";
+      for (const [name, value] of Object.entries(fields)) {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+      }
+      document.body.appendChild(form);
+      form.submit();
+    } catch (e) {
+      fail("空席照会の画面へ進めませんでした", String(e.message || e));
+    }
+    return;
+  }
+
   if (!location.host.startsWith("booking.jal.co.jp")) {
     fail("この画面では実行できません",
-      "JALで国内線を1回検索して、<b>予約（空席照会）</b>の画面を開いてから実行してください。");
+      "<b>JALのサイト</b>を開いた状態で押してください。"
+      + "トップページで押せば、空席照会の画面まで自動で進みます。");
     return;
   }
   const creds = JSON.parse(sessionStorage.getItem("apiAuthCreds") || "{}");
