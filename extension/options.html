@@ -29,6 +29,10 @@ h2{margin:18px 0 6px;font-size:12px;letter-spacing:.1em;color:var(--sub)}
 pre{margin:0;padding:10px;border:1px solid var(--edge);background:var(--panel);border-radius:9px;
   max-height:190px;overflow:auto;font-size:11px;line-height:1.7;white-space:pre-wrap;word-break:break-all}
 .note{color:var(--sub);font-size:11.5px;margin-top:12px}
+select{width:100%;margin-top:4px;padding:7px 9px;border-radius:8px;
+  border:1px solid var(--edge,#d9d9d9);background:inherit;color:inherit;font:inherit}
+.check{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:13px;cursor:pointer}
+.check input{width:16px;height:16px;cursor:pointer}
 </style>
 </head>
 <body>
@@ -39,13 +43,27 @@ pre{margin:0;padding:10px;border:1px solid var(--edge);background:var(--panel);b
 <input id="key" type="text" placeholder="合言葉を貼り付け" autocomplete="off" spellcheck="false">
 <div class="state" id="state"></div>
 
+<label for="day">いますぐ更新する日</label>
+<select id="day">
+  <option value="0">今日分</option>
+  <option value="1">明日分</option>
+  <option value="0,1">両日（時間は倍かかります）</option>
+</select>
+
 <div class="row">
   <button class="primary" id="run">いますぐ更新</button>
   <button id="clear">ログを消す</button>
 </div>
 <div class="note">
-  更新には約2分かかります。JALのページが別ウィンドウで開き、終わると自動的に閉じます。
+  1日分あたり8〜10分かかります。JALのページが別ウィンドウで開き、終わると自動的に閉じます。
   <b>その間ウィンドウを閉じたり最小化したりしないでください。</b>
+</div>
+
+<h2>自動更新</h2>
+<label class="check"><input type="checkbox" id="auto"> 決まった時刻に自動で更新する</label>
+<div class="note" id="autonote">
+  <b>朝7時に今日分／夜21時に明日分</b>を取り直します（21時には今日の便がほぼ終わっているため）。
+  Chromeが動いているときだけ実行され、Macが寝ていた場合は起きたあとに1回だけ動きます。
 </div>
 
 <h2>実行ログ</h2>

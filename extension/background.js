@@ -12,6 +12,15 @@ const ENDPOINT = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seat
 const TOP_URL = "https://www.jal.co.jp/ja-jp/top";
 const BOOKING_RE = /^https:\/\/booking\.jal\.co\.jp\/jl\/dom-bkg\/upsell/;
 const ALARM = "poll";
+const AUTO_ALARM = "auto";
+
+/* 自動更新の時刻（ローカル時間）。Macが起きているときだけ動くので回数は絞る。
+   朝は今日分、夜は翌日分を取る（21時には今日の便がほぼ終わっているため）。 */
+const AUTO_SCHEDULE = [
+  { hour: 7, minute: 0, days: [0] },
+  { hour: 21, minute: 0, days: [1] },
+];
+const AUTO_MIN_GAP_MS = 6 * 60 * 60 * 1000; // 寝起きの連続発火よけ
 
 /* Akamaiはページを開いた直後のセッションを信用しない。
    トップページで少し待ってからでないと、空席APIが429(cpr_chlge)で弾かれる。 */
@@ -156,6 +165,60 @@ async function runJob(job) {
   }
 }
 
+/* ---------------------------------------------------------- 自動更新 */
+
+/** 次に来る自動更新の時刻を求める。 */
+function nextAutoAt(now = new Date()) {
+  let best = null;
+  for (const slot of AUTO_SCHEDULE) {
+    for (const addDay of [0, 1]) {
+      const t = new Date(now);
+      t.setDate(t.getDate() + addDay);
+      t.setHours(slot.hour, slot.minute, 0, 0);
+      if (t > now && (!best || t < best.at)) best = { at: t, slot };
+    }
+  }
+  return best;
+}
+
+async function scheduleAuto() {
+  const { autoUpdate } = await chrome.storage.local.get("autoUpdate");
+  if (!autoUpdate) return chrome.alarms.clear(AUTO_ALARM);
+  const next = nextAutoAt();
+  chrome.alarms.create(AUTO_ALARM, { when: next.at.getTime() });
+}
+
+/** 自動更新の時刻になったので、自分で依頼を積んで拾いに行く。 */
+async function runAuto() {
+  const store = await chrome.storage.local.get(["autoUpdate", "lastAutoAt"]);
+  await scheduleAuto(); // まず次回を仕掛け直す
+  if (!store.autoUpdate) return;
+  if (!(await getKey())) return;
+
+  /* Macが寝ていると予定時刻を過ぎてから発火する。起きた直後に朝と夜の分が
+     続けて走らないよう、直近に自動更新していたら見送る。 */
+  if (store.lastAutoAt && Date.now() - store.lastAutoAt < AUTO_MIN_GAP_MS) {
+    await log("自動更新: 直近に実行済みのため見送り");
+    return;
+  }
+
+  // いま時刻に近いほうの枠を採用する（寝坊した場合も、その枠の対象日で取る）
+  const hour = new Date().getHours();
+  const slot = AUTO_SCHEDULE.reduce((a, b) =>
+    Math.abs(a.hour - hour) <= Math.abs(b.hour - hour) ? a : b);
+
+  try {
+    const res = await api("?action=request", {
+      method: "POST",
+      body: JSON.stringify({ from: "自動更新", days: slot.days }),
+    });
+    if (!res.ok) return;
+    await chrome.storage.local.set({ lastAutoAt: Date.now() });
+    await log(`自動更新を開始（${slot.days[0] === 0 ? "今日分" : "明日分"}）`);
+    await poll();
+  } catch { /* オフライン等。次の枠で拾い直す */ }
+}
+
 /* ------------------------------------------------------------ 依頼を拾う */
 
 async function poll() {
@@ -177,11 +240,18 @@ function ensureAlarm() {
   chrome.alarms.create(ALARM, { delayInMinutes: 0.5, periodInMinutes: 1 });
 }
 ensureAlarm();
+scheduleAuto();
 poll();
 
-chrome.runtime.onInstalled.addListener(() => { ensureAlarm(); poll(); });
-chrome.runtime.onStartup.addListener(() => { ensureAlarm(); poll(); });
-chrome.alarms.onAlarm.addListener((a) => { if (a.name === ALARM) poll(); });
+chrome.runtime.onInstalled.addListener(() => { ensureAlarm(); scheduleAuto(); poll(); });
+chrome.runtime.onStartup.addListener(() => { ensureAlarm(); scheduleAuto(); poll(); });
+chrome.alarms.onAlarm.addListener((a) => {
+  if (a.name === ALARM) poll();
+  if (a.name === AUTO_ALARM) runAuto();
+});
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.autoUpdate) scheduleAuto();
+});
 
 // サイトのボタンから「いま来た」と知らせが届いたら、次の周期を待たずに拾う
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
@@ -191,9 +261,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true;
   }
   if (msg?.type === "ping") {
-    Promise.all([getKey(), chrome.storage.local.get("runningSince")])
-      .then(([k, { runningSince = 0 }]) =>
-        sendResponse({ ok: true, configured: !!k, running: !!runningSince }));
+    Promise.all([getKey(), chrome.storage.local.get(["runningSince", "autoUpdate"])])
+      .then(([k, { runningSince = 0, autoUpdate = false }]) => {
+        const next = autoUpdate ? nextAutoAt().at.toLocaleString("ja-JP", {
+          month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit",
+        }) : null;
+        sendResponse({ ok: true, configured: !!k, running: !!runningSince, autoUpdate, next });
+      });
     return true;
   }
   if (msg?.type === "collect-progress" && msg.job?.id) {

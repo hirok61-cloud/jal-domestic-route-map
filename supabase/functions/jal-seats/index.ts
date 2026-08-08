@@ -20,6 +20,7 @@ const UPDATE_KEY = Deno.env.get("JAL_SEATS_UPDATE_KEY") ?? "YhainQDvJix0rT3rcyqf
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SNAPSHOTS = "jal_seat_snapshots";
+const HISTORY = "jal_seat_history";
 const REQUESTS = "jal_seat_requests";
 const MAX_BODY = 2_000_000;
 
@@ -187,6 +188,17 @@ Deno.serve(async (req: Request) => {
     return json({ hub, today: todayJST(), days });
   }
 
+  /* --------------------------------------------------- 推移を読む（公開） */
+  if (req.method === "GET" && action === "history") {
+    const date = url.searchParams.get("date") ?? todayJST();
+    const rows = await db(
+      `${HISTORY}?hub=eq.${encodeURIComponent(hub)}&flight_date=eq.${date}` +
+      `&order=captured_at.asc&select=captured_at,flights`,
+    ).then((r) => r.json()).catch(() => null);
+    if (!Array.isArray(rows)) return json({ error: "読み取りに失敗しました" }, 502);
+    return json({ hub, date, points: rows });
+  }
+
   /* ------------------------------------------------ スナップショットを読む */
   if (req.method === "GET") {
     const date = url.searchParams.get("date") ?? todayJST();
@@ -220,6 +232,56 @@ Deno.serve(async (req: Request) => {
 
   const problem = validate(payload);
   if (problem) return json({ error: problem }, 400);
+
+  /* 前回の値を便ごとに添えておく。こうしておくと、サイトは追加の問い合わせなしで
+     「満席→空席に変わった便」や「1時間前は何席だったか」を出せる。 */
+  const before = await db(
+    `${SNAPSHOTS}?hub=eq.${encodeURIComponent(payload.hub)}` +
+    `&flight_date=eq.${payload.date}&select=payload&limit=1`,
+  ).then((r) => r.json()).catch(() => []);
+
+  const prevPayload = Array.isArray(before) && before.length ? before[0].payload : null;
+  /* 1回の収集は「運賃だけ保存 → 座席表を足して再保存」の2回書き込む。
+     2度目で「前回」を自分自身にしてしまわないよう、収集IDで見分けて引き継ぐ。 */
+  const sameRun = !!(payload.runId && prevPayload?.runId && payload.runId === prevPayload.runId);
+
+  const prev = new Map<string, { e: number; s?: number }>();
+  if (prevPayload) {
+    for (const r of prevPayload.routes ?? []) {
+      for (const f of r.flights ?? []) {
+        prev.set(f.no, sameRun ? { e: f.pe, s: f.ps } : { e: f.eco, s: f.sa });
+      }
+    }
+  }
+  payload.prevAt = sameRun ? prevPayload.prevAt : prevPayload?.generatedAt;
+  for (const r of payload.routes ?? []) {
+    for (const f of r.flights ?? []) {
+      const old = prev.get(f.no);
+      if (!old || old.e === undefined) continue;
+      f.pe = old.e;                          // 前回の運賃上の残席
+      if (old.s !== undefined) f.ps = old.s; // 前回の座席表の空席
+    }
+  }
+
+  // 推移用に軽い形で1行残す
+  const slim: { n: string; e: number; s?: number }[] = [];
+  for (const r of payload.routes ?? []) {
+    for (const f of r.flights ?? []) slim.push({ n: f.no, e: f.eco, ...(f.sa !== undefined ? { s: f.sa } : {}) });
+  }
+  if (slim.length) {
+    await db(`${HISTORY}?on_conflict=hub,flight_date,run_id`, {
+      method: "POST",
+      headers: { prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({
+        hub: payload.hub,
+        flight_date: payload.date,
+        captured_at: payload.generatedAt,
+        run_id: payload.runId ?? null,
+        flights: slim,
+      }),
+    }).catch(() => {});
+    rpc("jal_prune_old_history");
+  }
 
   const res = await db(`${SNAPSHOTS}?on_conflict=hub,flight_date`, {
     method: "POST",

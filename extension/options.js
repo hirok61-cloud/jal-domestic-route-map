@@ -41,13 +41,41 @@ $run.addEventListener("click", async () => {
     await fetch(`${ENDPOINT}?action=request`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ from: "拡張" }),
+      body: JSON.stringify({
+        from: "拡張",
+        days: document.getElementById("day").value.split(",").map(Number),
+      }),
     });
     chrome.runtime.sendMessage({ type: "run-now" });
   } catch (e) {
     $state.innerHTML = '<span class="warn">依頼を送れませんでした。</span>';
   }
   setTimeout(() => { $run.textContent = label; $run.disabled = !$key.value.trim(); }, 4000);
+});
+
+/* --- 自動更新の切り替え --- */
+const $auto = document.getElementById("auto");
+const $autonote = document.getElementById("autonote");
+
+function showNext() {
+  chrome.runtime.sendMessage({ type: "ping" }, (res) => {
+    if (!res) return;
+    $autonote.innerHTML = res.autoUpdate && res.next
+      ? `次は <b>${res.next}</b> に実行します。Chromeが動いているときだけ実行され、`
+        + "Macが寝ていた場合は起きたあとに1回だけ動きます。"
+      : "<b>朝7時に今日分／夜21時に明日分</b>を取り直します"
+        + "（21時には今日の便がほぼ終わっているため）。"
+        + "Chromeが動いているときだけ実行されます。";
+  });
+}
+
+chrome.storage.local.get("autoUpdate").then(({ autoUpdate = false }) => {
+  $auto.checked = autoUpdate;
+  showNext();
+});
+$auto.addEventListener("change", async () => {
+  await chrome.storage.local.set({ autoUpdate: $auto.checked });
+  setTimeout(showNext, 200);
 });
 
 document.getElementById("clear").addEventListener("click", async () => {

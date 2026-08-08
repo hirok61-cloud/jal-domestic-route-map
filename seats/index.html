@@ -143,6 +143,16 @@ td.fno{font-weight:700;color:var(--red)}
 /* 座席表で実際に選べる席数。運賃の在庫とは別管理なのでズレることがある */
 .seatmap{display:block;margin-top:3px;font-size:10.5px;color:var(--sub);white-space:nowrap}
 .seatmap.none{color:var(--warn);font-weight:700}
+.seatmap .wa{opacity:.8}
+.trend{margin-left:5px;font-size:10px}
+.trend.up{color:var(--ok);font-weight:700}
+.trend.down{color:var(--sub)}
+/* 前回から空席が出た便のお知らせ */
+.newseats{border:1px solid var(--ok);background:var(--ok-bg);border-radius:12px;
+  padding:11px 15px;font-size:12.5px;line-height:1.8;margin-bottom:16px}
+.newseats b{color:var(--ok)}
+.newseats ul{margin:6px 0 0;padding-left:1.2em;columns:2;column-gap:24px}
+@media (max-width:700px){.newseats ul{columns:1}}
 .empty{padding:12px 16px;font-size:12.5px;color:var(--sub)}
 .loading{padding:40px 0;text-align:center;color:var(--sub)}
 footer{padding:12px 22px 22px;color:var(--sub);font-size:11px;border-top:1px solid var(--hair);line-height:1.75;background:var(--bg)}
@@ -214,6 +224,7 @@ footer a{color:var(--hover)}
 <div class="runbar" id="runbar" hidden></div>
 <main>
   <div class="notice" id="notice"></div>
+  <div id="newseats"></div>
   <div id="list" class="loading">読み込み中…</div>
 </main>
 <footer>
@@ -293,7 +304,28 @@ function badge(quota){
 function seatmapNote(f){
   if (f.sa === undefined || f.sa === null) return "";
   if (f.sa === 0) return '<span class="seatmap none">座席表は満席</span>';
-  return `<span class="seatmap">座席表 ${f.sa}席</span>`;
+  // 窓側・通路側の内訳。同じ座席表から数えているので追加の取得はしていない
+  const wa = [];
+  if (f.sw) wa.push(`窓${f.sw}`);
+  if (f.sl) wa.push(`通路${f.sl}`);
+  const detail = wa.length ? ` <span class="wa">(${wa.join("・")})</span>` : "";
+  return `<span class="seatmap">座席表 ${f.sa}席${detail}</span>`;
+}
+
+/** クラスJ・ファーストの座席表の空き。普通席と同じ座席表から数えている。 */
+function cabinSeatNote(n){
+  if (n === undefined || n === null) return "";
+  return n === 0
+    ? '<span class="seatmap none">座席表は満席</span>'
+    : `<span class="seatmap">座席表 ${n}席</span>`;
+}
+
+/** 前回の収集からどう動いたか。増えたぶんだけ目立たせる。 */
+function trendNote(f){
+  if (f.pe === undefined || f.pe === f.eco) return "";
+  const up = f.eco > f.pe;
+  const label = f.pe <= 0 ? "満席から" : `前回${f.pe >= 9 ? "9+" : f.pe}席`;
+  return `<span class="trend ${up ? "up" : "down"}">${up ? "↑" : "↓"}${label}</span>`;
 }
 
 function routeMatches(route){
@@ -359,9 +391,9 @@ function render(){
           <td class="fno mono">${f.no}</td>
           <td class="mono">${f.dep} → ${f.arr}</td>
           <td>${acLabel(f.ac)}${f.op && f.op !== "JL" ? " / " + (OPNAME[f.op] || f.op) : ""}</td>
-          <td>${badge(f.eco)}${seatmapNote(f)}</td>
-          <td>${badge(f.clsj)}</td>
-          <td>${badge(f.first)}</td>
+          <td>${badge(f.eco)}${trendNote(f)}${seatmapNote(f)}</td>
+          <td>${badge(f.clsj)}${cabinSeatNote(f.sj)}</td>
+          <td>${badge(f.first)}${cabinSeatNote(f.sf)}</td>
           <td class="mono">${fare}</td>
         </tr>`);
       }
@@ -374,6 +406,33 @@ function render(){
   list.innerHTML = html.length
     ? html.join("")
     : `<div class="empty">条件に合う便はありません。</div>`;
+}
+
+/* 前回の収集から新しく空席が出た便を、上部にまとめて出す。
+   キャンセルが出た便を探すのがいちばんの用途なので、満席→空席だけを拾う。 */
+function renderNewSeats(){
+  const box = document.getElementById("newseats");
+  const found = [];
+  for (const route of DATA.routes){
+    for (const f of route.flights || []){
+      if (f.pe === 0 && f.eco > 0) found.push({route, f});
+    }
+  }
+  if (!found.length || !DATA.prevAt){ box.innerHTML = ""; return; }
+
+  const at = new Date(DATA.prevAt);
+  const hhmm = `${String(at.getHours()).padStart(2,"0")}:${String(at.getMinutes()).padStart(2,"0")}`;
+  box.className = "newseats";
+  // 多いときは全部並べても読めないので、時刻の早い順に絞る
+  const LIMIT = 12;
+  const shown = found.slice().sort((a, b) => a.f.dep.localeCompare(b.f.dep)).slice(0, LIMIT);
+  box.innerHTML = `<b>前回（${hhmm}）から空席が出た便が${found.length}件あります。</b>`
+    + "<ul>" + shown.map(({route, f}) =>
+        `<li>${AP[route.o] || route.o} → ${AP[route.d] || route.d}`
+        + ` <b>${f.no}</b> ${f.dep} ${badge(f.eco)}`
+        + (f.sa !== undefined ? `（座席表 ${f.sa}席）` : "") + "</li>").join("")
+    + "</ul>"
+    + (found.length > LIMIT ? `<div style="margin-top:6px">ほか ${found.length - LIMIT} 件</div>` : "");
 }
 
 function renderSummary(){
@@ -533,6 +592,7 @@ async function pollRequest(id, startedAt){
     DAYS = await loadAvailability();
     selectDay(state.date);
     renderSummary();
+    renderNewSeats();
     render();
     setTimeout(() => { $runbar.hidden = true; }, 8000);
     return;
@@ -593,6 +653,7 @@ loadAvailability()
       .find(d => (DAYS[d].routes || []).some(r => (r.flights || []).length));
     selectDay(firstUseful || todayJST());
     renderSummary();
+    renderNewSeats();
     render();
     setBusy(false); // 更新ボタンのラベルを選択中の日に合わせる
     bindSeg("dirseg", "dir");
@@ -602,6 +663,7 @@ loadAvailability()
       if (!b) return;
       selectDay(b.dataset.day);
       renderSummary();
+      renderNewSeats();
       render();
       setBusy(false);  // ボタンのラベルを選択中の日に合わせ直す
     });

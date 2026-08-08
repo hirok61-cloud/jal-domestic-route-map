@@ -146,6 +146,8 @@
     return;
   }
   const AUTH = "Bearer " + creds.authToken;
+  // 1回の収集を識別する。同じ収集の2度目の保存を見分けるために使う
+  const RUN_ID = crypto.randomUUID();
   const UPDATE_KEY = window.__JAL_SEATS_KEY || "";
 
   /* ------------------------------------------------------------------ 収集 */
@@ -294,16 +296,29 @@
     if (res.status !== 200) return null;
     const json = await res.json().catch(() => null);
     const decks = ((((json || {}).data || {}).seatmaps || [])[0] || {}).decks || [];
-    let available = 0, total = 0;
+    /* 同じレスポンスからクラスJ・ファーストと、窓側/通路側も数える。
+       追加のリクエストは発生しない。W=窓側, A=通路側（座席属性コード）。 */
+    let sa = 0, st = 0, sw = 0, sl = 0, sj = null, sf = null;
     for (const deck of decks) {
       for (const s of deck.seats || []) {
-        if (s.cabin !== "eco") continue;
-        total++;
-        const st = s.travelers && s.travelers[0] && s.travelers[0].seatAvailabilityStatus;
-        if (st === "available") available++;
+        const t = s.travelers && s.travelers[0];
+        const open = t && t.seatAvailabilityStatus === "available";
+        if (s.cabin === "eco") {
+          st++;
+          if (open) {
+            sa++;
+            const codes = (t.seatCharacteristicsCodes || []);
+            if (codes.includes("W")) sw++;
+            if (codes.includes("A")) sl++;
+          }
+        } else if (s.cabin === "business") {
+          sj = (sj || 0) + (open ? 1 : 0);
+        } else if (s.cabin === "first") {
+          sf = (sf || 0) + (open ? 1 : 0);
+        }
       }
     }
-    return total ? { sa: available, st: total } : null;
+    return st ? { sa, st, sw, sl, sj, sf } : null;
   }
 
   function describeError(payload) {
@@ -385,6 +400,7 @@
 
     const out = () => ({
       generatedAt: new Date().toISOString(),
+      runId: RUN_ID,
       date,
       hub: HUB,
       source: "JAL公式 空席照会API (api.dom.jal.co.jp/rmweb-api/search/air-bounds)",
