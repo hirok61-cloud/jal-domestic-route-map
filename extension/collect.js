@@ -110,8 +110,8 @@
   }
 
 
-  /* 座席表を1便ぶん取る。運賃の在庫（予約クラスの枠）と、座席表で実際に
-     指定できる席は別管理で、JALは当日空港割り当てぶんを確保しているため、
+  /* 座席表を1便分取る。運賃の在庫（予約クラスの枠）と、座席表で実際に
+     指定できる席は別管理で、JALは当日空港割り当て分を確保しているため、
      運賃が「空席あり」でも座席表は埋まっていることがある。 */
   async function seatmap(route, flight, date) {
     const res = await fetch(SEATMAP_API, {
@@ -172,7 +172,7 @@
     body: JSON.stringify(body),
   });
 
-  /** 1日ぶん集めて保存する。戻り値はその日の要約。 */
+  /** 1日分集めて保存する。戻り値はその日の要約。 */
   async function collectDay(date, dayIndex) {
     const label = OFFSETS[dayIndex] === 0 ? "今日" : "翌日";
     const routes = [];
@@ -182,7 +182,7 @@
       if (i % 10 === 0) {
         chrome.runtime.sendMessage({
           type: "collect-progress", job,
-          message: `${label}ぶんを取得中 ${i + 1}/${pairs.length}`,
+          message: `${label}分を取得中 ${i + 1}/${pairs.length}`,
         });
       }
 
@@ -249,7 +249,7 @@
       if (i % 10 === 0) {
         chrome.runtime.sendMessage({
           type: "collect-progress", job,
-          message: `${label}ぶんの座席表 ${i + 1}/${targets.length}`,
+          message: `${label}分の座席表 ${i + 1}/${targets.length}`,
         });
       }
       try {
@@ -277,7 +277,7 @@
   try {
     const parts = [];
     for (let d = 0; d < DAYS.length; d++) {
-      // 今日ぶんが取れた時点で先に保存されるので、翌日ぶんで失敗しても無駄にならない
+      // 今日分が取れた時点で先に保存されるので、翌日分で失敗しても無駄にならない
       const summary = await collectDay(DAYS[d], d);
       if (summary) parts.push(summary);
       else if (d === 0) {

@@ -187,7 +187,7 @@
   const pairs = [];
   for (const spoke of SPOKES) pairs.push([HUB, spoke], [spoke, HUB]);
 
-  /** 1区間ぶん空席照会する。 */
+  /** 1区間分空席照会する。 */
   async function search(origin, destination, date) {
     const res = await fetch(API, {
       method: "POST",
@@ -262,8 +262,8 @@
   }
 
 
-  /* 座席表を1便ぶん取る。運賃の在庫（予約クラスの枠）と、座席表で実際に
-     指定できる席は別管理で、JALは当日空港割り当てぶんを確保しているため、
+  /* 座席表を1便分取る。運賃の在庫（予約クラスの枠）と、座席表で実際に
+     指定できる席は別管理で、JALは当日空港割り当て分を確保しているため、
      運賃が「空席あり」でも座席表は埋まっていることがある。 */
   async function seatmap(route, flight, date) {
     const res = await fetch(SEATMAP_API, {
@@ -342,7 +342,7 @@
     URL.revokeObjectURL(a.href);
   }
 
-  /** 1日ぶん集めて保存する。戻り値はその日の要約テキスト。 */
+  /** 1日分集めて保存する。戻り値はその日の要約テキスト。 */
   async function collectDay(date, dayIndex) {
     const label = OFFSETS[dayIndex] === 0 ? "今日" : "翌日";
     const routes = [];
@@ -351,7 +351,7 @@
       const [origin, destination] = pairs[i];
       const done = dayIndex * pairs.length + i;
       const left = Math.ceil((total - done) * (DELAY_MS + 900) / 1000);
-      show(`${label}ぶんを取得中… ${i + 1} / ${pairs.length}`,
+      show(`${label}分を取得中… ${i + 1} / ${pairs.length}`,
         `${origin} → ${destination}　全体の残り約${left}秒`
         + "<br><span style='color:#b7001e'>この画面を開いたままにしてください</span>",
         Math.round((done / total) * 100));
@@ -424,7 +424,7 @@
     };
 
     // 運賃ベースの結果をまず保存する（座席表の途中で止まっても無駄にならない）
-    show(`${label}ぶんを保存しています…`, `${flights}便中${withSeats}便に空席`, null);
+    show(`${label}分を保存しています…`, `${flights}便中${withSeats}便に空席`, null);
     await save();
 
     /* 運賃が「空席あり」の便だけ座席表を見る。満席の便は見ても意味がない。
@@ -436,7 +436,7 @@
     for (let i = 0; i < targets.length; i++) {
       const [r, f] = targets[i];
       const left = Math.ceil((targets.length - i) * (DELAY_MS + 1100) / 1000);
-      show(`${label}ぶんの座席表… ${i + 1} / ${targets.length}`,
+      show(`${label}分の座席表… ${i + 1} / ${targets.length}`,
         `${r.o} → ${r.d} ${f.no}　残り約${left}秒`
         + "<br><span style='color:#b7001e'>この画面を開いたままにしてください</span>",
         Math.round(((dayIndex + (i / targets.length)) / DAYS.length) * 100));
@@ -447,7 +447,7 @@
       await new Promise((r2) => setTimeout(r2, DELAY_MS));
     }
     if (targets.length) {
-      show(`${label}ぶんを保存しています…`, `座席表 ${targets.length}便ぶん`, null);
+      show(`${label}分を保存しています…`, `座席表 ${targets.length}便分`, null);
       await save();
     }
 
@@ -467,7 +467,7 @@
   } catch (e) {
     document.removeEventListener("visibilitychange", onHide);
     releaseWakeLock();
-    fail(parts.length ? "翌日ぶんの途中で止まりました" : "更新できませんでした",
+    fail(parts.length ? "翌日分の途中で止まりました" : "更新できませんでした",
       `${String(e.message || e)}`
       + (parts.length ? `<br>${parts.join("<br>")}（ここまでは保存済み）` : "")
       + (wentHidden ? "<br>途中で画面が消えたのが原因かもしれません。" : ""));

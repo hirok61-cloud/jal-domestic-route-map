@@ -2,7 +2,7 @@
 //
 // 読み取り（公開）
 //   GET  ?hub=HND&date=2026-08-09  → 指定日のスナップショット（既定は今日）
-//   GET  ?action=all&hub=HND       → 持っている日ぶんまとめて { "YYYY-MM-DD": payload }
+//   GET  ?action=all&hub=HND       → 持っている日分まとめて { "YYYY-MM-DD": payload }
 //   POST ?action=request           → 更新依頼を積む（スマホなど収集できない端末用）
 //   GET  ?action=status&id=123     → 依頼の進捗
 //
@@ -173,7 +173,7 @@ Deno.serve(async (req: Request) => {
     return json({ ok: true });
   }
 
-  /* ------------------------------- 持っている日ぶんまとめて読む（サイト用） */
+  /* ------------------------------- 持っている日分まとめて読む（サイト用） */
   if (req.method === "GET" && action === "all") {
     await rpc("jal_prune_old_snapshots");
     const rows = await db(

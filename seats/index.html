@@ -209,7 +209,7 @@ footer a{color:var(--hover)}
   <button class="refresh" id="refresh" title="JALから最新の空席を取り直します">
     <span class="spin" aria-hidden="true"></span><span id="refreshlabel">最新に更新</span>
   </button>
-  <a class="updatelink" href="update.html">更新のしかた</a>
+  <a class="updatelink" href="update.html">更新のやり方</a>
 </div>
 <div class="runbar" id="runbar" hidden></div>
 <main>
@@ -400,7 +400,7 @@ function renderSummary(){
 
   const ageMin = Math.round((Date.now() - at.getTime()) / 60000);
   const notice = document.getElementById("notice");
-  // 明日ぶんは出発済みの概念がないので、古さだけを見る
+  // 明日分は出発済みの概念がないので、古さだけを見る
   const stale = ageMin > 180 || DATA.date < todayJST();
   notice.className = "notice" + (stale ? " stale" : "");
   const ageText = ageMin < 60
@@ -420,7 +420,7 @@ function renderSummary(){
       + (isToday ? " 出発済みの便は表示されません。" : " 当日になると出発済みの便は消えます。")
       + ` JALは残席を9までしか公開しないため、9席以上はまとめて「空席あり」と表示します。`
       + `<br><b>「座席表」は、その便で実際に指定できる普通席の数です。</b>`
-      + ` 運賃の在庫とは別管理で、JALが当日空港割り当てぶんを確保しているため、`
+      + ` 運賃の在庫とは別管理で、JALが当日空港割り当て分を確保しているため、`
       + ` 空席ありでも座席表は満席ということがあります。`;
 }
 
@@ -446,7 +446,7 @@ function bindSeg(id, key){
 const REMOTE = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats";
 const FALLBACK = "../data/availability.json";
 
-/** 持っている日ぶんまとめて取る。落ちていたらコミット済みの静止データで代替する。 */
+/** 持っている日分まとめて取る。落ちていたらコミット済みの静止データで代替する。 */
 async function loadAvailability(){
   try {
     const res = await fetch(`${REMOTE}?action=all`, {cache: "no-store"});
@@ -516,7 +516,7 @@ function setBusy(busy, label){
   $refresh.classList.toggle("busy", busy);
   const dayWord = state.date && state.date !== todayJST() ? "明日" : "今日";
   document.getElementById("refreshlabel").textContent =
-    label || (busy ? "更新中…" : `${dayWord}ぶんを更新`);
+    label || (busy ? "更新中…" : `${dayWord}分を更新`);
 }
 
 const dayLabel = () => (state.date && state.date !== todayJST() ? "明日" : "今日");
@@ -576,7 +576,7 @@ $refresh.addEventListener("click", async () => {
     if (extPresent) window.postMessage({type: "JAL_SEATS_RUN"}, "*");
 
     const startedAt = Date.now();
-    runbar(`<b>更新中…</b> ${dayLabel()}ぶんをJALから取り直しています。座席表も見るので8〜10分かかります。`);
+    runbar(`<b>更新中…</b> ${dayLabel()}分をJALから取り直しています。座席表も見るので8〜10分かかります。`);
     clearInterval(polling);
     polling = setInterval(() => pollRequest(id, startedAt).catch(() => {}), 3000);
   } catch (e) {
