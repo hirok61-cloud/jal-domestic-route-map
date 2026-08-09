@@ -79,10 +79,39 @@ window.__JAL_SEATS_BOOTED = Date.now();
     if (sub != null) $sub.innerHTML = sub;
     if (pct != null) $bar.style.width = pct + "%";
   };
+  /* 失敗の枠は消さない。20秒で消していたため、何が起きたのか読む前に消えてしまい、
+     原因の切り分けができなかった。文面をそのまま渡せるよう、コピーもできるようにする。 */
   const fail = (msg, sub) => {
     show(msg, sub, 100);
     $bar.style.background = "#b7001e";
-    setTimeout(() => ui.remove(), 20000);
+    if (ui.querySelector("#jsc-acts")) return;
+    const acts = document.createElement("div");
+    acts.id = "jsc-acts";
+    acts.style.cssText = "display:flex;gap:6px;margin-top:10px";
+    const mkBtn = (text, onClick) => {
+      const b = document.createElement("button");
+      b.textContent = text;
+      b.style.cssText = "flex:1;cursor:pointer;border:1px solid #e2e0da;background:#faf9f7;"
+        + "color:#1b1e24;border-radius:999px;padding:8px 10px;font:700 12px/1 inherit";
+      b.onclick = onClick;
+      return b;
+    };
+    const copy = mkBtn("内容をコピー", async () => {
+      const text = `[JAL空席] ${msg}\n${$sub.textContent}\n${location.host} / ${navigator.userAgent}`;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ui.appendChild(ta);
+        ta.select();
+        try { document.execCommand("copy"); } catch { /* 手で選んでもらう */ }
+        ta.remove();
+      }
+      copy.textContent = "コピーしました ✓";
+    });
+    acts.append(copy, mkBtn("閉じる", () => ui.remove()));
+    ui.appendChild(acts);
   };
 
   /* -------------------------------------------------------------- 事前チェック */
@@ -269,6 +298,22 @@ window.__JAL_SEATS_BOOTED = Date.now();
   }
 
 
+  /* 座席属性コードの実地調査。窓側(W)の数が座席配置から見て少なすぎる
+     （A350で空席の6.8%しか窓側にならない。3-3-3なら22%あるはず）ので、
+     JALが実際にどのコードを返しているかを数えて持ち帰る。追加のリクエストはない。
+       t = 旅客ごとの属性（いま窓側/通路側を数えているのはこちら）
+       s = 座席そのものの属性（こちらに多く付いているなら、読む場所が違う）
+     非常口席・足元の広い席が判別できるかどうかも、ここに出るコードで分かる。 */
+  const CODE_STATS = { n: 0, t: {}, s: {} };
+  const noteCodes = (bucket, codes) => {
+    if (!Array.isArray(codes)) return;
+    for (const c of codes) {
+      if (typeof c !== "string" || c.length > 4) continue;
+      if (!(c in bucket) && Object.keys(bucket).length >= 40) continue; // 際限なく増やさない
+      bucket[c] = (bucket[c] || 0) + 1;
+    }
+  };
+
   /* 座席表を1便分取る。運賃の在庫（予約クラスの枠）と、座席表で実際に
      指定できる席は別管理で、JALは当日空港割り当て分を確保しているため、
      運賃が「空席あり」でも座席表は埋まっていることがある。 */
@@ -315,6 +360,9 @@ window.__JAL_SEATS_BOOTED = Date.now();
             const codes = (t.seatCharacteristicsCodes || []);
             if (codes.includes("W")) sw++;
             if (codes.includes("A")) sl++;
+            CODE_STATS.n++;
+            noteCodes(CODE_STATS.t, t.seatCharacteristicsCodes);
+            noteCodes(CODE_STATS.s, s.seatCharacteristicsCodes);
           }
         } else if (s.cabin === "business") {
           sj = (sj || 0) + (open ? 1 : 0);
@@ -383,15 +431,17 @@ window.__JAL_SEATS_BOOTED = Date.now();
           await new Promise((r) => setTimeout(r, 4000));
           res = await search(origin, destination, date);
         }
-      } catch {
-        res = { status: 0, payload: null };
+      } catch (e) {
+        /* fetch が例外を投げるのは、CORSヘッダの付かない応答（＝Akamaiの遮断ページ）か
+           通信そのものの失敗。HTTPエラーとは原因が別なので、区別して覚えておく。 */
+        res = { status: 0, payload: null, thrown: String(e.message || e) };
       }
 
       const entry = { o: origin, d: destination };
       const payload = res.payload || {};
       if (res.status !== 200) {
         entry.status = "error";
-        entry.message = "HTTP " + res.status;
+        entry.message = res.thrown ? "通信できず（" + res.thrown + "）" : "HTTP " + res.status;
       } else if (payload.errors) {
         [entry.status, entry.message] = describeError(payload);
       } else {
@@ -400,6 +450,17 @@ window.__JAL_SEATS_BOOTED = Date.now();
         if (!entry.flights.length) entry.message = "残りの便なし";
       }
       routes.push(entry);
+
+      /* 出だしから1区間も取れないのは、JALにセッションを弾かれているとき。
+         以前はこれに気づかず70区間ぶん叩ききってから失敗していた（約90秒、
+         JALにも70回の無駄打ち）。3区間続けて駄目なら、その場で理由を出して止める。 */
+      if (routes.length >= 3 && !routes.some((r) => r.status !== "error")) {
+        throw new Error(
+          "JALに接続を断られています（" + (entry.message || "理由不明") + "）。"
+          + "空席照会の画面を開き直し、国内線を1回検索してから、もう一度実行してください。",
+        );
+      }
+
       await new Promise((r) => setTimeout(r, DELAY_MS));
     }
 
@@ -412,6 +473,8 @@ window.__JAL_SEATS_BOOTED = Date.now();
       note: "残席数は9が上限（9席以上でも9と返る）。普通席=eco / クラスJ=clsj / ファースト=first。"
         + " sa=座席表で選べる普通席数 / st=普通席の総座席数。",
       routes,
+      // 座席属性コードの実地調査ぶん（窓側の数え方を直すための材料。表示には使わない）
+      ...(CODE_STATS.n ? { codes: CODE_STATS } : {}),
     });
 
     /* 全区間が error なら、JALにセッションを弾かれている。
@@ -431,17 +494,31 @@ window.__JAL_SEATS_BOOTED = Date.now();
       throw new Error("合言葉がないため保存できません。JSONをダウンロードしました");
     }
 
+    /* 8〜10分かけて集めたものを、送信1回の失敗で捨てないようにする。
+       スマホの回線は一瞬切れることがあるので、間を空けて3回まで試す。 */
     const save = async () => {
       const snap = out();
-      const res = await fetch(ENDPOINT, {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-update-key": UPDATE_KEY },
-        body: JSON.stringify(snap),
-      });
-      if (!res.ok) {
-        download(snap);
-        throw new Error((await res.json().catch(() => ({}))).error || "HTTP " + res.status);
+      let last = "";
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const res = await fetch(ENDPOINT, {
+            method: "POST",
+            headers: { "content-type": "application/json", "x-update-key": UPDATE_KEY },
+            body: JSON.stringify(snap),
+          });
+          if (res.ok) return;
+          last = (await res.json().catch(() => ({}))).error || "HTTP " + res.status;
+          if (res.status === 400 || res.status === 401) break; // 合言葉違い・中身不正は待っても直らない
+        } catch (e) {
+          last = String(e.message || e);
+        }
+        if (attempt < 3) {
+          show(null, `保存に失敗しました。${attempt * 5}秒後にもう一度試します（${last}）`, null);
+          await new Promise((r) => setTimeout(r, attempt * 5000));
+        }
       }
+      download(snap);
+      throw new Error("保存できませんでした（" + last + "）。JSONをダウンロードしました");
     };
 
     // 運賃ベースの結果をまず保存する（座席表の途中で止まっても無駄にならない）
