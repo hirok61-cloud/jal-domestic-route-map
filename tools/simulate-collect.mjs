@@ -34,7 +34,7 @@ const res = (status, body) => ({
 const text = (out) => (typeof out === "string" ? out : JSON.stringify(out));
 
 /* ---- 偽ブラウザ。収集スクリプトが触るところだけ用意する ---- */
-function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日" }) {
+function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日", blockFetchOnly }) {
   const log = { saved: [], searches: 0, seatmaps: 0, finished: null, progress: [] };
 
   const node = (tag) => {
@@ -88,6 +88,7 @@ function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日" }) {
   };
 
   const env = {
+    __blockFetchOnly: blockFetchOnly,
     document,
     __JAL_SEATS_KEY: "TESTKEY", // ブックマークレットが渡す合言葉のかわり
     location: { host, hostname: host },
@@ -103,6 +104,21 @@ function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日" }) {
     clearTimeout, setInterval, clearInterval, queueMicrotask,
     Date, JSON, Math, Object, Array, String, Number, Promise, Map, Set, Error, console,
     AbortController,
+    /* 保存の送信手段は fetch と XHR の2つある。XHR も同じ偽サーバにつなぐ。 */
+    XMLHttpRequest: class {
+      open(method, url) { this._url = url; }
+      setRequestHeader() {}
+      send(body) {
+        if (env.__blockFetchOnly === false) { this.onerror(); return; }
+        Promise.resolve()
+          .then(() => saver(log.saved.push(JSON.parse(body)), log))
+          .then(async (r) => {
+            this.status = r.status;
+            this.responseText = JSON.stringify(await r.json());
+            this.onload();
+          });
+      }
+    },
     // 拡張との受け渡し
     chrome: {
       storage: { local: { get: async () => ({ updateKey: "TESTKEY", job: { id: 1, days: [0, 1] } }) } },
@@ -127,6 +143,11 @@ function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日" }) {
         return race(Promise.resolve().then(() => jal(seat, init, log)));
       }
       if (String(url).includes("action=finish")) return res(200, { ok: true });
+      /* 端末によっては、ページ内の fetch が横取りされて第三者ドメインだけ弾かれる。
+         そのときJALのAPI（同一サイト）は通るので、保存だけが落ちる。 */
+      if (env.__blockFetchOnly !== undefined) {
+        throw String(url) + " fetch blocked by privacy-gateway";
+      }
       log.saved.push(JSON.parse(init.body));
       return saver(log.saved.length, log);
     },
@@ -246,11 +267,33 @@ const cases = [
     }),
   },
   {
+    name: "fetchが横取りされていてもXHRで保存できる",
+    blockFetchOnly: true,
+    jal: (seat) => jalOk(seat),
+    saver: () => res(200, { ok: true }),
+    check: (log, out) => ({
+      "完走する": ok(out),
+      "保存はXHR経由で通っている": log.saved.length === 6,
+    }),
+  },
+  {
+    name: "fetchもXHRも通らない（通信そのものが遮られている）",
+    blockFetchOnly: false,
+    jal: (seat) => jalOk(seat),
+    saver: () => res(200, { ok: true }),
+    check: (log, out) => ({
+      "1件も保存できない": log.saved.length === 0,
+      "両方の理由を出す": /fetch:/.test(text(out)) && /xhr:/.test(text(out)),
+      "環境も添える": /fetch=/.test(text(out)),
+      "JSONを落とす": /ダウンロード/.test(text(out)) || out?.ok === false,
+    }),
+  },
+  {
     name: "保存が3回とも駄目",
     jal: (seat) => jalOk(seat),
     saver: () => res(503, { error: "落ちています" }),
     check: (log, out) => ({
-      "3回試す": log.saved.length === 3,
+      "3回×2手段＝6回試す": log.saved.length === 6,
       "理由を出す": /保存できませんでした/.test(text(out)) && /落ちています/.test(text(out)),
     }),
   },
@@ -267,7 +310,7 @@ for (const shell of shells) {
   console.log(`\n=============== ${shell.name} ===============`);
   for (const c of cases) {
     FLIGHTS_PER_ROUTE = c.flightsPerRoute || 1;
-    const env = makeEnv({ jal: c.jal, saver: c.saver });
+    const env = makeEnv({ jal: c.jal, saver: c.saver, blockFetchOnly: c.blockFetchOnly });
     vm.createContext(env);
     vm.runInContext(source, env);
 

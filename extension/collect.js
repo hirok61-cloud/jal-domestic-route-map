@@ -65,6 +65,25 @@
       clearTimeout(timer);
     }
   }
+  function postByXhr(url, body, headers) {
+    return new Promise((resolve, reject) => {
+      const x = new XMLHttpRequest();
+      x.open("POST", url, true);
+      x.timeout = TIMEOUT_MS;
+      for (const [k, v] of Object.entries(headers)) x.setRequestHeader(k, v);
+      x.onload = () => resolve({ ok: x.status >= 200 && x.status < 300, status: x.status, text: x.responseText });
+      x.onerror = () => reject(new Error("XHRも通りませんでした（通信そのものが遮られています）"));
+      x.ontimeout = () => reject(new Error(`XHRの応答がありません（${TIMEOUT_MS / 1e3}秒）`));
+      x.send(body);
+    });
+  }
+  function describeEnv() {
+    const native = (f) => String(f).includes("[native code]");
+    return [
+      "fetch=" + (native(fetch) ? "素" : "★横取りされています"),
+      "XHR=" + (native(XMLHttpRequest.prototype.open) ? "素" : "★横取りされています")
+    ].join(" / ");
+  }
   function fold(payload) {
     const flights = (payload.dictionaries || {}).flight || {};
     const byFlight = /* @__PURE__ */ new Map();
@@ -213,28 +232,44 @@
     }
     const pairs = [];
     for (const spoke of SPOKES) pairs.push([HUB, spoke], [spoke, HUB]);
+    let sendBy = "fetch";
     async function save(snap) {
-      let last = "";
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          const res = await fetchWithTimeout(ENDPOINT, {
-            method: "POST",
-            headers: { "content-type": "application/json", "x-update-key": updateKey },
-            body: JSON.stringify(snap)
-          });
-          if (res.ok) return;
-          last = (await res.json().catch(() => ({}))).error || "HTTP " + res.status;
-          if (res.status === 400 || res.status === 401) break;
-        } catch (e) {
-          last = String(e.message || e);
+      const headers2 = { "content-type": "application/json", "x-update-key": updateKey };
+      const body = JSON.stringify(snap);
+      const ways = sendBy === "xhr" ? ["xhr", "fetch"] : ["fetch", "xhr"];
+      const trouble = [];
+      let hopeless = false;
+      for (let attempt = 1; attempt <= 3 && !hopeless; attempt++) {
+        for (const way of ways) {
+          try {
+            const res = way === "fetch" ? await fetchWithTimeout(ENDPOINT, { method: "POST", headers: headers2, body }) : await postByXhr(ENDPOINT, body, headers2);
+            if (res.ok) {
+              sendBy = way;
+              return;
+            }
+            const detail = way === "fetch" ? (await res.json().catch(() => ({}))).error : (() => {
+              try {
+                return JSON.parse(res.text).error;
+              } catch {
+                return null;
+              }
+            })();
+            trouble.push(`${way}: ${detail || "HTTP " + res.status}`);
+            if (res.status === 400 || res.status === 401) {
+              hopeless = true;
+              break;
+            }
+          } catch (e) {
+            trouble.push(`${way}: ${String(e.message || e)}`);
+          }
         }
-        if (attempt < 3) {
-          report("save-retry", { attempt, wait: attempt * 5, error: last });
+        if (!hopeless && attempt < 3) {
+          report("save-retry", { attempt, wait: attempt * 5, error: trouble[trouble.length - 1] });
           await sleep(attempt * 5e3);
         }
       }
       if (onSaveFailed) onSaveFailed(snap);
-      throw new Error("保存できませんでした（" + last + "）" + (onSaveFailed ? "。JSONをダウンロードしました" : ""));
+      throw new Error("保存できませんでした（" + [...new Set(trouble)].join(" / ") + "）［" + describeEnv() + "］" + (onSaveFailed ? "。JSONをダウンロードしました" : ""));
     }
     async function collectDay({ date, label, dayIndex = 0, dayCount = 1 }) {
       const routes = [];

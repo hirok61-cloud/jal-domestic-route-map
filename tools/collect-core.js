@@ -57,6 +57,36 @@ async function fetchWithTimeout(url, init) {
   }
 }
 
+/* 端末によっては、ページの中の fetch が横取りされていて、
+   第三者ドメインへの通信だけが弾かれる。実機で
+   「<URL> fetch blocked by privacy-gateway」という例外を確認した。
+   JALのAPIは同じ jal.co.jp なので通り、保存先(supabase.co)だけが落ちるため、
+   70区間を集めきったところで必ず失敗する、という症状になっていた。
+
+   横取りされているのは fetch だけのことが多いので、XMLHttpRequest でも送れるようにする。
+   どちらで通ったかは呼び出し側に返して、失敗時の切り分けに使う。 */
+function postByXhr(url, body, headers) {
+  return new Promise((resolve, reject) => {
+    const x = new XMLHttpRequest();
+    x.open("POST", url, true);
+    x.timeout = TIMEOUT_MS;
+    for (const [k, v] of Object.entries(headers)) x.setRequestHeader(k, v);
+    x.onload = () => resolve({ ok: x.status >= 200 && x.status < 300, status: x.status, text: x.responseText });
+    x.onerror = () => reject(new Error("XHRも通りませんでした（通信そのものが遮られています）"));
+    x.ontimeout = () => reject(new Error(`XHRの応答がありません（${TIMEOUT_MS / 1000}秒）`));
+    x.send(body);
+  });
+}
+
+/** いまの環境で何が使えるかを短くまとめる。失敗したときだけ画面に出す。 */
+export function describeEnv() {
+  const native = (f) => String(f).includes("[native code]");
+  return [
+    "fetch=" + (native(fetch) ? "素" : "★横取りされています"),
+    "XHR=" + (native(XMLHttpRequest.prototype.open) ? "素" : "★横取りされています"),
+  ].join(" / ");
+}
+
 /* statusCode は HK=確保可 / HL=キャンセル待ち(満席)。ただし「対象者限定」の運賃は
    満席の便でも HK・quota 0 を返すので、空席の判定は quota の最大値で行う。 */
 function fold(payload) {
@@ -241,29 +271,41 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
   for (const spoke of SPOKES) pairs.push([HUB, spoke], [spoke, HUB]);
 
   /* 8〜10分かけて集めたものを、送信1回の失敗で捨てないようにする。
-     スマホの回線は一瞬切れることがあるので、間を空けて3回まで試す。 */
+     スマホの回線は一瞬切れることがあるので、間を空けて3回まで試す。
+     さらに、fetch が横取りされている端末があるので XHR でも送ってみる。 */
+  let sendBy = "fetch"; // 一度通った手段は覚えておき、2回目以降はそちらを先に使う
   async function save(snap) {
-    let last = "";
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        const res = await fetchWithTimeout(ENDPOINT, {
-          method: "POST",
-          headers: { "content-type": "application/json", "x-update-key": updateKey },
-          body: JSON.stringify(snap),
-        });
-        if (res.ok) return;
-        last = (await res.json().catch(() => ({}))).error || "HTTP " + res.status;
-        if (res.status === 400 || res.status === 401) break; // 合言葉違い・中身不正は待っても直らない
-      } catch (e) {
-        last = String(e.message || e);
+    const headers = { "content-type": "application/json", "x-update-key": updateKey };
+    const body = JSON.stringify(snap);
+    const ways = sendBy === "xhr" ? ["xhr", "fetch"] : ["fetch", "xhr"];
+    const trouble = [];
+
+    let hopeless = false; // 合言葉違い・中身不正。手段を変えても待っても直らない
+    for (let attempt = 1; attempt <= 3 && !hopeless; attempt++) {
+      for (const way of ways) {
+        try {
+          const res = way === "fetch"
+            ? await fetchWithTimeout(ENDPOINT, { method: "POST", headers, body })
+            : await postByXhr(ENDPOINT, body, headers);
+          if (res.ok) { sendBy = way; return; }
+          const detail = way === "fetch"
+            ? (await res.json().catch(() => ({}))).error
+            : (() => { try { return JSON.parse(res.text).error; } catch { return null; } })();
+          trouble.push(`${way}: ${detail || "HTTP " + res.status}`);
+          if (res.status === 400 || res.status === 401) { hopeless = true; break; }
+        } catch (e) {
+          trouble.push(`${way}: ${String(e.message || e)}`);
+        }
       }
-      if (attempt < 3) {
-        report("save-retry", { attempt, wait: attempt * 5, error: last });
+      if (!hopeless && attempt < 3) {
+        report("save-retry", { attempt, wait: attempt * 5, error: trouble[trouble.length - 1] });
         await sleep(attempt * 5000);
       }
     }
     if (onSaveFailed) onSaveFailed(snap);
-    throw new Error("保存できませんでした（" + last + "）"
+    // 同じ理由の繰り返しは畳んで、切り分けに要る情報だけ残す
+    throw new Error("保存できませんでした（" + [...new Set(trouble)].join(" / ") + "）"
+      + "［" + describeEnv() + "］"
       + (onSaveFailed ? "。JSONをダウンロードしました" : ""));
   }
 
