@@ -68,9 +68,13 @@ JALの予約画面（人のブラウザ）
 |---|---|
 | `seats/index.html` | 空席状況ページ（表示・絞り込み・更新ボタン・差分バナー） |
 | `seats/update.html` | 更新のやり方とブックマークレット生成 |
-| `seats/collect.min.js` | 収集ロジックの圧縮版。**生成物**。`npm run build:bookmarklet` で作る |
-| `tools/collect-in-browser.js` | 収集ロジックの本体（これを編集する） |
-| `tools/build-bookmarklet.mjs` | 上を圧縮して `seats/collect.min.js` を作る。長さ上限もチェック |
+| **`tools/collect-core.js`** | **収集ロジックの本体。ここだけが実装。** ブックマークレットと拡張で共通 |
+| `tools/collect-in-browser.js` | ブックマークレット用の外側（進捗表示・日の聞き取り・www側からの誘導） |
+| `tools/collect-extension.js` | Chrome拡張用の外側（合言葉と依頼の受け取り・進捗の中継） |
+| `seats/collect.min.js` | **生成物**。ブックマークレットが `<script>` で読む |
+| `extension/collect.js` | **生成物**。拡張が注入する。直接編集しないこと |
+| `tools/build-bookmarklet.mjs` | 上の2つを生成する（`npm run build:bookmarklet`） |
+| `tools/simulate-collect.mjs` | 偽のブラウザ・偽のJALで収集を通す（`npm run test:collect`） |
 | `extension/` | Chrome拡張（Mac常設。自動更新とサイトのボタンを担当） |
 | `supabase/functions/jal-seats/index.ts` | Edge Function のソース（**手元にあるだけ。デプロイは別途**） |
 | `data/availability.json` | Supabaseが落ちたとき用の静止データ。古くてよい |
@@ -136,8 +140,13 @@ JALのサイトを開いた状態で呼び出すと、30秒ほどで空席照会
 
 ## 5. ハマったところ（同じ罠を踏まないために）
 
+- **収集ロジックは `tools/collect-core.js` の1本だけ**。以前はブックマークレット用と
+  Chrome拡張用に**同じロジックのコピーが2つ**あり、片方だけ直して片方が置き去りに
+  なった。2026-08-09、直したはずの中断処理も座席属性の調査も拡張には入っておらず、
+  拡張経由で集めた結果に材料が入っていなくて1往復むだにした。
+  いまは本体1つ＋外側2つで、`extension/collect.js` も生成物
 - **収集ロジックを直したら `npm run build:bookmarklet` を必ず実行**。
-  `seats/collect.min.js` は生成物で、これも一緒にコミットする。
+  `seats/collect.min.js` と `extension/collect.js` は生成物で、これも一緒にコミットする。
   あわせて **`npm run test:collect`**（`tools/simulate-collect.mjs`）を通す。
   偽のブラウザと偽のJAL・保存先の上で収集スクリプトを実際に走らせて、
   完走／JALに弾かれたとき／保存が失敗したときの分岐を確かめる。外部へは一切つながない

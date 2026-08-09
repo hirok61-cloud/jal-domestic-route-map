@@ -1,13 +1,17 @@
 #!/usr/bin/env node
-/* collect-in-browser.js を圧縮して seats/collect.min.js を作る。
+/* 収集ロジックから、配信する2つの生成物を作る。
  *
- * ブックマークレットはこの圧縮版を <script> タグで読み込むだけの小さなもので、
- * ロジックは埋め込まない（埋め込むと2万字を超え、Androidのブックマークで
- * 切り捨てられて何も起きなくなる。実測）。したがってここでの長さは
- * ブックマークレットの上限とは関係なく、単に配信するファイルの大きさになる。
+ *   tools/collect-core.js（本体・共通）
+ *     ├─ tools/collect-in-browser.js → seats/collect.min.js   ブックマークレットが読む
+ *     └─ tools/collect-extension.js  → extension/collect.js   Chrome拡張が注入する
  *
- * 収集ロジックを直したら必ず実行し、生成物もコミットすること。
- * 利用者はブックマークを登録し直す必要はない（読み込み先が同じため）。
+ * 以前は2か所に同じ収集ロジックのコピーがあり、片方だけ直して片方が
+ * 置き去りになった。本体は1つにして、外側だけを差し替える形にしてある。
+ * **extension/collect.js は生成物なので直接編集しないこと。**
+ *
+ * ブックマークレット自体は collect.min.js を <script> タグで読み込むだけの
+ * 小さなもの（約2,500字）で、ロジックは埋め込まない。埋め込むと2万字を超え、
+ * Androidのブックマークで切り捨てられて何も起きなくなる（実測）。
  *
  *   node tools/build-bookmarklet.mjs
  */
@@ -17,32 +21,52 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const src = join(root, "tools", "collect-in-browser.js");
-const out = join(root, "seats", "collect.min.js");
 
-const result = await build({
-  entryPoints: [src],
-  bundle: false,
-  minify: true,
-  format: "iife",
-  target: ["safari15", "chrome100"],
-  charset: "utf8",
-  legalComments: "none",
-  write: false,
-});
+const targets = [
+  {
+    entry: join(root, "tools", "collect-in-browser.js"),
+    out: join(root, "seats", "collect.min.js"),
+    label: "ブックマークレット用",
+    minify: true,
+    // ブックマークレットが「読み込めて動き出したか」を判定する目印。
+    // esbuild に畳まれると、配信元を順に試す仕組みが常に空振りする
+    must: "__JAL_SEATS_BOOTED",
+  },
+  {
+    entry: join(root, "tools", "collect-extension.js"),
+    out: join(root, "extension", "collect.js"),
+    label: "Chrome拡張用",
+    minify: false, // 拡張は読めるほうが直しやすい。長さの制約もない
+    must: "collect-finished",
+  },
+];
 
-const code = result.outputFiles[0].text.trim();
-
-/* ブックマークレットは「読み込めて動き出したか」をこの目印で判定する。
-   esbuild が畳んでしまうと、配信元を順に試す仕組みが常に空振りする。 */
-if (!code.includes("__JAL_SEATS_BOOTED")) {
-  console.error("__JAL_SEATS_BOOTED が消えています。collect-in-browser.js を確認してください。");
-  process.exit(1);
+for (const t of targets) {
+  const result = await build({
+    entryPoints: [t.entry],
+    bundle: true, // collect-core.js を取り込む
+    minify: t.minify,
+    format: "iife",
+    target: ["safari15", "chrome100"],
+    charset: "utf8",
+    legalComments: "none",
+    banner: { js: `/* 生成物。編集しないこと。もとは tools/collect-core.js と ${t.entry.split("/").pop()}。\n   直したら npm run build:bookmarklet && npm run test:collect */` },
+    write: false,
+  });
+  const code = result.outputFiles[0].text.trim();
+  if (!code.includes(t.must)) {
+    console.error(`${t.label}: ${t.must} が消えています。取り込み方を確認してください。`);
+    process.exit(1);
+  }
+  // 座席属性の調査ぶんが両方に入っていること（これが片方だけ、が今回の事故）
+  if (!code.includes("codes")) {
+    console.error(`${t.label}: 座席属性の集計が入っていません。`);
+    process.exit(1);
+  }
+  writeFileSync(t.out, code + "\n");
+  console.log(`${t.label.padEnd(16)} ${String(code.length).padStart(6)} 字 → ${t.out.replace(root + "/", "")}`);
 }
 
-writeFileSync(out, code);
-
-const orig = readFileSync(src, "utf8");
-console.log(`元ファイル: ${orig.length} 字`);
-console.log(`圧縮後    : ${code.length} 字 → seats/collect.min.js`);
+const core = readFileSync(join(root, "tools", "collect-core.js"), "utf8");
+console.log(`本体 tools/collect-core.js ${core.length} 字（この1本だけが収集ロジック）`);
 console.log("OK");

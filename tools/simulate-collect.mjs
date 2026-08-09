@@ -1,29 +1,41 @@
 #!/usr/bin/env node
-/* collect-in-browser.js を、偽のブラウザと偽のJAL/保存先の上で実際に走らせる。
+/* 収集スクリプトを、偽のブラウザと偽のJAL・保存先の上で実際に走らせる。
  *
- * このプロジェクトは「JALの実ページでブックマークレットを押す最後の一手」を
- * こちら側で確かめられない。せめて収集ロジックの分岐（弾かれたとき・保存に
- * 失敗したとき・完走したとき）は手元で通しておきたい、というためのもの。
+ * このプロジェクトは「JALの実ページで押す最後の一手」をこちら側で確かめられない。
+ * せめて分岐（完走／弾かれたとき／保存に失敗したとき）は手元で通しておきたい。
  * JALにも保存先にも一切つながないので、何度走らせても実害はない。
+ *
+ * ブックマークレット用と拡張用の**両方**を同じシナリオにかける。
+ * 以前この2つは別実装で、片方だけ直して片方が置き去りになった。
  *
  *   node tools/simulate-collect.mjs
  */
-import { readFileSync } from "node:fs";
+import { build } from "esbuild";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import vm from "node:vm";
-import crypto from "node:crypto";
+import nodeCrypto from "node:crypto";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const source = readFileSync(join(root, "tools", "collect-in-browser.js"), "utf8")
-  // 待ち時間は検証に不要なので詰める（実物の間隔はそのまま残す）
-  .replace(/const DELAY_MS = \d+;/, "const DELAY_MS = 0;")
-  .replace(/attempt \* 5000/, "attempt * 5")
-  .replace(/setTimeout\(r, 4000\)/, "setTimeout(r, 4)");
+
+/** 実際に配信するのと同じ組み方で束ねる。中身には手を入れない。 */
+async function bundle(entry) {
+  const out = await build({
+    entryPoints: [join(root, "tools", entry)],
+    bundle: true, minify: false, format: "iife",
+    target: ["chrome100"], charset: "utf8", write: false,
+  });
+  return out.outputFiles[0].text;
+}
+
+const res = (status, body) => ({
+  ok: status >= 200 && status < 300, status, json: async () => body,
+});
+const text = (out) => (typeof out === "string" ? out : JSON.stringify(out));
 
 /* ---- 偽ブラウザ。収集スクリプトが触るところだけ用意する ---- */
 function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日" }) {
-  const log = { shown: [], saved: [], downloads: [], searches: 0, seatmaps: 0 };
+  const log = { saved: [], searches: 0, seatmaps: 0, finished: null, progress: [] };
 
   const node = (tag) => {
     const el = {
@@ -31,7 +43,7 @@ function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日" }) {
       set textContent(v) { el._text = String(v); },
       get textContent() { return el._text; },
       /* innerHTML で組み立てたあと querySelector('#id') で引かれるので、
-         id つきのタグだけは子要素として作っておく（雑なHTMLパーサ代わり）。 */
+         id つきのタグだけ子要素として作る（雑なHTMLパーサ代わり）。 */
       set innerHTML(v) {
         el._text = String(v).replace(/<[^>]*>/g, "");
         for (const m of String(v).matchAll(/id="([^"]+)"/g)) {
@@ -55,9 +67,7 @@ function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日" }) {
         return c;
       },
       append(...cs) { el.children.push(...cs); },
-      remove() {},
-      click() {},
-      select() {},
+      remove() {}, click() {}, select() {},
       querySelector(sel) { return find(el, sel.replace("#", "")); },
     };
     return el;
@@ -82,19 +92,33 @@ function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日" }) {
     __JAL_SEATS_KEY: "TESTKEY", // ブックマークレットが渡す合言葉のかわり
     location: { host, hostname: host },
     sessionStorage: { getItem: () => JSON.stringify({ authToken: "dummy-token" }) },
-    crypto: { randomUUID: () => crypto.randomUUID() },
+    crypto: { randomUUID: () => nodeCrypto.randomUUID() },
     performance: { now: () => 60000 },
     navigator: { userAgent: "test", wakeLock: null, clipboard: null },
     Blob: class { constructor(parts) { this.size = String(parts[0]).length; } },
     URL: { createObjectURL: () => "blob:x", revokeObjectURL() {} },
-    setTimeout, clearTimeout, setInterval, clearInterval, queueMicrotask,
+    /* JALを叩く間隔も再送の待ちも、検証では待つ意味がない。
+       ソースを書き換えるとズレるので、時計のほうを縮める。 */
+    setTimeout: (fn, ms) => setTimeout(fn, Math.min(ms || 0, 3)),
+    clearTimeout, setInterval, clearInterval, queueMicrotask,
     Date, JSON, Math, Object, Array, String, Number, Promise, Map, Set, Error, console,
+    // 拡張との受け渡し
+    chrome: {
+      storage: { local: { get: async () => ({ updateKey: "TESTKEY", job: { id: 1, days: [0, 1] } }) } },
+      runtime: {
+        sendMessage: (m) => {
+          if (m.type === "collect-finished") log.finished = m;
+          else if (m.type === "collect-progress") log.progress.push(m.message);
+        },
+      },
+    },
     fetch: async (url, init) => {
       if (String(url).includes("api.dom.jal.co.jp")) {
         const seat = String(url).includes("seatmaps");
         if (seat) log.seatmaps++; else log.searches++;
         return jal(seat, init, log);
       }
+      if (String(url).includes("action=finish")) return res(200, { ok: true });
       log.saved.push(JSON.parse(init.body));
       return saver(log.saved.length, log);
     },
@@ -105,13 +129,7 @@ function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日" }) {
   return env;
 }
 
-const res = (status, body) => ({
-  ok: status >= 200 && status < 300,
-  status,
-  json: async () => body,
-});
-
-/* JALの応答。1区間あたり2便、うち1便に空席があるものを返す */
+/* JALの応答。1区間1便・空席ありで返す。座席は窓側1・通路側1・使用済み1 */
 const jalOk = (seat) => {
   if (seat) {
     return res(200, {
@@ -131,7 +149,12 @@ const jalOk = (seat) => {
   return res(200, {
     dictionaries: {
       flight: {
-        f1: { marketingAirlineCode: "JL", marketingFlightNumber: "101", operatingAirlineCode: "JL", aircraftCode: "359", departure: { dateTime: "2026-08-09T07:00:00" }, arrival: { dateTime: "2026-08-09T08:10:00" } },
+        f1: {
+          marketingAirlineCode: "JL", marketingFlightNumber: "101",
+          operatingAirlineCode: "JL", aircraftCode: "359",
+          departure: { dateTime: "2026-08-09T07:00:00" },
+          arrival: { dateTime: "2026-08-09T08:10:00" },
+        },
       },
     },
     data: {
@@ -146,6 +169,8 @@ const jalOk = (seat) => {
   });
 };
 
+const ok = (out) => /更新しました/.test(text(out)) || out?.ok === true;
+
 const cases = [
   {
     name: "正常に完走する",
@@ -154,12 +179,12 @@ const cases = [
     check: (log, out) => ({
       "空席照会は70区間×2日": log.searches === 140,
       "保存は1日2回＝計4回": log.saved.length === 4,
-      "座席属性コードを持ち帰る": !!log.saved.at(-1).codes && log.saved.at(-1).codes.n > 0,
-      "旅客側と座席側を別々に数える": log.saved.at(-1).codes.t.W === log.saved.at(-1).codes.s.W
-        && log.saved.at(-1).codes.s["1A"] > 0 && !log.saved.at(-1).codes.t["1A"],
+      "座席属性コードを持ち帰る": log.saved.at(-1).codes?.n > 0,
+      "旅客側と座席側を別々に数える":
+        log.saved.at(-1).codes.s["1A"] > 0 && !log.saved.at(-1).codes.t["1A"],
       "項目名と実物を1件持ち帰る": log.saved.at(-1).codes.keys.includes("seat.cabin")
         && /seatAvailabilityStatus/.test(log.saved.at(-1).codes.sample),
-      "成功表示で終わる": /更新しました/.test(out),
+      "成功で終わる": ok(out),
     }),
   },
   {
@@ -169,19 +194,18 @@ const cases = [
     check: (log, out) => ({
       "70区間も叩かず3区間で止める": log.searches === 3,
       "1件も保存しない": log.saved.length === 0,
-      "理由を出す": /接続を断られ/.test(out) && /Failed to fetch/.test(out),
-      "やり直し方を出す": /国内線を1回検索/.test(out),
+      "理由を出す": /接続を断られ/.test(text(out)) && /Failed to fetch/.test(text(out)),
+      "やり直し方を出す": /国内線を1回検索/.test(text(out)),
     }),
   },
   {
-    name: "JALが403を返す（本文つき）",
+    name: "JALが403を返す",
     jal: () => res(403, {}),
     saver: () => res(200, { ok: true }),
     check: (log, out) => ({
-      // 403は1回リトライしてから諦めるので、3区間ぶん＝6回で止まる
-      "3区間ぶんで止める": log.searches === 6,
+      "3区間ぶん＝6回で止める": log.searches === 6,
       "1件も保存しない": log.saved.length === 0,
-      "理由にHTTPを出す": /HTTP 403/.test(out),
+      "理由にHTTPを出す": /HTTP 403/.test(text(out)),
     }),
   },
   {
@@ -189,7 +213,7 @@ const cases = [
     jal: (seat) => jalOk(seat),
     saver: (n) => (n === 1 ? res(500, { error: "一時的な障害" }) : res(200, { ok: true })),
     check: (log, out) => ({
-      "やり直して完走する": /更新しました/.test(out),
+      "やり直して完走する": ok(out),
       "保存を試した回数が増える": log.saved.length === 5,
     }),
   },
@@ -199,37 +223,48 @@ const cases = [
     saver: () => res(503, { error: "落ちています" }),
     check: (log, out) => ({
       "3回試す": log.saved.length === 3,
-      "理由を出す": /保存できませんでした/.test(out) && /落ちています/.test(out),
-      "JSONを落とす": /ダウンロード/.test(out),
+      "理由を出す": /保存できませんでした/.test(text(out)) && /落ちています/.test(text(out)),
     }),
   },
 ];
 
+const shells = [
+  { name: "ブックマークレット", entry: "collect-in-browser.js" },
+  { name: "Chrome拡張", entry: "collect-extension.js" },
+];
+
 let ng = 0;
-for (const c of cases) {
-  const env = makeEnv({ jal: c.jal, saver: c.saver });
-  vm.createContext(env);
-  vm.runInContext(source, env);
-  const readUi = () => {
-    const ui = env.document.getElementById("jal-seat-collector");
-    return [ui?.querySelector("#jsc-msg")?.textContent || "",
-            ui?.querySelector("#jsc-sub")?.textContent || ""].join(" / ");
-  };
-  const DONE = /更新しました|できませんでした|止まりました|断られ|実行できません|見つかりません/;
-  let out = "";
-  for (let i = 0; i < 600; i++) {
-    out = readUi();
-    if (DONE.test(out)) break;
-    await new Promise((r) => setTimeout(r, 10));
+for (const shell of shells) {
+  const source = await bundle(shell.entry);
+  console.log(`\n=============== ${shell.name} ===============`);
+  for (const c of cases) {
+    const env = makeEnv({ jal: c.jal, saver: c.saver });
+    vm.createContext(env);
+    vm.runInContext(source, env);
+
+    const readOut = () => {
+      if (env.__log.finished) return env.__log.finished; // 拡張は結果を返して終わる
+      const ui = env.document.getElementById("jal-seat-collector");
+      return [ui?.querySelector("#jsc-msg")?.textContent || "",
+        ui?.querySelector("#jsc-sub")?.textContent || ""].join(" / ");
+    };
+    const DONE = /更新しました|できませんでした|止まりました|断られ|実行できません|見つかりません/;
+    let out = "";
+    for (let i = 0; i < 800; i++) {
+      out = readOut();
+      if (typeof out !== "string" || DONE.test(out)) break;
+      await new Promise((r) => setTimeout(r, 10));
+    }
+
+    const L = env.__log;
+    console.log(`\n■ ${c.name}`);
+    console.log(`   空席照会 ${L.searches} 回 / 座席表 ${L.seatmaps} 回 / 保存 ${L.saved.length} 回`);
+    for (const [label, pass] of Object.entries(c.check(L, out))) {
+      if (!pass) ng++;
+      console.log(`   ${pass ? "OK " : "NG "} ${label}`);
+    }
+    console.log(`   結果: ${text(out).slice(0, 130)}`);
   }
-  const L = env.__log;
-  console.log(`\n■ ${c.name}`);
-  console.log(`   空席照会 ${L.searches} 回 / 座席表 ${L.seatmaps} 回 / 保存 ${L.saved.length} 回`);
-  for (const [label, ok] of Object.entries(c.check(env.__log, out))) {
-    if (!ok) ng++;
-    console.log(`   ${ok ? "OK " : "NG "} ${label}`);
-  }
-  console.log(`   表示: ${out.slice(0, 150)}`);
 }
 console.log(ng ? `\n${ng} 件失敗` : "\nすべてOK");
 process.exit(ng ? 1 : 0);

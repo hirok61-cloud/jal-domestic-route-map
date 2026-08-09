@@ -1,10 +1,9 @@
 /* ===========================================================================
-   JAL国内線 本日の空席 コレクタ
+   JAL国内線 空席コレクタ ── ブックマークレット用の外側
 
-   JALの「予約（空席照会）」画面でブックマークレットから読み込まれ、
-   羽田発着35路線(往復70区間)の当日・普通席の残席をまとめて取得して、
-   サイトの保存先(Supabase Edge Function)へ送る。送信できない場合は
-   availability.json としてダウンロードするので、手動で差し替えもできる。
+   収集ロジック本体は tools/collect-core.js にある（拡張と共通）。
+   ここが受け持つのは、JALのページ上に出す進捗表示と、
+   「今日 / 明日 / 両日」の聞き取り、それに www 側で押されたときの誘導だけ。
 
    使い方は /seats/update.html を参照。
 
@@ -22,6 +21,8 @@
    持たせない。ブックマークレットが window.__JAL_SEATS_KEY に入れて渡す。
    =========================================================================== */
 
+import { createRun, jstDate, SITE } from "./collect-core.js";
+
 /* ブックマークレットは配信元を順に試すので、「読み込めて動き出した」ことを
    同期的に伝える目印を最初に置く。script タグの load は中身の実行後に鳴るので、
    これが立っていなければ次の配信元へ進んでよい、と判断できる。 */
@@ -29,25 +30,6 @@ window.__JAL_SEATS_BOOTED = Date.now();
 
 (async () => {
   "use strict";
-
-  const ENDPOINT = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats";
-  const SITE = "https://jal-domestic-route-map.vercel.app/seats/";
-
-  // ---- 収集対象: 羽田発着の主要路線（index.html の ROUTES と揃えている） ----
-  const HUB = "HND";
-  const SPOKES = [
-    "AKJ", "AOJ", "ASJ", "AXT", "CTS", "FUK", "GAJ", "HIJ", "HKD", "ISG",
-    "ITM", "IZO", "KCZ", "KIX", "KKJ", "KMI", "KMJ", "KMQ", "KOJ", "KUH",
-    "MMB", "MMY", "MSJ", "MYJ", "NGO", "NGS", "OBO", "OIT", "OKA", "OKJ",
-    "SHM", "TAK", "TKS", "UBJ", "UEO",
-  ];
-
-  const API = "https://api.dom.jal.co.jp/rmweb-api/search/air-bounds";
-  const SEATMAP_API = "https://api.dom.jal.co.jp/rmweb-api/shopping/seatmaps";
-  const CONTENT_VERSION = "/jl/statics/dom-bkg/content/1.0.170/";
-  const API_KEY = "JZWuY6OJ5M2IfvIgZVRMA7dhbjk7jTtga0lclevt";
-  const DELAY_MS = 1200; // JALのサーバを叩く間隔。短くしないこと
-  const CABIN = { eco: "eco", business: "clsj", first: "first" };
 
   /* ---------------------------------------------------------------- 進捗表示 */
 
@@ -79,6 +61,7 @@ window.__JAL_SEATS_BOOTED = Date.now();
     if (sub != null) $sub.innerHTML = sub;
     if (pct != null) $bar.style.width = pct + "%";
   };
+
   /* 失敗の枠は消さない。20秒で消していたため、何が起きたのか読む前に消えてしまい、
      原因の切り分けができなかった。文面をそのまま渡せるよう、コピーもできるようにする。 */
   const fail = (msg, sub) => {
@@ -138,11 +121,9 @@ window.__JAL_SEATS_BOOTED = Date.now();
         { headers: { Accept: "application/json" }, credentials: "include" },
       ).then((r) => r.json());
 
-      const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
-        .toISOString().slice(0, 10);
       const fields = {
         linkId: "02", langCd: "ja", hv_sid: seed.hv_sid, dt_sid: seed.dt_sid,
-        tripType: "OW", depDate: today, depAirportCode1: "HND", arrAirportCode1: "ITM",
+        tripType: "OW", depDate: jstDate(0), depAirportCode1: "HND", arrAirportCode1: "ITM",
         adult: "1", child: "0", infant: "0", class: "ecoBusiness", discountType: "JCF",
       };
       const form = document.createElement("form");
@@ -179,20 +160,11 @@ window.__JAL_SEATS_BOOTED = Date.now();
       "先に国内線を1回検索して、便が並んだ画面で実行してください。");
     return;
   }
-  const AUTH = "Bearer " + creds.authToken;
-  // 1回の収集を識別する。同じ収集の2度目の保存を見分けるために使う
-  const RUN_ID = crypto.randomUUID();
-  const UPDATE_KEY = window.__JAL_SEATS_KEY || "";
 
-  /* ------------------------------------------------------------------ 収集 */
+  /* ------------------------------------------------------------ 収集する日 */
 
-  /* 収集する日を選んでもらう。座席表まで見ると1日8〜10分かかるので、
-     両日まとめると20分近くになる。要る日だけ選べるほうが実用的。 */
-  const jstDate = (offsetDays) => {
-    const t = new Date(Date.now() + 9 * 3600000 + offsetDays * 86400000);
-    return t.toISOString().slice(0, 10);
-  };
-
+  /* 座席表まで見ると1日8〜10分かかるので、両日まとめると20分近くになる。
+     要る日だけ選べるほうが実用的。 */
   const OFFSETS = await new Promise((resolve) => {
     const md = (n) => {
       const d = new Date(Date.now() + 9 * 3600000 + n * 86400000);
@@ -218,183 +190,45 @@ window.__JAL_SEATS_BOOTED = Date.now();
     );
     ui.appendChild(box);
   });
-  const DAYS = OFFSETS.map(jstDate);
 
-  const pairs = [];
-  for (const spoke of SPOKES) pairs.push([HUB, spoke], [spoke, HUB]);
+  /* ------------------------------------------------------------------ 収集 */
 
-  /** 1区間分空席照会する。 */
-  async function search(origin, destination, date) {
-    const res = await fetch(API, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        accept: "application/json",
-        "content-type": "application/json",
-        authorization: AUTH,
-        "x-api-key": API_KEY,
-        "ama-client-ref": crypto.randomUUID() + "--" + crypto.randomUUID(),
-      },
-      body: JSON.stringify({
-        travelers: [{ passengerTypeCode: "ADT" }],
-        itineraries: [{
-          originLocationCode: origin,
-          destinationLocationCode: destination,
-          departureDateTime: date + "T00:00:00.000",
-          isRequestedBound: true,
-        }],
-        jalSearchPreferences: { discountCode: "JCF", isCorporate: false },
-        searchPreferences: { showSoldOut: true, includeWaitlist: true },
-        contentVersionId: "/jl/statics/dom-bkg/content/1.0.170/",
-      }),
-    });
-    return { status: res.status, payload: await res.json().catch(() => null) };
-  }
-
-  /* レスポンスを便単位に畳む。
-     statusCode は HK=確保可 / HL=キャンセル待ち(満席)。ただし「対象者限定」の
-     運賃ファミリーは満席の便でも HK・quota 0 を返してくるので、
-     空席の有無は statusCode ではなく quota の最大値で判定する。 */
-  function fold(payload) {
-    const flights = (payload.dictionaries || {}).flight || {};
-    const byFlight = new Map();
-
-    for (const group of (payload.data || {}).airBoundGroups || []) {
-      const segments = (group.boundDetails || {}).segments || [];
-      if (segments.length !== 1) continue; // 乗り継ぎ旅程は対象外
-      const info = flights[segments[0].flightId];
-      if (!info) continue;
-
-      let rec = byFlight.get(segments[0].flightId);
-      if (!rec) {
-        rec = {
-          no: info.marketingAirlineCode + info.marketingFlightNumber,
-          op: info.operatingAirlineCode || info.marketingAirlineCode,
-          dep: info.departure.dateTime.slice(11, 16),
-          arr: info.arrival.dateTime.slice(11, 16),
-          ac: info.aircraftCode || "",
-          eco: 0, clsj: null, first: null, fare: null,
-        };
-        byFlight.set(segments[0].flightId, rec);
-      }
-
-      for (const bound of group.airBounds || []) {
-        const unit = ((bound.prices || {}).unitPrices || [])[0];
-        const price = unit && unit.prices && unit.prices[0]
-          ? unit.prices[0].total
-          : null;
-        for (const avail of bound.availabilityDetails || []) {
-          const key = CABIN[avail.cabin];
-          if (!key) continue;
-          const quota = avail.statusCode === "HK" ? (avail.quota || 0) : 0;
-          if (rec[key] === null || quota > rec[key]) rec[key] = quota;
-          if (key === "eco" && quota > 0 && price != null) {
-            if (rec.fare === null || price < rec.fare) rec.fare = price;
-          }
-        }
-      }
-    }
-    return [...byFlight.values()].sort((a, b) => a.dep.localeCompare(b.dep));
-  }
-
-
-  /* 座席属性コードの実地調査。窓側(W)の数が座席配置から見て少なすぎる
-     （A350で空席の6.8%しか窓側にならない。3-3-3なら22%あるはず）ので、
-     JALが実際にどのコードを返しているかを数えて持ち帰る。追加のリクエストはない。
-       t = 旅客ごとの属性（いま窓側/通路側を数えているのはこちら）
-       s = 座席そのものの属性（こちらに多く付いているなら、読む場所が違う）
-     非常口席・足元の広い席が判別できるかどうかも、ここに出るコードで分かる。 */
-  const CODE_STATS = { n: 0, t: {}, s: {}, keys: [], sample: null };
-  const noteCodes = (bucket, codes) => {
-    if (!Array.isArray(codes)) return;
-    for (const c of codes) {
-      if (typeof c !== "string" || c.length > 4) continue;
-      if (!(c in bucket) && Object.keys(bucket).length >= 40) continue; // 際限なく増やさない
-      bucket[c] = (bucket[c] || 0) + 1;
-    }
-  };
-  /* コード表以外に何が来ているかも見ておく。JALのサイトは座席表に
-     「非常口座席」「足元が広い席」を出しているので、判断材料はどこかにあるはず。
-     項目名の一覧と、空席1件ぶんの実物（頭だけ）を持ち帰る。 */
-  const noteShape = (seat, traveler) => {
-    if (CODE_STATS.sample) return;
-    CODE_STATS.keys = [
-      ...Object.keys(seat || {}).map((k) => "seat." + k),
-      ...Object.keys(traveler || {}).map((k) => "traveler." + k),
-    ];
-    CODE_STATS.sample = JSON.stringify({ seat, traveler }).slice(0, 700);
+  const download = (out) => {
+    const blob = new Blob([JSON.stringify(out)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `availability-${out.date}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
   };
 
-  /* 座席表を1便分取る。運賃の在庫（予約クラスの枠）と、座席表で実際に
-     指定できる席は別管理で、JALは当日空港割り当て分を確保しているため、
-     運賃が「空席あり」でも座席表は埋まっていることがある。 */
-  async function seatmap(route, flight, date) {
-    const res = await fetch(SEATMAP_API, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        accept: "application/json",
-        "content-type": "application/json",
-        authorization: AUTH,
-        "x-api-key": API_KEY,
-        "ama-client-ref": crypto.randomUUID() + "--" + crypto.randomUUID(),
-      },
-      body: JSON.stringify({
-        flights: [{
-          marketingAirlineCode: flight.no.slice(0, 2),
-          marketingFlightNumber: flight.no.slice(2),
-          originLocationCode: route.o,
-          destinationLocationCode: route.d,
-          departureDate: date,
-          bookingClass: "Y", // 運賃別のクラスを渡しても結果は同じだった
-          isRequestedFlight: true,
-        }],
-        travelers: [{ passengerTypeCode: "ADT", isRequestedTraveler: true }],
-        contentApplicationId: "-",
-        contentVersionId: CONTENT_VERSION,
-      }),
-    });
-    if (res.status !== 200) return null;
-    const json = await res.json().catch(() => null);
-    const decks = ((((json || {}).data || {}).seatmaps || [])[0] || {}).decks || [];
-    /* 同じレスポンスからクラスJ・ファーストと、窓側/通路側も数える。
-       追加のリクエストは発生しない。W=窓側, A=通路側（座席属性コード）。 */
-    let sa = 0, st = 0, sw = 0, sl = 0, sj = null, sf = null;
-    for (const deck of decks) {
-      for (const s of deck.seats || []) {
-        const t = s.travelers && s.travelers[0];
-        const open = t && t.seatAvailabilityStatus === "available";
-        if (s.cabin === "eco") {
-          st++;
-          if (open) {
-            sa++;
-            const codes = (t.seatCharacteristicsCodes || []);
-            if (codes.includes("W")) sw++;
-            if (codes.includes("A")) sl++;
-            CODE_STATS.n++;
-            noteCodes(CODE_STATS.t, t.seatCharacteristicsCodes);
-            noteCodes(CODE_STATS.s, s.seatCharacteristicsCodes);
-            noteShape(s, t);
-          }
-        } else if (s.cabin === "business") {
-          sj = (sj || 0) + (open ? 1 : 0);
-        } else if (s.cabin === "first") {
-          sf = (sf || 0) + (open ? 1 : 0);
-        }
+  const KEEP_OPEN = "<br><span style='color:#b7001e'>この画面を開いたままにしてください</span>";
+  const run = createRun({
+    auth: "Bearer " + creds.authToken,
+    updateKey: window.__JAL_SEATS_KEY || "",
+    runId: crypto.randomUUID(),
+    onSaveFailed: download,
+    report: (kind, x) => {
+      if (kind === "fares") {
+        show(`${x.label}分を取得中… ${x.i + 1} / ${x.total}`,
+          `${x.origin} → ${x.destination}　全体の残り約${x.leftSec}秒` + KEEP_OPEN, x.pct);
+      } else if (kind === "seats") {
+        show(`${x.label}分の座席表… ${x.i + 1} / ${x.total}`,
+          `${x.origin} → ${x.destination} ${x.no}　残り約${x.leftSec}秒` + KEEP_OPEN, x.pct);
+      } else if (kind === "saving") {
+        show(`${x.label}分を保存しています…`,
+          x.phase === "fares"
+            ? `${x.stats.flights}便中${x.stats.withSeats}便に空席`
+            : `座席表 ${x.stats.seatChecked}便分`, null);
+      } else if (kind === "save-retry") {
+        show(null, `保存に失敗しました。${x.wait}秒後にもう一度試します（${x.error}）`, null);
       }
-    }
-    return st ? { sa, st, sw, sl, sj, sf } : null;
-  }
+    },
+  });
 
-  function describeError(payload) {
-    const err = (payload.errors || [])[0];
-    if (!err) return ["empty", "残りの便なし"];
-    const text = (err.title || err.detail || err.code || "").toLowerCase();
-    if (text.includes("cancel")) return ["cancelled", "全便欠航"];
-    if (text.includes("no flight") || text.includes("not found")) {
-      return ["empty", "残りの便なし"];
-    }
-    return ["error", err.title || err.code || "取得失敗"];
+  if (!window.__JAL_SEATS_KEY) {
+    fail("合言葉がありません", "設定ページで合言葉を入れて、登録し直してください。");
+    return;
   }
 
   /* スマホだと収集中に画面が消えるとタイマーが絞られて途中で止まるので、
@@ -411,169 +245,17 @@ window.__JAL_SEATS_BOOTED = Date.now();
   document.addEventListener("visibilitychange", onHide);
 
   const started = Date.now();
-  const total = pairs.length * DAYS.length;
-
-  function download(out) {
-    const blob = new Blob([JSON.stringify(out)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `availability-${out.date}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
-
-  /** 1日分集めて保存する。戻り値はその日の要約テキスト。 */
-  async function collectDay(date, dayIndex) {
-    const label = OFFSETS[dayIndex] === 0 ? "今日" : "翌日";
-    const routes = [];
-
-    for (let i = 0; i < pairs.length; i++) {
-      const [origin, destination] = pairs[i];
-      const done = dayIndex * pairs.length + i;
-      const left = Math.ceil((total - done) * (DELAY_MS + 900) / 1000);
-      show(`${label}分を取得中… ${i + 1} / ${pairs.length}`,
-        `${origin} → ${destination}　全体の残り約${left}秒`
-        + "<br><span style='color:#b7001e'>この画面を開いたままにしてください</span>",
-        Math.round((done / total) * 100));
-
-      let res;
-      try {
-        res = await search(origin, destination, date);
-        if (res.status !== 200) {
-          await new Promise((r) => setTimeout(r, 4000));
-          res = await search(origin, destination, date);
-        }
-      } catch (e) {
-        /* fetch が例外を投げるのは、CORSヘッダの付かない応答（＝Akamaiの遮断ページ）か
-           通信そのものの失敗。HTTPエラーとは原因が別なので、区別して覚えておく。 */
-        res = { status: 0, payload: null, thrown: String(e.message || e) };
-      }
-
-      const entry = { o: origin, d: destination };
-      const payload = res.payload || {};
-      if (res.status !== 200) {
-        entry.status = "error";
-        entry.message = res.thrown ? "通信できず（" + res.thrown + "）" : "HTTP " + res.status;
-      } else if (payload.errors) {
-        [entry.status, entry.message] = describeError(payload);
-      } else {
-        entry.flights = fold(payload);
-        entry.status = entry.flights.length ? "ok" : "empty";
-        if (!entry.flights.length) entry.message = "残りの便なし";
-      }
-      routes.push(entry);
-
-      /* 出だしから1区間も取れないのは、JALにセッションを弾かれているとき。
-         以前はこれに気づかず70区間ぶん叩ききってから失敗していた（約90秒、
-         JALにも70回の無駄打ち）。3区間続けて駄目なら、その場で理由を出して止める。 */
-      if (routes.length >= 3 && !routes.some((r) => r.status !== "error")) {
-        throw new Error(
-          "JALに接続を断られています（" + (entry.message || "理由不明") + "）。"
-          + "空席照会の画面を開き直し、国内線を1回検索してから、もう一度実行してください。",
-        );
-      }
-
-      await new Promise((r) => setTimeout(r, DELAY_MS));
-    }
-
-    const out = () => ({
-      generatedAt: new Date().toISOString(),
-      runId: RUN_ID,
-      date,
-      hub: HUB,
-      source: "JAL公式 空席照会API (api.dom.jal.co.jp/rmweb-api/search/air-bounds)",
-      note: "残席数は9が上限（9席以上でも9と返る）。普通席=eco / クラスJ=clsj / ファースト=first。"
-        + " sa=座席表で選べる普通席数 / st=普通席の総座席数。",
-      routes,
-      // 座席属性コードの実地調査ぶん（窓側の数え方を直すための材料。表示には使わない）
-      ...(CODE_STATS.n ? { codes: CODE_STATS } : {}),
-    });
-
-    /* 全区間が error なら、JALにセッションを弾かれている。
-       いまあるデータを壊さないよう保存しない（夜間の全便出発済みは cancelled なのでOK）。 */
-    if (routes.every((r) => r.status === "error")) {
-      throw new Error("JALから空席を取得できませんでした（セッションが弾かれた可能性）");
-    }
-
-    const flights = routes.reduce((n, r) => n + (r.flights || []).length, 0);
-    const withSeats = routes.reduce(
-      (n, r) => n + (r.flights || []).filter((f) => f.eco > 0).length, 0,
-    );
-    const failed = routes.filter((r) => r.status === "error").length;
-
-    if (!UPDATE_KEY) {
-      download(out());
-      throw new Error("合言葉がないため保存できません。JSONをダウンロードしました");
-    }
-
-    /* 8〜10分かけて集めたものを、送信1回の失敗で捨てないようにする。
-       スマホの回線は一瞬切れることがあるので、間を空けて3回まで試す。 */
-    const save = async () => {
-      const snap = out();
-      let last = "";
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          const res = await fetch(ENDPOINT, {
-            method: "POST",
-            headers: { "content-type": "application/json", "x-update-key": UPDATE_KEY },
-            body: JSON.stringify(snap),
-          });
-          if (res.ok) return;
-          last = (await res.json().catch(() => ({}))).error || "HTTP " + res.status;
-          if (res.status === 400 || res.status === 401) break; // 合言葉違い・中身不正は待っても直らない
-        } catch (e) {
-          last = String(e.message || e);
-        }
-        if (attempt < 3) {
-          show(null, `保存に失敗しました。${attempt * 5}秒後にもう一度試します（${last}）`, null);
-          await new Promise((r) => setTimeout(r, attempt * 5000));
-        }
-      }
-      download(snap);
-      throw new Error("保存できませんでした（" + last + "）。JSONをダウンロードしました");
-    };
-
-    // 運賃ベースの結果をまず保存する（座席表の途中で止まっても無駄にならない）
-    show(`${label}分を保存しています…`, `${flights}便中${withSeats}便に空席`, null);
-    await save();
-
-    /* 運賃が「空席あり」の便だけ座席表を見る。満席の便は見ても意味がない。
-       運賃の在庫と座席表は別管理なので、ここで実際に選べる席数が分かる。 */
-    const targets = [];
-    for (const r of routes) {
-      for (const f of r.flights || []) if (f.eco > 0) targets.push([r, f]);
-    }
-    for (let i = 0; i < targets.length; i++) {
-      const [r, f] = targets[i];
-      const left = Math.ceil((targets.length - i) * (DELAY_MS + 1100) / 1000);
-      show(`${label}分の座席表… ${i + 1} / ${targets.length}`,
-        `${r.o} → ${r.d} ${f.no}　残り約${left}秒`
-        + "<br><span style='color:#b7001e'>この画面を開いたままにしてください</span>",
-        Math.round(((dayIndex + (i / targets.length)) / DAYS.length) * 100));
-      try {
-        const counts = await seatmap(r, f, date);
-        if (counts) Object.assign(f, counts);
-      } catch { /* 1便取れなくても続ける */ }
-      await new Promise((r2) => setTimeout(r2, DELAY_MS));
-    }
-    if (targets.length) {
-      show(`${label}分を保存しています…`, `座席表 ${targets.length}便分`, null);
-      await save();
-    }
-
-    const seatZero = routes.reduce(
-      (n, r) => n + (r.flights || []).filter((f) => f.sa === 0).length, 0,
-    );
-    return `${label} ${flights}便中<b>${withSeats}便</b>に空席`
-      + (targets.length ? `／座席表を見ると<b>${seatZero}便</b>は座席なし` : "")
-      + (failed ? `（取得失敗 ${failed}区間）` : "");
-  }
-
-  /* ------------------------------------------------------------- 保存・送信 */
-
   const parts = [];
   try {
-    for (let d = 0; d < DAYS.length; d++) parts.push(await collectDay(DAYS[d], d));
+    for (let d = 0; d < OFFSETS.length; d++) {
+      const label = OFFSETS[d] === 0 ? "今日" : "翌日";
+      const s = await run.collectDay({
+        date: jstDate(OFFSETS[d]), label, dayIndex: d, dayCount: OFFSETS.length,
+      });
+      parts.push(`${label} ${s.flights}便中<b>${s.withSeats}便</b>に空席`
+        + (s.seatChecked ? `／座席表を見ると<b>${s.seatZero}便</b>は座席なし` : "")
+        + (s.failed ? `（取得失敗 ${s.failed}区間）` : ""));
+    }
   } catch (e) {
     document.removeEventListener("visibilitychange", onHide);
     releaseWakeLock();

@@ -64,8 +64,11 @@
 
 ```
 JALの予約画面（人が開いたブラウザ）
-  └─ ブックマークレット（<script>タグで読み込む。配信元を3つ順に試す）
-       └─ seats/collect.min.js                ← 収集ロジック（サイトから配信）
+  ├─ ブックマークレット（<script>タグで読み込む。配信元を3つ順に試す）
+  │    └─ seats/collect.min.js               ← 生成物
+  └─ Chrome拡張（executeScript で注入）
+       └─ extension/collect.js               ← 生成物
+     どちらも中身は tools/collect-core.js（収集ロジックはこの1本だけ）
             ├─ api.dom.jal.co.jp …… 70区間分空席照会
             └─ POST supabase/functions/v1/jal-seats （x-update-key 付き）
                  └─ public.jal_seat_snapshots（hubごとに1行を上書き）
@@ -161,7 +164,7 @@ JALが当日空港割り当て分の座席を確保しているため、座席�
 
 ## 対象路線を変えるとき
 
-`tools/collect-in-browser.js` の `SPOKES` 配列を編集して push するだけ。
+`tools/collect-core.js` の `SPOKES` 配列を編集し、`npm run build:bookmarklet` して push。
 ブックマークレットは毎回このファイルを読みに行くので、登録し直す必要はない。
 区間を増やすとその分JALへのリクエストが増えるので、`DELAY_MS` は短くしないこと。
 
@@ -204,7 +207,9 @@ JALが当日空港割り当て分の座席を確保しているため、座席�
   npm run build:bookmarklet
   ```
 
-  `tools/collect-in-browser.js` → `seats/collect.min.js` を再生成する。生成物もコミットする。
+  `tools/collect-core.js` から `seats/collect.min.js`（ブックマークレット用）と
+  `extension/collect.js`（拡張用）を再生成する。生成物もコミットする。
+  あわせて `npm run test:collect` を通す（両方の外側を同じシナリオにかける）。
   読み込み方式なので、**利用者の登録し直しは不要**（ブックマークレット自体を
   変えたときだけ必要）。
 - **動作テスト用の極小ブックマークレット**を `update.html` に用意してある。
