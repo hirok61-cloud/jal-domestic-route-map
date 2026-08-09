@@ -304,7 +304,7 @@ window.__JAL_SEATS_BOOTED = Date.now();
        t = 旅客ごとの属性（いま窓側/通路側を数えているのはこちら）
        s = 座席そのものの属性（こちらに多く付いているなら、読む場所が違う）
      非常口席・足元の広い席が判別できるかどうかも、ここに出るコードで分かる。 */
-  const CODE_STATS = { n: 0, t: {}, s: {} };
+  const CODE_STATS = { n: 0, t: {}, s: {}, keys: [], sample: null };
   const noteCodes = (bucket, codes) => {
     if (!Array.isArray(codes)) return;
     for (const c of codes) {
@@ -312,6 +312,17 @@ window.__JAL_SEATS_BOOTED = Date.now();
       if (!(c in bucket) && Object.keys(bucket).length >= 40) continue; // 際限なく増やさない
       bucket[c] = (bucket[c] || 0) + 1;
     }
+  };
+  /* コード表以外に何が来ているかも見ておく。JALのサイトは座席表に
+     「非常口座席」「足元が広い席」を出しているので、判断材料はどこかにあるはず。
+     項目名の一覧と、空席1件ぶんの実物（頭だけ）を持ち帰る。 */
+  const noteShape = (seat, traveler) => {
+    if (CODE_STATS.sample) return;
+    CODE_STATS.keys = [
+      ...Object.keys(seat || {}).map((k) => "seat." + k),
+      ...Object.keys(traveler || {}).map((k) => "traveler." + k),
+    ];
+    CODE_STATS.sample = JSON.stringify({ seat, traveler }).slice(0, 700);
   };
 
   /* 座席表を1便分取る。運賃の在庫（予約クラスの枠）と、座席表で実際に
@@ -363,6 +374,7 @@ window.__JAL_SEATS_BOOTED = Date.now();
             CODE_STATS.n++;
             noteCodes(CODE_STATS.t, t.seatCharacteristicsCodes);
             noteCodes(CODE_STATS.s, s.seatCharacteristicsCodes);
+            noteShape(s, t);
           }
         } else if (s.cabin === "business") {
           sj = (sj || 0) + (open ? 1 : 0);

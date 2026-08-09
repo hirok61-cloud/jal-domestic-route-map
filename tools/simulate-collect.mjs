@@ -155,6 +155,10 @@ const cases = [
       "空席照会は70区間×2日": log.searches === 140,
       "保存は1日2回＝計4回": log.saved.length === 4,
       "座席属性コードを持ち帰る": !!log.saved.at(-1).codes && log.saved.at(-1).codes.n > 0,
+      "旅客側と座席側を別々に数える": log.saved.at(-1).codes.t.W === log.saved.at(-1).codes.s.W
+        && log.saved.at(-1).codes.s["1A"] > 0 && !log.saved.at(-1).codes.t["1A"],
+      "項目名と実物を1件持ち帰る": log.saved.at(-1).codes.keys.includes("seat.cabin")
+        && /seatAvailabilityStatus/.test(log.saved.at(-1).codes.sample),
       "成功表示で終わる": /更新しました/.test(out),
     }),
   },
