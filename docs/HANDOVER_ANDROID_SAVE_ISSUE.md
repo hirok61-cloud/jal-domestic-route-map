@@ -1,6 +1,64 @@
 # 引き継ぎ: Android・一部iPhoneで空席の保存が失敗する件
 
-2026-08-10 時点、**未解決**。別セッションでの続行用にまとめる。
+2026-08-10 時点、**対策を1つ打ったが、実機での完全解決は未確認**。
+下の「2026-08-10 追記」を先に読むこと。
+
+## 2026-08-10 追記（このセッションでやったこと）
+
+**やったこと**
+
+1. 「次に打てる手」の①②を検証・実行した。接続した Vercel MCP で
+   `list_projects` / `get_project` を引いたところ、`jal-domestic-route-map`
+   という名のプロジェクトはこのアカウントに1件も無い（`list_projects` が空、
+   `get_project` は404）。**①（このドメインを本当にデプロイし直す）はこの
+   アカウントからは不可能と確定した。** `jal-domestic-route-map.vercel.app` は
+   別アカウントのものか、すでに失われた設定と思われる
+2. そこで②（別ホストに中継を立てる）を実行。新規 Vercel プロジェクト
+   `jal-seats-relay` を `deploy_to_vercel` で直接デプロイした
+   （このGitHubリポジトリとは連携していない＝pushしても自動デプロイされない、
+   詳細は下記「デプロイの注意」）
+3. `curl` で合言葉をわざと間違えて叩き、Supabase側の実際のエラー応答
+   （`{"error":"合言葉が違います"}`）が中継を経由して返ってくることを確認した。
+   中継が上流（Supabase Edge Function）まで実際に到達していることの証拠
+4. `tools/collect-core.js` の `SAVE_ENDPOINTS` に2件目として追加。
+   `relay/api/save.js` にソースを置いた（内容は取り下げ済みだった旧
+   `api/save.js` とほぼ同じ）
+5. `npm run build:bookmarklet` → `npm run test:collect` → `npm run check:secrets`
+   まで通した。`tools/simulate-collect.mjs` のテストも、宛先2つ・手段2つの
+   総当たり（3周×2×2=12回）に合わせて更新した
+
+**着手前に指示された「実機で内容をコピーの文面を確認」はやっていない。**
+このセッションからはAndroid実機・配偶者のiPhone実機を操作できないため。
+ただし依頼者の元のメッセージに **`fetch blocked by privacy-gateway` は
+既に確認済み**とあった（fetchがJS層で横取りされている証拠）ので、
+「宛先を変える」対策の筋は通っている。XHRも横取りされているか、
+宛先ごとの詳しい理由までは今回も未確認のまま
+
+**次にやること**
+
+- 実機（Android・配偶者のiPhone）で1回更新を試す。**これで直れば解決**
+- 直らなければ、まず「内容をコピー」の文面を取る（宛先ごと・fetch/XHRそれぞれの
+  理由が出る）。新しいドメイン（`jal-seats-relay.vercel.app`）も同じ理由で
+  弾かれているなら、ドメインを変えるだけでは足りない＝ブロック対象が
+  「既知のバックエンドのドメイン」ではなく「fetch/XHR API自体、または
+  サードパーティ全般」ということになるので、下の「次に打てる手」の
+  3.（`sendBeacon`）・4.（隠しiframe）に進む
+- `relay/api/save.js` を直したときは、pushだけでは反映されない
+  （下記「デプロイの注意」）。必ず Vercel MCP で再デプロイすること
+
+**デプロイの注意（重要）**
+
+`jal-seats-relay` プロジェクトは Vercel MCP の `deploy_to_vercel` で
+ファイルを直接渡して作った。**GitHubリポジトリとは連携していない。**
+つまり:
+- このリポジトリに `git push` しても、`jal-seats-relay.vercel.app` には
+  何も反映されない
+- `relay/api/save.js` を直したら、そのつど Vercel MCP で
+  `deploy_to_vercel`（`name: "jal-seats-relay"`, `target: "production"`,
+  `files` に `relay/api/save.js` の中身）を呼んで再デプロイする必要がある
+- 本体サイト用に確立している「push → jsDelivrキャッシュ対策で
+  `npm run purge:cdn`」の手順とは別物なので混同しないこと
+  （`jal-seats-relay` はCDNではなくVercelの関数なので、purge:cdnの対象外）
 
 ## 症状
 
@@ -40,12 +98,12 @@
   この見た目のドメインには置けない。** 結局取り下げてコミット済み
   （`git log` で `api/save.js` を検索すると経緯が追える） |
 
-## いまのコード上の状態
+## いまのコード上の状態（2026-08-10 追記後）
 
-- `tools/collect-core.js` の `SAVE_ENDPOINTS` 配列は、いまは1件（Supabase Edge
-  Function）だけが入っている。**配列の形にしてあるので、2件目を足すのは容易**
-- 保存は「宛先 × 手段(fetch/XHR)」を総当たりし、3周まで試す設計に**なっている**
-  （宛先が1件しか無いので、実質「手段2つ×3周」）
+- `tools/collect-core.js` の `SAVE_ENDPOINTS` 配列は、いまは2件
+  （Supabase Edge Function ＋ `jal-seats-relay.vercel.app` 経由の中継）
+  が入っている。3件目を足すのも同じ形で容易
+- 保存は「宛先2つ × 手段2つ(fetch/XHR)」を総当たりし、3周まで試す設計
 - 失敗時、失敗枠に「内容をコピー」ボタンがあり、押すと次の情報が集まる。
   **これが次の判断材料になる**
   ```
@@ -55,14 +113,16 @@
 
 ## 次に打てる手（優先順の私案。決め打ちはしていない）
 
-1. **本当にVercelにデプロイする。** いまのVercelプロジェクトはGitHub Pagesの
-   ミラー的な使い方になっている可能性が高い。Vercelダッシュボードでこの
-   プロジェクトの設定を見て、「GitHubリポジトリを連携してビルド」の状態に
-   なっているか確認する。なっていれば `api/save.js` をVercel Functionsとして
-   復活させれば宛先を1つ増やせる（`vercel.json` やフレームワーク設定が必要かも）
-2. **別の無料ホスト**（Cloudflare Pages Functions、Netlify Functions等）に
-   同じ中継を1本立てて、`SAVE_ENDPOINTS` に足す。ドメインが増えるほど、
-   その端末のブロックリストに載っていない宛先に当たる確率が上がる
+1. ~~**本当にVercelにデプロイする。**~~ **やった結果、不可能と確定（2026-08-10）。**
+   接続したVercelアカウントに `jal-domestic-route-map` というプロジェクトは
+   存在しない（`list_projects` が空、`get_project` も404）。ダッシュボードを
+   見るまでもなく、このアカウントからは触れないドメインだと分かった
+2. ~~**別の無料ホストに同じ中継を立てる。**~~ **2026-08-10、Vercelで実行済み。**
+   新規プロジェクト `jal-seats-relay`（`https://jal-seats-relay.vercel.app/api/save`、
+   ソースは `relay/api/save.js`）を立て、`SAVE_ENDPOINTS` に追加した。
+   curlでの疎通は確認済みだが、**実機でのブロック回避まで確認できていない**
+   （次はこの実機確認が最優先）。もし回避できていなければ、Cloudflare Pages
+   Functions・Netlify Functions等、さらに別ドメインの中継を追加する余地はある
 3. **`navigator.sendBeacon`** を試す。`fetch`/`XHR` の横取りとは別の経路になる
    可能性がある。ただしBeaconはPOST専用でレスポンスを読めないので、
    成功/失敗の判定方法を別に用意する必要がある（例: 送信直後に

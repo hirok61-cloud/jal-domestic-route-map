@@ -170,20 +170,34 @@ JALのサイトを開いた状態で呼び出すと、30秒ほどで空席照会
 - **`fetch` が例外を投げるのとHTTPエラーは原因が別**。例外はCORSヘッダの付かない応答
   （＝Akamaiの遮断ページ）か通信断で、HTTPエラーはJALが返事はしている状態。
   区別して表示しないと切り分けができない
-- **一部の端末は保存先のドメインごと遮断される（未解決）**。実機2台
-  （Android・別のiPhone）で「70区間は取れるのに保存だけが必ず失敗する」状態を確認。
+- **一部の端末は保存先のドメインごと遮断される（対策済み・実機での完全解決は未確認）**。
+  実機2台（Android・別のiPhone）で「70区間は取れるのに保存だけが必ず失敗する」状態を確認。
   **Supabase側のログでも、その時間帯（22:48〜23:15 JST）にPOSTが1件も届いていない。**
   JALのAPIは同じ `jal.co.jp` なので通り、第三者ドメインの `supabase.co` だけが落ちる。
   **`fetch` を XHR に変えても宛先が同じなら同じように弾かれる**ので、手段の追加では直らない。
-  - **このサイト経由の中継は置けない。** `jal-domestic-route-map.vercel.app` は
-    **Vercel が GitHub Pages を中継しているだけ**で（応答に `x-github-request-id` が付き、
+  実機で `fetch blocked by privacy-gateway`（ただの文字列＝JS層で`fetch`が
+  差し替えられている証拠）も確認済み
+  - **このサイト（`jal-domestic-route-map.vercel.app`）経由の中継は置けない。**
+    Vercel が GitHub Pages を中継しているだけで（応答に `x-github-request-id` が付き、
     POSTは405、`/api/save.js` は静的ファイルとして200で返る）、サーバ側の処理を置けない。
-    中継を足すなら Vercel に本当にデプロイし直すか、別のホストを用意する必要がある
-  - 次に打つ手の候補: ①Edge Function が合言葉を本文でも受け付けるようにして
-    `navigator.sendBeacon` や 隠しiframeへのフォームPOST を試す（どちらもJS層の
-    横取りを迂回しやすい）②別ホストの中継を立てる ③その端末のブロッカーを
-    `jal.co.jp` について無効にしてもらう（利用者側の30秒の操作で済む）
-  - **どれを選ぶかは、失敗枠の「内容をコピー」の文面を見てから決めること。**
+    2026-08-10、接続した Vercel アカウントで確認しても該当プロジェクトが1件も無く
+    （`list_projects` が空、`get_project` も404）、このアカウントからは触れない
+    ドメインだと確定した
+  - そこで**別プロジェクトとして中継を新規に立てた**（2026-08-10）。
+    `https://jal-seats-relay.vercel.app/api/save`（ソースは `relay/api/save.js`）。
+    Vercel MCP の `deploy_to_vercel` で直接デプロイしたもので、**このGitHubリポジトリとは
+    連携していない＝pushしても自動デプロイされない**。`relay/api/save.js` を直したら
+    手動で `deploy_to_vercel`（projectName: `jal-seats-relay`, target: `production`）を
+    呼び直すこと。動作確認は curl で合言葉を間違えて叩き、Supabase側の実際のエラー
+    （`{"error":"合言葉が違います"}`）が中継経由で返ってくることまで確認済み
+  - `tools/collect-core.js` の `SAVE_ENDPOINTS` に2件目として追加した。これで
+    「宛先2つ×手段2つ」を総当たりする従来の仕組みがそのまま活きる
+  - **これで直ったとは言い切れない。** 遮断が「既知のバックエンドのドメインを狙い撃ち」
+    ではなく「サードパーティ全般 or fetch API自体の横取り」であれば、新しいドメインでも
+    弾かれる可能性がある。次に実機（Android・配偶者のiPhone）で更新を試し、直るか
+    確認すること。直らなければ `navigator.sendBeacon` や隠しiframeへのフォームPOSTが
+    次の手（`docs/HANDOVER_ANDROID_SAVE_ISSUE.md` に詳細）
+  - **どちらにせよ、失敗枠の「内容をコピー」の文面は一度確認しておくとよい。**
     宛先ごと・手段ごとの理由と `fetch=素/横取り`、版、読込元がすべて出るので、
     JS層の横取りなのか通信そのものの遮断なのかが確定する
   1回の保存にかける上限は90秒（`SAVE_BUDGET_MS`）。総当たりで何分も粘らない

@@ -18,7 +18,7 @@
 export const ENDPOINT = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats";
 export const SITE = "https://jal-domestic-route-map.vercel.app/seats/";
 
-/* 保存先。いまは1つだけだが、宛先を増やせる形にしてある。
+/* 保存先。宛先を増やせる形にしてある。
 
    端末によっては supabase.co への通信だけが弾かれる（広告ブロッカーや
    プライバシー系のアプリが既知のバックエンドを遮断していると起こる）。
@@ -26,12 +26,16 @@ export const SITE = "https://jal-domestic-route-map.vercel.app/seats/";
    Supabase のログでも**その時間帯にPOSTが1件も届いていない**ことを裏付けた。
    fetch を XHR に変えても宛先が同じなら同じように弾かれる。
 
-   そこでこのサイト経由の中継を足そうとしたが、**このサイトは Vercel が
-   GitHub Pages を中継しているだけ**で（応答に x-github-request-id が付く）、
-   サーバ側の処理を置けない＝POSTを受けられない。中継を足すなら、
-   Vercel に本当にデプロイし直すか、別のホストを用意する必要がある。 */
+   このサイト自身（jal-domestic-route-map.vercel.app）を中継にしようとしたが、
+   **このサイトは Vercel が GitHub Pages を中継しているだけ**で（応答に
+   x-github-request-id が付く）、サーバ側の処理を置けない＝POSTを受けられない。
+   2026-08-10、接続した Vercel アカウントで確認しても該当プロジェクトは無く
+   （list_projects が空、get_project も404）、このアカウントからは触れない
+   ドメインだと確定した。そこで**別プロジェクトとして中継を新規に立てた**
+   （jal-seats-relay.vercel.app、ソースは relay/api/save.js）。 */
 const SAVE_ENDPOINTS = [
   { url: ENDPOINT, name: "保存先" },
+  { url: "https://jal-seats-relay.vercel.app/api/save", name: "中継経由" },
 ];
 
 export const HUB = "HND";
