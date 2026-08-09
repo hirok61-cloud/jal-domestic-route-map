@@ -183,23 +183,26 @@ JALのサイトを開いた状態で呼び出すと、30秒ほどで空席照会
     2026-08-10、接続した Vercel アカウントで確認しても該当プロジェクトが1件も無く
     （`list_projects` が空、`get_project` も404）、このアカウントからは触れない
     ドメインだと確定した
-  - そこで**別プロジェクトとして中継を新規に立てた**（2026-08-10）。
-    `https://jal-seats-relay.vercel.app/api/save`（ソースは `relay/api/save.js`）。
-    Vercel MCP の `deploy_to_vercel` で直接デプロイしたもので、**このGitHubリポジトリとは
-    連携していない＝pushしても自動デプロイされない**。`relay/api/save.js` を直したら
-    手動で `deploy_to_vercel`（projectName: `jal-seats-relay`, target: `production`）を
-    呼び直すこと。動作確認は curl で合言葉を間違えて叩き、Supabase側の実際のエラー
-    （`{"error":"合言葉が違います"}`）が中継経由で返ってくることまで確認済み
-  - `tools/collect-core.js` の `SAVE_ENDPOINTS` に2件目として追加した。これで
-    「宛先2つ×手段2つ」を総当たりする従来の仕組みがそのまま活きる
-  - **これで直ったとは言い切れない。** 遮断が「既知のバックエンドのドメインを狙い撃ち」
-    ではなく「サードパーティ全般 or fetch API自体の横取り」であれば、新しいドメインでも
-    弾かれる可能性がある。次に実機（Android・配偶者のiPhone）で更新を試し、直るか
-    確認すること。直らなければ `navigator.sendBeacon` や隠しiframeへのフォームPOSTが
-    次の手（`docs/HANDOVER_ANDROID_SAVE_ISSUE.md` に詳細）
-  - **どちらにせよ、失敗枠の「内容をコピー」の文面は一度確認しておくとよい。**
-    宛先ごと・手段ごとの理由と `fetch=素/横取り`、版、読込元がすべて出るので、
-    JS層の横取りなのか通信そのものの遮断なのかが確定する
+  - そこで**別プロジェクトとして中継を新規に立てた**（2026-08-10、初代）。
+    実機で試したところ、**Supabase直送と一字一句同じ理由
+    （`fetch blocked by privacy-gateway`）で新ドメインでも弾かれた。**
+    つまり遮断は「ドメインの狙い撃ち」ではなく、**`fetch`/`XMLHttpRequest`
+    というAPI自体がページ内でJS層により差し替えられている**ことが確定した
+    （`describeEnv()` で `fetch=` `XHR=` の両方が「横取りされています」）
+  - そこで中継に**隠しフォーム(iframe)経由の保存**を追加した（2026-08-10）。
+    fetch/XHRのJS APIを一切使わず、通常のHTML `<form>` をiframeへPOSTする。
+    結果はレスポンス本文を直接読めないので、中継が返すHTMLに仕込んだ
+    `<script>` から `postMessage` で伝える。curlとBrowser paneでの単体検証
+    （818msで実際のSupabaseエラーが返る）までは通ったが、**実機での最終確認は
+    まだ**。詳細・実機での「内容をコピー」の実際の文面・デプロイの注意点は
+    `docs/HANDOVER_ANDROID_SAVE_ISSUE.md` の「2026-08-10 追記2」
+  - `tools/collect-core.js` の `SAVE_ENDPOINTS` は各要素に `ways`
+    （`["fetch","xhr"]` または中継のみ `["fetch","xhr","iframe"]`）を持ち、
+    宛先×対応する手段を総当たりする
+  - **Vercelは同じプロジェクトへの2回目以降のデプロイをAPI経由では403で拒否する**
+    （複数回再現）。中継を直したら**新しいプロジェクト名で作り直す**しかない。
+    いまの本番は `jal-seats-relay2.vercel.app`（初代 `jal-seats-relay` は
+    iframe未対応のまま放置。実害なし）
   1回の保存にかける上限は90秒（`SAVE_BUDGET_MS`）。総当たりで何分も粘らない
 - **保存は fetch と XHR の両方で試す**。端末によっては**ページの中の `fetch` が
   横取りされていて、第三者ドメインへの通信だけ弾かれる**（実機で

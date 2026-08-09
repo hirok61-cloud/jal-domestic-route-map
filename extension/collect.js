@@ -1,12 +1,12 @@
 /* 生成物。編集しないこと。もとは tools/collect-core.js と collect-extension.js。
    直したら npm run build:bookmarklet && npm run test:collect && npm run purge:cdn */
-var __JAL_SEATS_BUILD__ = "2026-08-09 21:57Z";
+var __JAL_SEATS_BUILD__ = "2026-08-09 23:14Z";
 (() => {
   // tools/collect-core.js
   var ENDPOINT = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats";
   var SAVE_ENDPOINTS = [
-    { url: ENDPOINT, name: "保存先" },
-    { url: "https://jal-seats-relay.vercel.app/api/save", name: "中継経由" }
+    { url: ENDPOINT, name: "保存先", ways: ["fetch", "xhr"] },
+    { url: "https://jal-seats-relay2.vercel.app/api/save", name: "中継経由", ways: ["fetch", "xhr", "iframe"] }
   ];
   var HUB = "HND";
   var SPOKES = [
@@ -91,6 +91,51 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 21:57Z";
       x.onerror = () => reject(new Error("XHRも通りませんでした（通信そのものが遮られています）"));
       x.ontimeout = () => reject(new Error(`XHRの応答がありません（${SAVE_TIMEOUT_MS / 1e3}秒）`));
       x.send(body);
+    });
+  }
+  function postByIframe(url, updateKey, body) {
+    return new Promise((resolve, reject) => {
+      const box = document.createElement("iframe");
+      const frameName = "jsc-relay-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+      box.name = frameName;
+      box.style.display = "none";
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = url;
+      form.target = frameName;
+      form.style.display = "none";
+      const field = (name, value) => {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+      };
+      field("key", updateKey);
+      field("payload", body);
+      let done = false;
+      const finish = (fn, arg) => {
+        if (done) return;
+        done = true;
+        window.removeEventListener("message", onMessage);
+        clearTimeout(timer);
+        form.remove();
+        setTimeout(() => box.remove(), 500);
+        fn(arg);
+      };
+      const onMessage = (ev) => {
+        const d = ev && ev.data;
+        if (!d || d.__jalSeatsRelay !== true) return;
+        finish(resolve, { ok: !!d.ok, status: d.status || 0, text: JSON.stringify({ error: d.error }) });
+      };
+      window.addEventListener("message", onMessage);
+      const timer = setTimeout(
+        () => finish(reject, new Error(`iframe経由の応答がありません（${SAVE_TIMEOUT_MS / 1e3}秒）`)),
+        SAVE_TIMEOUT_MS
+      );
+      document.body.appendChild(box);
+      document.body.appendChild(form);
+      form.submit();
     });
   }
   function describeEnv() {
@@ -275,8 +320,9 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 21:57Z";
       const body = JSON.stringify(snap);
       const trouble = [];
       const started = Date.now();
+      const wayLabel = { fetch: "通常の方法", xhr: "別の方法(XHR)", iframe: "隠しフォーム(iframe)" };
       const combos = [];
-      for (const ep of SAVE_ENDPOINTS) for (const way of ["fetch", "xhr"]) combos.push({ ep, way });
+      for (const ep of SAVE_ENDPOINTS) for (const way of ep.ways || ["fetch", "xhr"]) combos.push({ ep, way });
       combos.sort((a, b) => (sendBy && b.ep.url === sendBy.url && b.way === sendBy.way ? 1 : 0) - (sendBy && a.ep.url === sendBy.url && a.way === sendBy.way ? 1 : 0));
       let hopeless = false;
       for (let attempt = 1; attempt <= 3 && !hopeless; attempt++) {
@@ -286,11 +332,11 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 21:57Z";
             hopeless = true;
             break;
           }
-          const label = `${ep.name}へ${way === "fetch" ? "通常の方法" : "別の方法(XHR)"}`;
+          const label = `${ep.name}へ${wayLabel[way]}`;
           try {
             report("save-try", { way, host: ep.name, attempt, seconds: SAVE_TIMEOUT_MS / 1e3 });
             const res = await withDeadline(
-              way === "fetch" ? fetchWithTimeout(ep.url, { method: "POST", headers: headers2, body }) : postByXhr(ep.url, body, headers2),
+              way === "fetch" ? fetchWithTimeout(ep.url, { method: "POST", headers: headers2, body }) : way === "xhr" ? postByXhr(ep.url, body, headers2) : postByIframe(ep.url, updateKey, body),
               SAVE_TIMEOUT_MS,
               label
             );

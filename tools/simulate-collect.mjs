@@ -78,10 +78,39 @@ function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日", bloc
     return null;
   };
 
+  /* 隠しフォーム(iframe)経由の保存。fetch/XHRの偽サーバとは別経路で、
+     form.submit() を実際のナビゲーションの代わりにここでエミュレートする。
+     中継（relay/api/save.js）が返す postMessage を模して、非同期に
+     env._messageListeners へ結果を配る。__blockHost は「ナビゲーションごと
+     届かない（回線そのものが死んでいる）」ケースの模倣に流用する。
+     fetch/XHRの横取り（blockFetchOnly）は、このAPI自体を経由しないので影響しない
+     ——というのが今回のiframe経路の前提そのものなので、ここでは尊重しない。 */
+  const simulateFormSubmit = (form) => {
+    const url = form.action;
+    const fields = {};
+    for (const c of form.children) fields[c.name] = c.value;
+    queueMicrotask(async () => {
+      if (env.__blockHost && String(url).includes(env.__blockHost)) return; // 何も届かない
+      let ok, status, error;
+      try {
+        const r = await saver(log.saved.push(JSON.parse(fields.payload)), log);
+        const b = await r.json();
+        ok = r.ok; status = r.status; error = b?.error;
+      } catch (e) {
+        ok = false; status = 0; error = String(e.message || e);
+      }
+      for (const fn of env._messageListeners.slice()) fn({ data: { __jalSeatsRelay: true, ok, status, error } });
+    });
+  };
+
   const body = node("body");
   const document = {
     body, documentElement: body, head: body,
-    createElement: node,
+    createElement: (tag) => {
+      const el = node(tag);
+      el.submit = tag === "form" ? () => simulateFormSubmit(el) : () => {};
+      return el;
+    },
     getElementById: (id) => find(body, id),
     addEventListener() {}, removeEventListener() {},
     visibilityState: "visible",
@@ -91,6 +120,11 @@ function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日", bloc
     __blockFetchOnly: blockFetchOnly,
     __hangSave: hangSave,
     __blockHost: blockHost,
+    _messageListeners: [],
+    addEventListener(type, fn) { if (type === "message") env._messageListeners.push(fn); },
+    removeEventListener(type, fn) {
+      if (type === "message") env._messageListeners = env._messageListeners.filter((f) => f !== fn);
+    },
     document,
     __JAL_SEATS_KEY: "TESTKEY", // ブックマークレットが渡す合言葉のかわり
     location: { host, hostname: host },
@@ -293,16 +327,14 @@ const cases = [
     }),
   },
   {
-    name: "fetchもXHRも通らない（通信そのものが遮られている）",
-    blockFetchOnly: false,
+    name: "fetchもXHRも横取りされていても中継のiframe(隠しフォーム)経由で保存できる",
+    blockFetchOnly: false, // fetch/XHRはどの宛先へ送っても弾かれる想定（実機の再現）
     jal: (seat) => jalOk(seat),
     saver: () => res(200, { ok: true }),
     check: (log, out) => ({
-      "1件も保存できない": log.saved.length === 0,
-      "両方の手段を試した理由を出す":
-        /通常の方法/.test(text(out)) && /別の方法\(XHR\)/.test(text(out)),
-      "環境も添える": /fetch=/.test(text(out)),
-      "JSONを落とす": /ダウンロード/.test(text(out)) || out?.ok === false,
+      "完走する": ok(out),
+      // 保存先(fetch,xhr)の2回・中継経由のfetch,xhrの2回、計4回は空振りしたあとiframeで通る
+      "iframe経由で保存が通る": log.saved.length === 6,
     }),
   },
   {
@@ -341,7 +373,7 @@ const cases = [
     jal: (seat) => jalOk(seat),
     saver: () => res(503, { error: "落ちています" }),
     check: (log, out) => ({
-      "3周×宛先2×手段2＝12回試す": log.saved.length === 12,
+      "3周×(保存先2手段+中継3手段)＝15回試す": log.saved.length === 15,
       "理由を出す": /保存できませんでした/.test(text(out)) && /落ちています/.test(text(out)),
     }),
   },
