@@ -46,6 +46,7 @@
   var CONTENT_VERSION = "/jl/statics/dom-bkg/content/1.0.170/";
   var API_KEY = "JZWuY6OJ5M2IfvIgZVRMA7dhbjk7jTtga0lclevt";
   var DELAY_MS = 1200;
+  var SEAT_SAVE_EVERY = 50;
   var CABIN = { eco: "eco", business: "clsj", first: "first" };
   var jstDate = (offsetDays) => {
     const t = new Date(Date.now() + 9 * 36e5 + offsetDays * 864e5);
@@ -321,6 +322,12 @@
           const counts = await seatmap(r, f, date);
           if (counts) Object.assign(f, counts);
         } catch {
+        }
+        if ((i + 1) % SEAT_SAVE_EVERY === 0 && i + 1 < targets.length) {
+          stats.seatChecked = count((f2) => f2.sa !== void 0);
+          stats.seatZero = count((f2) => f2.sa === 0);
+          report("saving", { label, stats, phase: "seats" });
+          await save(snapshot());
         }
         await sleep(DELAY_MS);
       }

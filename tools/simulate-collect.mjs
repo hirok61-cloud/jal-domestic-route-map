@@ -138,6 +138,7 @@ function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日" }) {
 }
 
 /* JALの応答。1区間1便・空席ありで返す。座席は窓側1・通路側1・使用済み1 */
+let FLIGHTS_PER_ROUTE = 1;
 const jalOk = (seat) => {
   if (seat) {
     return res(200, {
@@ -156,23 +157,21 @@ const jalOk = (seat) => {
   }
   return res(200, {
     dictionaries: {
-      flight: {
-        f1: {
-          marketingAirlineCode: "JL", marketingFlightNumber: "101",
-          operatingAirlineCode: "JL", aircraftCode: "359",
-          departure: { dateTime: "2026-08-09T07:00:00" },
-          arrival: { dateTime: "2026-08-09T08:10:00" },
-        },
-      },
+      flight: Object.fromEntries(Array.from({ length: FLIGHTS_PER_ROUTE }, (_, k) => [`f${k}`, {
+        marketingAirlineCode: "JL", marketingFlightNumber: String(101 + k),
+        operatingAirlineCode: "JL", aircraftCode: "359",
+        departure: { dateTime: `2026-08-09T0${k % 9}:00:00` },
+        arrival: { dateTime: `2026-08-09T0${k % 9}:50:00` },
+      }])),
     },
     data: {
-      airBoundGroups: [{
-        boundDetails: { segments: [{ flightId: "f1" }] },
+      airBoundGroups: Array.from({ length: FLIGHTS_PER_ROUTE }, (_, k) => ({
+        boundDetails: { segments: [{ flightId: `f${k}` }] },
         airBounds: [{
           prices: { unitPrices: [{ prices: [{ total: 20000 }] }] },
           availabilityDetails: [{ cabin: "eco", statusCode: "HK", quota: 9 }],
         }],
-      }],
+      })),
     },
   });
 };
@@ -186,7 +185,7 @@ const cases = [
     saver: () => res(200, { ok: true }),
     check: (log, out) => ({
       "空席照会は70区間×2日": log.searches === 140,
-      "保存は1日2回＝計4回": log.saved.length === 4,
+      "保存は1日3回（運賃・50便目・最後）＝計6回": log.saved.length === 6,
       "座席属性コードを持ち帰る": log.saved.at(-1).codes?.n > 0,
       "旅客側と座席側を別々に数える":
         log.saved.at(-1).codes.s["1A"] > 0 && !log.saved.at(-1).codes.t["1A"],
@@ -222,7 +221,18 @@ const cases = [
     saver: (n) => (n === 1 ? res(500, { error: "一時的な障害" }) : res(200, { ok: true })),
     check: (log, out) => ({
       "やり直して完走する": ok(out),
-      "保存を試した回数が増える": log.saved.length === 5,
+      "保存を試した回数が1回ぶん増える": log.saved.length === 7,
+    }),
+  },
+  {
+    name: "座席表は50便ごとに区切って保存する",
+    flightsPerRoute: 2, // 1日140便 → 50/100 で2回、最後に1回
+    jal: (seat) => jalOk(seat),
+    saver: () => res(200, { ok: true }),
+    check: (log, out) => ({
+      "完走する": ok(out),
+      "1日あたり運賃1回＋座席表3回＝計8回": log.saved.length === 8,
+      "途中の保存にも調査ぶんが入る": log.saved[1].codes?.n > 0,
     }),
   },
   {
@@ -232,7 +242,7 @@ const cases = [
     check: (log, out) => ({
       "打ち切って最後まで進む": ok(out),
       "座席表は全便ぶん試している": log.seatmaps === 140,
-      "保存は1日2回＝計4回": log.saved.length === 4,
+      "区切りの保存も行われる": log.saved.length === 6,
     }),
   },
   {
@@ -256,6 +266,7 @@ for (const shell of shells) {
   const source = await bundle(shell.entry);
   console.log(`\n=============== ${shell.name} ===============`);
   for (const c of cases) {
+    FLIGHTS_PER_ROUTE = c.flightsPerRoute || 1;
     const env = makeEnv({ jal: c.jal, saver: c.saver });
     vm.createContext(env);
     vm.runInContext(source, env);

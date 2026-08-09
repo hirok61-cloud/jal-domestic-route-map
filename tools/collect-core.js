@@ -31,6 +31,7 @@ const SEATMAP_API = "https://api.dom.jal.co.jp/rmweb-api/shopping/seatmaps";
 const CONTENT_VERSION = "/jl/statics/dom-bkg/content/1.0.170/";
 const API_KEY = "JZWuY6OJ5M2IfvIgZVRMA7dhbjk7jTtga0lclevt";
 export const DELAY_MS = 1200; // JALのサーバを叩く間隔。短くしないこと
+const SEAT_SAVE_EVERY = 50;   // 座席表を何便ぶん取るごとに保存するか
 const CABIN = { eco: "eco", business: "clsj", first: "first" };
 
 export const jstDate = (offsetDays) => {
@@ -363,6 +364,17 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
         const counts = await seatmap(r, f, date);
         if (counts) Object.assign(f, counts);
       } catch { /* 1便取れなくても続ける */ }
+
+      /* 座席表は1便2.3秒かかるので、最後にまとめて保存すると途中で落ちたときに
+         その回ぶんが丸ごと消える（実際に 91/231 で止まって91便ぶんを失った）。
+         50便ごとに区切って保存しておく。座席属性の調査ぶんも最初の保存で残る。 */
+      if ((i + 1) % SEAT_SAVE_EVERY === 0 && i + 1 < targets.length) {
+        stats.seatChecked = count((f2) => f2.sa !== undefined);
+        stats.seatZero = count((f2) => f2.sa === 0);
+        report("saving", { label, stats, phase: "seats" });
+        await save(snapshot());
+      }
+
       await sleep(DELAY_MS);
     }
     if (targets.length) {
