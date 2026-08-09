@@ -18,16 +18,20 @@
 export const ENDPOINT = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats";
 export const SITE = "https://jal-domestic-route-map.vercel.app/seats/";
 
-/* 保存先は2つ用意して順に試す。**宛先そのものを変えられる**ことが要点。
+/* 保存先。いまは1つだけだが、宛先を増やせる形にしてある。
+
    端末によっては supabase.co への通信だけが弾かれる（広告ブロッカーや
    プライバシー系のアプリが既知のバックエンドを遮断していると起こる）。
    2026-08-09、2台の端末で「70区間は取れるのに保存だけが必ず失敗する」状態を確認し、
-   Supabase のログでもその時間帯にPOSTが1件も届いていないことを裏付けた。
-   fetch を XHR に変えても宛先が同じなら同じように弾かれるので、宛先を変える。
-   2つめはこのサイト自身の中継（api/save.js）で、上流は同じ Edge Function。 */
+   Supabase のログでも**その時間帯にPOSTが1件も届いていない**ことを裏付けた。
+   fetch を XHR に変えても宛先が同じなら同じように弾かれる。
+
+   そこでこのサイト経由の中継を足そうとしたが、**このサイトは Vercel が
+   GitHub Pages を中継しているだけ**で（応答に x-github-request-id が付く）、
+   サーバ側の処理を置けない＝POSTを受けられない。中継を足すなら、
+   Vercel に本当にデプロイし直すか、別のホストを用意する必要がある。 */
 const SAVE_ENDPOINTS = [
   { url: ENDPOINT, name: "保存先" },
-  { url: "https://jal-domestic-route-map.vercel.app/api/save", name: "サイト経由" },
 ];
 
 export const HUB = "HND";

@@ -299,9 +299,6 @@ const cases = [
     saver: () => res(200, { ok: true }),
     check: (log, out) => ({
       "1件も保存できない": log.saved.length === 0,
-      // 宛先2つ×手段2つを総当たりしたことが、理由の一覧から読み取れること
-      "両方の宛先を試した理由を出す":
-        /保存先へ/.test(text(out)) && /サイト経由へ/.test(text(out)),
       "両方の手段を試した理由を出す":
         /通常の方法/.test(text(out)) && /別の方法\(XHR\)/.test(text(out)),
       "環境も添える": /fetch=/.test(text(out)),
@@ -309,13 +306,14 @@ const cases = [
     }),
   },
   {
-    name: "保存先のドメインごと弾かれてもサイト経由で保存できる",
+    name: "保存先のドメインごと弾かれたら理由を出して止まる",
     blockHost: "supabase.co",
     jal: (seat) => jalOk(seat),
     saver: () => res(200, { ok: true }),
     check: (log, out) => ({
-      "完走する": ok(out),
-      "サイト経由で保存が通る": log.saved.length === 6,
+      "1件も保存できない": log.saved.length === 0,
+      "宛先が弾かれたことが分かる": /保存先へ/.test(text(out)) && /blocked/.test(text(out)),
+      "JSONを落とす": /ダウンロード/.test(text(out)) || out?.ok === false,
     }),
   },
   {
@@ -333,7 +331,7 @@ const cases = [
     jal: (seat) => jalOk(seat),
     saver: () => res(503, { error: "落ちています" }),
     check: (log, out) => ({
-      "3周×宛先2×手段2＝12回試す": log.saved.length === 12,
+      "3周×手段2＝6回試す": log.saved.length === 6,
       "理由を出す": /保存できませんでした/.test(text(out)) && /落ちています/.test(text(out)),
     }),
   },
