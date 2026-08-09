@@ -78,12 +78,16 @@ function postByXhr(url, body, headers) {
   });
 }
 
-/** いまの環境で何が使えるかを短くまとめる。失敗したときだけ画面に出す。 */
+/** いまの環境で何が使えるかを短くまとめる。失敗したときだけ画面に出す。
+    版と読み込み元も入れる。CDNに古いコピーが残っていても気づけるように。 */
 export function describeEnv() {
   const native = (f) => String(f).includes("[native code]");
+  const build = typeof __JAL_SEATS_BUILD__ !== "undefined" ? __JAL_SEATS_BUILD__ : "不明";
   return [
     "fetch=" + (native(fetch) ? "素" : "★横取りされています"),
     "XHR=" + (native(XMLHttpRequest.prototype.open) ? "素" : "★横取りされています"),
+    "版=" + build,
+    "読込元=" + (window.__JAL_SEATS_SRC || "不明"),
   ].join(" / ");
 }
 

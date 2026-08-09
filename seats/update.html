@@ -274,10 +274,13 @@ const STORE_KEY = "jalSeatsUpdateKey";
 
    配信元は3つ並べて順に試す。中身はどれも同じ collect.min.js で、
    ホストが独立しているので、どれか1つが届けば動く。 */
+/* 並び順は「push すればすぐ新しくなるもの」を先に。jsDelivr は @main を
+   最大12時間キャッシュするので最後にする（古いコピーが動くと、直したはずの
+   不具合がその端末だけ再現し続ける。2026-08-09 に実際に起きた）。 */
 const SOURCES = [
   "https://jal-domestic-route-map.vercel.app/seats/collect.min.js",
-  "https://cdn.jsdelivr.net/gh/hirok61-cloud/jal-domestic-route-map@main/seats/collect.min.js",
   "https://hirok61-cloud.github.io/jal-domestic-route-map/seats/collect.min.js",
+  "https://cdn.jsdelivr.net/gh/hirok61-cloud/jal-domestic-route-map@main/seats/collect.min.js",
 ];
 const LOAD_TIMEOUT_MS = 12000;
 
@@ -307,7 +310,8 @@ function buildBookmarklet(key){
     + "if(i>=U.length){x.innerHTML='<b>収集スクリプトを読み込めませんでした</b><br>'"
     + "+L.join('<br>')+'<br>いま '+location.hostname+' で動いています。'"
     + "+'<br>通信できる状態か確かめて、もう一度お試しください。';return;}"
-    + "var u=U[i++];x.innerHTML='読み込み中… '+H(u)"
+    + "var u=U[i++];window.__JAL_SEATS_SRC=H(u);"
+    + "x.innerHTML='読み込み中… '+H(u)"
     + "+'<br>いま '+location.hostname+' で動いています';"
     + "var s=d.createElement('script');s.src=u+'?v='+Date.now();"
     + "s.onerror=function(){go('つながりません')};"

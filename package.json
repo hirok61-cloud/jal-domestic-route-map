@@ -5,7 +5,8 @@
   "scripts": {
     "build:bookmarklet": "node tools/build-bookmarklet.mjs",
     "test:collect": "node tools/simulate-collect.mjs",
-    "check:secrets": "node tools/check-secrets.mjs"
+    "check:secrets": "node tools/check-secrets.mjs",
+    "purge:cdn": "node tools/purge-cdn.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.1"

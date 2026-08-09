@@ -22,6 +22,10 @@ import { dirname, join } from "node:path";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
+/* どの版が動いたのかを端末側で言えるようにする。CDNに古いコピーが残っていても
+   気づけるようにするため（2026-08-09、jsDelivrの12時間キャッシュに嵌まった）。 */
+const STAMP = new Date().toISOString().slice(0, 16).replace("T", " ") + "Z";
+
 const targets = [
   {
     entry: join(root, "tools", "collect-in-browser.js"),
@@ -50,7 +54,7 @@ for (const t of targets) {
     target: ["safari15", "chrome100"],
     charset: "utf8",
     legalComments: "none",
-    banner: { js: `/* 生成物。編集しないこと。もとは tools/collect-core.js と ${t.entry.split("/").pop()}。\n   直したら npm run build:bookmarklet && npm run test:collect */` },
+    banner: { js: `/* 生成物。編集しないこと。もとは tools/collect-core.js と ${t.entry.split("/").pop()}。\n   直したら npm run build:bookmarklet && npm run test:collect && npm run purge:cdn */\nvar __JAL_SEATS_BUILD__ = ${JSON.stringify(STAMP)};` },
     write: false,
   });
   const code = result.outputFiles[0].text.trim();
@@ -69,4 +73,6 @@ for (const t of targets) {
 
 const core = readFileSync(join(root, "tools", "collect-core.js"), "utf8");
 console.log(`本体 tools/collect-core.js ${core.length} 字（この1本だけが収集ロジック）`);
+console.log(`版の目印: ${STAMP}`);
+console.log("push したら npm run purge:cdn を忘れずに（jsDelivrは12時間キャッシュする）");
 console.log("OK");
