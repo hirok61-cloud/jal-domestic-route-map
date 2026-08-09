@@ -182,7 +182,7 @@
       if (res.status !== 200) return null;
       const json = await res.json().catch(() => null);
       const decks = ((((json || {}).data || {}).seatmaps || [])[0] || {}).decks || [];
-      let sa = 0, st = 0, sw = 0, sl = 0, sj = null, sf = null;
+      let sa = 0, st = 0, sw = 0, sl = 0, sc = 0, se = 0, sg = 0, sj = null, sf = null;
       for (const deck of decks) {
         for (const s of deck.seats || []) {
           const t = s.travelers && s.travelers[0];
@@ -194,6 +194,9 @@
               const codes = t.seatCharacteristicsCodes || [];
               if (codes.includes("W") || codes.includes("1W")) sw++;
               if (codes.includes("A")) sl++;
+              if (codes.includes("9")) sc++;
+              if (codes.includes("E")) se++;
+              if (codes.includes("L")) sg++;
               codeStats.n++;
               noteCodes(codeStats.t, t.seatCharacteristicsCodes);
               noteCodes(codeStats.s, s.seatCharacteristicsCodes);
@@ -206,7 +209,7 @@
           }
         }
       }
-      return st ? { sa, st, sw, sl, sj, sf } : null;
+      return st ? { sa, st, sw, sl, sc, se, sg, sj, sf } : null;
     }
     const pairs = [];
     for (const spoke of SPOKES) pairs.push([HUB, spoke], [spoke, HUB]);

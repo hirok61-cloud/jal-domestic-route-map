@@ -201,7 +201,7 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
     const decks = ((((json || {}).data || {}).seatmaps || [])[0] || {}).decks || [];
     /* 同じレスポンスからクラスJ・ファーストと、窓側/通路側も数える。
        W=窓側, A=通路側（座席属性コード）。 */
-    let sa = 0, st = 0, sw = 0, sl = 0, sj = null, sf = null;
+    let sa = 0, st = 0, sw = 0, sl = 0, sc = 0, se = 0, sg = 0, sj = null, sf = null;
     for (const deck of decks) {
       for (const s of deck.seats || []) {
         const t = s.travelers && s.travelers[0];
@@ -217,6 +217,11 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
                1W が窓である裏付け: LS(左側)+RS(右側)=314 が W+1W=314 と一致する。 */
             if (codes.includes("W") || codes.includes("1W")) sw++;
             if (codes.includes("A")) sl++;
+            if (codes.includes("9")) sc++;  // 中央席
+            /* E=非常口席 / L=足元が広い席。実データ2,900席で、E の255席には
+               1A（乳幼児不可）がちょうど同数付いていた＝非常口列である裏付け。 */
+            if (codes.includes("E")) se++;
+            if (codes.includes("L")) sg++;
             codeStats.n++;
             noteCodes(codeStats.t, t.seatCharacteristicsCodes);
             noteCodes(codeStats.s, s.seatCharacteristicsCodes);
@@ -229,7 +234,7 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
         }
       }
     }
-    return st ? { sa, st, sw, sl, sj, sf } : null;
+    return st ? { sa, st, sw, sl, sc, se, sg, sj, sf } : null;
   }
 
   const pairs = [];
