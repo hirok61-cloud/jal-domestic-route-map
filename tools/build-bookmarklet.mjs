@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /* collect-in-browser.js を圧縮して seats/collect.min.js を作る。
  *
- * ブックマークレットは収集ロジックを丸ごと埋め込む（外部読み込みなし）。
- * JALのページから外部スクリプトを読もうとすると iOS / Android の両方で
- * 失敗したため、読み込み自体をなくすしかない。
+ * ブックマークレットはこの圧縮版を <script> タグで読み込むだけの小さなもので、
+ * ロジックは埋め込まない（埋め込むと2万字を超え、Androidのブックマークで
+ * 切り捨てられて何も起きなくなる。実測）。したがってここでの長さは
+ * ブックマークレットの上限とは関係なく、単に配信するファイルの大きさになる。
  *
- * ただし Chrome のアドレスバーは 32,768 字で URL を切り捨てる。
- * 日本語は %XX 表記で1文字9字に膨らむので、コメントを落として
- * 十分小さくしてから埋め込む必要がある。
+ * 収集ロジックを直したら必ず実行し、生成物もコミットすること。
+ * 利用者はブックマークを登録し直す必要はない（読み込み先が同じため）。
  *
  *   node tools/build-bookmarklet.mjs
  */
@@ -19,7 +19,6 @@ import { dirname, join } from "node:path";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const src = join(root, "tools", "collect-in-browser.js");
 const out = join(root, "seats", "collect.min.js");
-const LIMIT = 32768; // Chromeのアドレスバーの上限
 
 const result = await build({
   entryPoints: [src],
@@ -33,19 +32,17 @@ const result = await build({
 });
 
 const code = result.outputFiles[0].text.trim();
-writeFileSync(out, code);
 
-// 実際にブックマークレットにしたときの長さを確かめる（合言葉は最長側で見積もる）
-const payload = `(function(){window.__JAL_SEATS_KEY=${JSON.stringify("x".repeat(40))};\n${code}\n})();`;
-const url = "javascript:" + encodeURIComponent(payload);
-
-const orig = readFileSync(src, "utf8");
-console.log(`元ファイル       : ${orig.length} 字`);
-console.log(`圧縮後           : ${code.length} 字`);
-console.log(`ブックマークレット: ${url.length} 字 / 上限 ${LIMIT} 字`);
-
-if (url.length > LIMIT) {
-  console.error("上限を超えています。コメントや文言を削ってください。");
+/* ブックマークレットは「読み込めて動き出したか」をこの目印で判定する。
+   esbuild が畳んでしまうと、配信元を順に試す仕組みが常に空振りする。 */
+if (!code.includes("__JAL_SEATS_BOOTED")) {
+  console.error("__JAL_SEATS_BOOTED が消えています。collect-in-browser.js を確認してください。");
   process.exit(1);
 }
+
+writeFileSync(out, code);
+
+const orig = readFileSync(src, "utf8");
+console.log(`元ファイル: ${orig.length} 字`);
+console.log(`圧縮後    : ${code.length} 字 → seats/collect.min.js`);
 console.log("OK");

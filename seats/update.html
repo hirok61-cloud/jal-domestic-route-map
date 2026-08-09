@@ -156,6 +156,12 @@ footer{padding:14px 22px 26px;color:var(--sub);font-size:11px;border-top:1px sol
 
 <section>
   <h2><span class="num">2</span>ブックマークに登録する</h2>
+  <div class="callout">
+    <b>すでに登録済みの方へ（2026-08-09 更新）</b><br>
+    「収集スクリプトを取得できませんでした」と出て先に進まない不具合を直しました。
+    読み込み方を変えたので、<b>お手数ですが登録し直してください</b>（下のボタンでコピーして、
+    同じブックマークのURL欄を貼り替えるだけです）。
+  </div>
   <div class="tabs" id="platformtabs">
     <button data-plat="ios">iPhone / iPad</button>
     <button data-plat="android">Android</button>
@@ -238,6 +244,7 @@ footer{padding:14px 22px 26px;color:var(--sub);font-size:11px;border-top:1px sol
   <h2>うまくいかないとき</h2>
   <p class="muted">
     <b>「この画面では実行できません」</b>と出た → JALの予約（空席照会）画面ではないところで押しています。手順3の1からやり直してください。<br>
+    <b>「収集スクリプトを読み込めませんでした」</b>と出た → 3か所の配信元すべてに届いていません。枠にどこで何が起きたかが並ぶので、その状態でWi-Fiやモバイル通信を確かめて、もう一度押してください。<br>
     <b>「送信に失敗しました」</b>と出た → 合言葉が違うか、保存先が落ちています。このとき <code>availability.json</code> が自動でダウンロードされるので、リポジトリの <code>data/</code> に置いて push すれば反映できます。<br>
     <b>途中で止まった</b> → 空席照会が終わった時点でいったん保存しているので、<b>座席表の途中で止まっても空席の一覧は最新になっています</b>。もう一度実行すれば座席表から取り直します。<br>
     <b>ボタンを押しても何も出ない</b> → 合言葉を入れ直して、ブックマークを登録し直してください。
@@ -253,14 +260,26 @@ footer{padding:14px 22px 26px;color:var(--sub);font-size:11px;border-top:1px sol
 "use strict";
 // 収集ロジック本体はサイトから配信し、ブックマークレットには合言葉と読み込み処理だけ持たせる。
 // こうすると、収集の中身を直したいときにブックマークを登録し直さなくて済む。
-const SCRIPT_URL = new URL("../tools/collect-in-browser.js", location.href).href;
 const STORE_KEY = "jalSeatsUpdateKey";
 
-/* ブックマークレットは収集スクリプトを取りに行くだけの小さなものにする。
+/* ブックマークレットは収集スクリプトを読み込むだけの小さなものにする。
    ロジックを丸ごと埋め込むと2万字を超え、Androidのブックマークでは切り捨てられて
-   何も起きなくなる（実測）。取得先は Supabase の中継口で、CORSを許可しているため
-   JALのページからでも読める。この形なら、ロジックを直しても登録し直しは要らない。 */
-const COLLECT_URL = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats?action=script";
+   何も起きなくなる（実測）。この形なら、ロジックを直しても登録し直しは要らない。
+
+   読み込みは fetch ではなく <script> タグで行う。fetch はレスポンスに
+   Access-Control-Allow-Origin が要る（＝途中の機器やボット対策が headers を
+   落とすと Failed to fetch になる）うえ、取ってきた中身を eval する必要もある。
+   script タグなら CORS も eval も要らないので、詰まりどころが2つ消える。
+   Androidで「収集スクリプトを取得できませんでした」が消えなかったのはここ。
+
+   配信元は3つ並べて順に試す。中身はどれも同じ collect.min.js で、
+   ホストが独立しているので、どれか1つが届けば動く。 */
+const SOURCES = [
+  "https://jal-domestic-route-map.vercel.app/seats/collect.min.js",
+  "https://cdn.jsdelivr.net/gh/hirok61-cloud/jal-domestic-route-map@main/seats/collect.min.js",
+  "https://hirok61-cloud.github.io/jal-domestic-route-map/seats/collect.min.js",
+];
+const LOAD_TIMEOUT_MS = 12000;
 
 function bootSnippet(body){
   return "javascript:" + encodeURIComponent(
@@ -273,16 +292,29 @@ function bootSnippet(body){
   );
 }
 
-/** 本番用。起動枠を出してから収集スクリプトを取ってきて動かす。 */
+/** 本番用。起動枠を出してから、収集スクリプトを配信元から順に読み込む。 */
 function buildBookmarklet(key){
   return bootSnippet(
-    "x.textContent='起動中… '+location.hostname;"
-    + "window.__JAL_SEATS_KEY=" + JSON.stringify(key) + ";"
-    + "fetch(" + JSON.stringify(COLLECT_URL) + "+'&v='+Date.now())"
-    + ".then(function(r){return r.text()})"
-    + ".then(function(t){(0,eval)(t)})"
-    + ".catch(function(e){x.innerHTML='<b>収集スクリプトを取得できませんでした</b><br>'"
-    + "+e.message+'<br>いま '+location.hostname+' で動いています。';});",
+    "window.__JAL_SEATS_KEY=" + JSON.stringify(key) + ";"
+    + "var U=" + JSON.stringify(SOURCES) + ",L=[],i=0,t=0;"
+    + "var H=function(u){return u.split('/')[2]};"
+    // 収集スクリプトは先頭で __JAL_SEATS_BOOTED を立てる。script の load は
+    // 中身の実行後に鳴るので、立っていなければ「届いたが動かなかった」と分かる。
+    // 進捗枠の有無も見るのは、CDNに古い版が残っていても二重起動させないため
+    + "var go=function(why){clearTimeout(t);"
+    + "if(window.__JAL_SEATS_BOOTED||d.getElementById('jal-seat-collector'))return;"
+    + "if(why)L.push(H(U[i-1])+' … '+why);"
+    + "if(i>=U.length){x.innerHTML='<b>収集スクリプトを読み込めませんでした</b><br>'"
+    + "+L.join('<br>')+'<br>いま '+location.hostname+' で動いています。'"
+    + "+'<br>通信できる状態か確かめて、もう一度お試しください。';return;}"
+    + "var u=U[i++];x.innerHTML='読み込み中… '+H(u)"
+    + "+'<br>いま '+location.hostname+' で動いています';"
+    + "var s=d.createElement('script');s.src=u+'?v='+Date.now();"
+    + "s.onerror=function(){go('つながりません')};"
+    + "s.onload=function(){go('中身が動きませんでした')};"
+    + "(d.head||b).appendChild(s);"
+    + "t=setTimeout(function(){go('応答がありません')}," + LOAD_TIMEOUT_MS + ");};"
+    + "go();",
   );
 }
 
@@ -304,7 +336,10 @@ function refresh(){
   const key = $key.value.trim();
   if (key) {
     localStorage.setItem(STORE_KEY, key);
-    $state.innerHTML = '<span class="ok">合言葉を保存しました。</span> 次の手順でブックマークに登録してください。';
+    // 長さも出しておく。Androidのブックマークは長すぎるURLを切り捨てるので、
+    // 動かなくなったときにまずここを疑えるようにしておきたい
+    $state.innerHTML = '<span class="ok">合言葉を保存しました。</span> 次の手順でブックマークに登録してください。'
+      + `<br>ブックマークレットの長さ: 約${buildBookmarklet(key).length.toLocaleString()}字`;
   } else {
     localStorage.removeItem(STORE_KEY);
     $state.textContent = "未入力です。";
