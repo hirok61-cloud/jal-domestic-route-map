@@ -186,11 +186,18 @@ td.fno{font-weight:700;color:var(--red)}
 .seatmodal-legend .lw i{border-color:var(--hover)}
 .seatmodal-legend .la i{border-color:var(--gold)}
 .seatmodal-legend .lp i{border-color:var(--ok);background:var(--ok-bg)}
+.seatmodal-legend .lg i{border-style:dashed;opacity:.6}
 .seatrow{display:flex;align-items:flex-start;gap:10px;padding:6px 18px}
 .seatrow:nth-child(odd){background:var(--bg)}
+/* 主翼のおおよその位置。列の背景をごくわずかに赤みがけるだけの、さりげない目印 */
+.seatrow.wing{background:color-mix(in srgb, var(--red) 6%, transparent)}
+.seatrow.wing:nth-child(odd){background:color-mix(in srgb, var(--red) 10%, var(--bg))}
 .seatrowno{flex:none;width:26px;padding-top:6px;font-size:11px;color:var(--sub);
-  font-variant-numeric:tabular-nums;text-align:right}
-.seatrowseats{display:flex;flex-wrap:wrap;gap:6px}
+  font-variant-numeric:tabular-nums;text-align:right;position:relative}
+.wingmark{position:absolute;left:-15px;top:5px;font-style:normal;font-size:10px;opacity:.55}
+.seatrowseats{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+/* グループ間の隙間＝通路。ここが2つあれば通路2本、1つなら通路1本と分かる */
+.seataisle{flex-basis:14px;flex-shrink:0}
 .seatchip{display:inline-flex;flex-direction:column;align-items:center;gap:1px;
   min-width:34px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--panel-edge);
   background:var(--bg);font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;
@@ -199,6 +206,9 @@ td.fno{font-weight:700;color:var(--red)}
 .seatchip.a{border-color:var(--gold)}
 .seatchip.pick{border-color:var(--ok);background:var(--ok-bg);color:var(--ok)}
 .seatchip i{font-style:normal;font-weight:700;font-size:8.5px;letter-spacing:.02em;opacity:.85}
+/* 空席の情報が無い列。位置の骨格だけ薄く見せる */
+.seatchip.ghost{border-style:dashed;border-color:var(--panel-edge);color:var(--sub);
+  opacity:.4;background:transparent}
 .seatmodal-empty{margin:0 18px 18px;font-size:12.5px;color:var(--sub)}
 /* 前回から空席が出た便のお知らせ */
 .newseats{border:1px solid var(--ok);background:var(--ok-bg);border-radius:12px;
@@ -342,6 +352,21 @@ const acLabel = code => ACNAME[code] || code || "";
 
 const OPNAME = {JL:"JAL", NU:"JTA", JC:"JAC", RAC:"RAC", HAC:"HAC", "3X":"HAC", FW:"FDA", OC:"ORC", MZ:"AMX"};
 
+/* JAL公式の座席配置図から起こした、機材ごとの普通席の列配置。
+   2026-08-09、www.jal.co.jp/jp/ja/aircraft/conf/ 配下の各機材ページ（763/737/359/787/e90）
+   を実際に見て確認した。groups は左から右の並び（配列の要素間が通路）。
+   アルファベットは実機の表記どおりで、飛ばしている文字がある
+   （I は常に欠番。767は B,F,J も、73H/E90は連続する数文字も欠番）。
+   wing は主翼のおおよその位置（列番号）。機体側面図に描かれた主翼の輪郭と
+   主翼上避難口の三角マークから読み取った目安で、工学的な正確さはない。 */
+const AIRCRAFT_LAYOUT = {
+  "359": { groups: [["A","B","C"], ["D","E","G"], ["H","J","K"]], wing: [19, 39] }, // A350-900
+  "788": { groups: [["A","B","C"], ["D","E","G"], ["H","J","K"]], wing: [19, 40] }, // 787-8
+  "767": { groups: [["A","C"], ["D","E","G"], ["H","K"]], wing: [26, 31] },         // 767-300
+  "73H": { groups: [["A","B","C"], ["H","J","K"]], wing: [20, 25] },                // 737-800
+  "E90": { groups: [["A","C"], ["H","K"]], wing: [18, 22] },                        // E190
+};
+
 const DOW = ["日","月","火","水","木","金","土"];
 
 /* 区間の並び順。羽田の相手先を緯度の高い順（北→南）に並べる。
@@ -452,6 +477,7 @@ function seatCell(route, f){
   return `<button type="button" class="seatcell" data-seat-id="${id}">${inner}</button>`;
 }
 
+/** 空いている席のチップ。座席番号と、あれば非常口/足元のタグを出す。 */
 function seatChip(s){
   const cls = ["seatchip"];
   if (s.window) cls.push("w");
@@ -461,20 +487,45 @@ function seatChip(s){
   return `<span class="${cls.join(" ")}"><b>${s.col}</b>${tags.length ? `<i>${tags.join("・")}</i>` : ""}</span>`;
 }
 
+/** 席が無い/満席側の薄いプレースホルダ。列の形だけ伝える。 */
+function seatGhost(col){
+  return `<span class="seatchip ghost"><b>${col}</b></span>`;
+}
+
 function openSeatDetail(route, f){
   const seats = (f.sm || []).map(parseSeatEntry);
   const byRow = new Map();
   for (const s of seats) (byRow.get(s.row) || byRow.set(s.row, []).get(s.row)).push(s);
   const rows = [...byRow.keys()].sort((a, b) => a - b);
 
-  const rowsHtml = rows.map((r) => `
-    <div class="seatrow">
-      <span class="seatrowno">${r}</span>
-      <div class="seatrowseats">${byRow.get(r).sort((a, b) => a.col.localeCompare(b.col)).map(seatChip).join("")}</div>
-    </div>`).join("");
+  /* 機材ごとの実際の列幅が分かっている場合は、行ごとに全列を並べて
+     「左右どちらか・通路が何本か」が1行だけでも伝わるようにする。
+     空いている列は色付きチップ、それ以外は薄いプレースホルダにする
+     （＝埋まっている前提だが、本当に埋まっているとは限らない。あくまで
+     「この列にはこういう席がある」という骨格を見せるのが目的）。
+     機材が分からない場合は、いままでどおり空いている席だけを並べる。 */
+  const layout = AIRCRAFT_LAYOUT[f.ac];
+  const rowsHtml = rows.map((r) => {
+    const here = new Map(byRow.get(r).map((s) => [s.col, s]));
+    const cellsHtml = layout
+      ? layout.groups.map((group) => group.map((col) => {
+          const s = here.get(col);
+          return s ? seatChip(s) : seatGhost(col);
+        }).join("")).join('<span class="seataisle"></span>')
+      : byRow.get(r).sort((a, b) => a.col.localeCompare(b.col)).map(seatChip).join("");
+    const wing = layout && layout.wing && r >= layout.wing[0] && r <= layout.wing[1];
+    return `
+      <div class="seatrow${wing ? " wing" : ""}">
+        <span class="seatrowno">${r}${wing ? '<i class="wingmark" title="主翼付近">✈</i>' : ""}</span>
+        <div class="seatrowseats">${cellsHtml}</div>
+      </div>`;
+  }).join("");
 
   // 運賃だけ先に保存された直後は、座席表が1つ前の収集時点のものになる（本文と同じ考え方）
   const at = f.saAt || DATA.generatedAt;
+  const wingNote = layout && layout.wing
+    ? `<b>${layout.wing[0]}〜${layout.wing[1]}列あたりが主翼の位置です</b>（目安）。`
+    : "";
 
   document.getElementById("seatmodal-body").innerHTML = `
     <div class="seatmodal-head">
@@ -486,14 +537,16 @@ function openSeatDetail(route, f){
     </div>
     <p class="seatmodal-note">
       空いている普通席 <b>${seats.length}席</b>（${hhmm(at)}時点）。
-      <b>満席の席は表示していません。</b>先着順のため、実際に選ぼうとした時点で
-      埋まっていることがあります。詳しくはJAL公式でご確認ください。
+      <b>色の付いていない席は空席の情報がありません。</b>満席とは限りません。
+      先着順のため、実際に選ぼうとした時点で埋まっていることもあります。
+      ${wingNote}詳しくはJAL公式でご確認ください。
     </p>
     ${seats.length ? `
     <div class="seatmodal-legend">
       <span class="lw"><i></i>窓側</span>
       <span class="la"><i></i>通路側</span>
       <span class="lp"><i></i>非常口・足元ゆったり</span>
+      ${layout ? '<span class="lg"><i></i>空席の情報なし（満席とは限りません）</span>' : ""}
     </div>
     ${rowsHtml}` : '<p class="seatmodal-empty">座席の情報がありません。</p>'}
   `;
