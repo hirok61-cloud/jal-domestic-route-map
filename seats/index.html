@@ -83,7 +83,12 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
 /* ---------- フィルタバー ---------- */
 .filterbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px 14px;padding:10px 22px;
   border-bottom:1px solid var(--hair);background:var(--panel)}
-.filterbar .lbl{font-size:10.5px;letter-spacing:.16em;color:var(--sub);font-weight:700}
+/* ラベルと選択肢を1つの塊にする。素の flex-wrap だとラベルだけが前の行の
+   余白に収まり、選択肢だけ次の行に送られて「ラベルが右に浮く」ことがあった。
+   塊ごと改行させれば、狭い画面でも「搭乗日」の行のようにラベル→選択肢が
+   常にひとまとまりで左に揃う。 */
+.field{display:flex;align-items:center;gap:10px;flex-wrap:nowrap}
+.filterbar .lbl{font-size:10.5px;letter-spacing:.16em;color:var(--sub);font-weight:700;white-space:nowrap}
 .seg{display:flex;border:1px solid var(--panel-edge);border-radius:999px;overflow:hidden;background:var(--bg)}
 .seg button{border:none;background:transparent;cursor:pointer;font-size:12px;font-weight:700;
   padding:6px 14px;color:var(--sub);transition:all .15s;white-space:nowrap}
@@ -204,27 +209,35 @@ footer a{color:var(--hover)}
   <a class="subtab active" href="./" aria-current="page">空席状況</a>
 </nav>
 <div class="filterbar">
-  <span class="lbl">搭乗日</span>
-  <div class="seg" id="dayseg"></div>
-  <span class="lbl">方向</span>
-  <div class="seg" id="dirseg">
-    <button data-dir="all" class="on">すべて</button>
-    <button data-dir="out">羽田発</button>
-    <button data-dir="in">羽田着</button>
+  <div class="field">
+    <span class="lbl">搭乗日</span>
+    <div class="seg" id="dayseg"></div>
   </div>
-  <span class="lbl">表示</span>
-  <div class="seg" id="seatseg">
-    <button data-seats="avail" class="on">空席あり</button>
-    <button data-seats="full">満席のみ</button>
-    <button data-seats="all">全便</button>
+  <div class="field">
+    <span class="lbl">方向</span>
+    <div class="seg" id="dirseg">
+      <button data-dir="all" class="on">すべて</button>
+      <button data-dir="out">羽田発</button>
+      <button data-dir="in">羽田着</button>
+    </div>
   </div>
-  <span class="lbl">座席</span>
-  <div class="seg" id="kindseg">
-    <button data-kind="all" class="on">指定なし</button>
-    <button data-kind="sw">窓側</button>
-    <button data-kind="sl">通路側</button>
-    <button data-kind="se">非常口</button>
-    <button data-kind="sg">足元ゆったり</button>
+  <div class="field">
+    <span class="lbl">表示</span>
+    <div class="seg" id="seatseg">
+      <button data-seats="avail" class="on">空席あり</button>
+      <button data-seats="full">満席のみ</button>
+      <button data-seats="all">全便</button>
+    </div>
+  </div>
+  <div class="field">
+    <span class="lbl">座席</span>
+    <div class="seg" id="kindseg">
+      <button data-kind="all" class="on">指定なし</button>
+      <button data-kind="sw">窓側</button>
+      <button data-kind="sl">通路側</button>
+      <button data-kind="se">非常口</button>
+      <button data-kind="sg">足元ゆったり</button>
+    </div>
   </div>
   <input type="search" id="apsearch" placeholder="空港名で絞り込み" aria-label="空港名で絞り込み">
   <div class="asof" id="asof"></div>
