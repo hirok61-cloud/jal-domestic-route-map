@@ -187,25 +187,30 @@ td.fno{font-weight:700;color:var(--red)}
 .seatmodal-legend .la i{border-color:var(--gold)}
 .seatmodal-legend .lp i{border-color:var(--ok);background:var(--ok-bg)}
 .seatmodal-legend .lg i{border-style:dashed;opacity:.6}
-.seatrow{display:flex;align-items:flex-start;gap:10px;padding:6px 18px}
+.seatrow{display:flex;align-items:flex-start;gap:8px;padding:6px 14px}
 .seatrow:nth-child(odd){background:var(--bg)}
 /* 主翼のおおよその位置。列の背景をごくわずかに赤みがけるだけの、さりげない目印 */
 .seatrow.wing{background:color-mix(in srgb, var(--red) 6%, transparent)}
 .seatrow.wing:nth-child(odd){background:color-mix(in srgb, var(--red) 10%, var(--bg))}
-.seatrowno{flex:none;width:26px;padding-top:6px;font-size:11px;color:var(--sub);
+.seatrowno{flex:none;width:20px;padding-top:5px;font-size:10.5px;color:var(--sub);
   font-variant-numeric:tabular-nums;text-align:right;position:relative}
-.wingmark{position:absolute;left:-15px;top:5px;font-style:normal;font-size:10px;opacity:.55}
-.seatrowseats{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.wingmark{position:absolute;left:-13px;top:4px;font-style:normal;font-size:9px;opacity:.55}
+/* 横列（A〜K）は折り返さない。機材によっては7列+通路2本ぶんの幅が要るので、
+   画面より広ければこの行だけ横スクロールする（折り返すと列がバラバラの
+   場所に落ちて、どれが何列目か分からなくなっていた）。 */
+.seatrowseats{display:flex;flex-wrap:nowrap;align-items:center;gap:4px;
+  overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.seatrowseats::-webkit-scrollbar{display:none}
 /* グループ間の隙間＝通路。ここが2つあれば通路2本、1つなら通路1本と分かる */
-.seataisle{flex-basis:14px;flex-shrink:0}
-.seatchip{display:inline-flex;flex-direction:column;align-items:center;gap:1px;
-  min-width:34px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--panel-edge);
-  background:var(--bg);font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;
-  line-height:1.25}
+.seataisle{flex:none;width:12px}
+.seatchip{display:inline-flex;flex:none;flex-direction:column;align-items:center;gap:0;
+  min-width:26px;padding:3px 4px;border-radius:7px;border:1.5px solid var(--panel-edge);
+  background:var(--bg);font-size:10.5px;font-weight:700;font-variant-numeric:tabular-nums;
+  line-height:1.2;white-space:nowrap}
 .seatchip.w{border-color:var(--hover)}
 .seatchip.a{border-color:var(--gold)}
 .seatchip.pick{border-color:var(--ok);background:var(--ok-bg);color:var(--ok)}
-.seatchip i{font-style:normal;font-weight:700;font-size:8.5px;letter-spacing:.02em;opacity:.85}
+.seatchip i{font-style:normal;font-weight:700;font-size:7.5px;letter-spacing:0;opacity:.85}
 /* 空席の情報が無い列。位置の骨格だけ薄く見せる */
 .seatchip.ghost{border-style:dashed;border-color:var(--panel-edge);color:var(--sub);
   opacity:.4;background:transparent}
