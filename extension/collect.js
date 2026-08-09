@@ -192,7 +192,7 @@
             if (open) {
               sa++;
               const codes = t.seatCharacteristicsCodes || [];
-              if (codes.includes("W")) sw++;
+              if (codes.includes("W") || codes.includes("1W")) sw++;
               if (codes.includes("A")) sl++;
               codeStats.n++;
               noteCodes(codeStats.t, t.seatCharacteristicsCodes);

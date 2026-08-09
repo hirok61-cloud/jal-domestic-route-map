@@ -211,7 +211,11 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
           if (open) {
             sa++;
             const codes = (t.seatCharacteristicsCodes || []);
-            if (codes.includes("W")) sw++;
+            /* 席の位置は A(通路) / 9(中央) / W(窓) / 1W(窓の一種) の4つで、
+               実測 2,900 席がこの4つにちょうど分かれた（重複も取りこぼしもなし）。
+               1W を窓に数えていなかったぶん、窓側を約1割少なく出していた。
+               1W が窓である裏付け: LS(左側)+RS(右側)=314 が W+1W=314 と一致する。 */
+            if (codes.includes("W") || codes.includes("1W")) sw++;
             if (codes.includes("A")) sl++;
             codeStats.n++;
             noteCodes(codeStats.t, t.seatCharacteristicsCodes);
