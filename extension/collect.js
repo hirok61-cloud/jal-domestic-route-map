@@ -1,6 +1,6 @@
 /* 生成物。編集しないこと。もとは tools/collect-core.js と collect-extension.js。
    直したら npm run build:bookmarklet && npm run test:collect && npm run purge:cdn */
-var __JAL_SEATS_BUILD__ = "2026-08-09 09:31Z";
+var __JAL_SEATS_BUILD__ = "2026-08-09 10:14Z";
 (() => {
   // tools/collect-core.js
   var ENDPOINT = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats";
@@ -216,6 +216,7 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 09:31Z";
       const json = await res.json().catch(() => null);
       const decks = ((((json || {}).data || {}).seatmaps || [])[0] || {}).decks || [];
       let sa = 0, st = 0, sw = 0, sl = 0, sc = 0, se = 0, sg = 0, sj = null, sf = null;
+      const smRaw = [];
       for (const deck of decks) {
         for (const s of deck.seats || []) {
           const t = s.travelers && s.travelers[0];
@@ -225,15 +226,31 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 09:31Z";
             if (open) {
               sa++;
               const codes = t.seatCharacteristicsCodes || [];
-              if (codes.includes("W") || codes.includes("1W")) sw++;
-              if (codes.includes("A")) sl++;
+              const isWindow = codes.includes("W") || codes.includes("1W");
+              const isAisle = codes.includes("A");
+              const isExit = codes.includes("E");
+              const isLeg = codes.includes("L");
+              if (isWindow) sw++;
+              if (isAisle) sl++;
               if (codes.includes("9")) sc++;
-              if (codes.includes("E")) se++;
-              if (codes.includes("L")) sg++;
+              if (isExit) se++;
+              if (isLeg) sg++;
               codeStats.n++;
               noteCodes(codeStats.t, t.seatCharacteristicsCodes);
               noteCodes(codeStats.s, s.seatCharacteristicsCodes);
               noteShape(s, t);
+              let flags = "";
+              if (isWindow) flags += "W";
+              if (isAisle) flags += "A";
+              if (isExit) flags += "E";
+              if (isLeg) flags += "L";
+              const no = String(s.seatNumber || "");
+              const m = no.match(/^(\d+)([A-Za-z]+)$/);
+              smRaw.push({
+                str: flags ? `${no}:${flags}` : no,
+                row: m ? Number(m[1]) : 999,
+                col: m ? m[2] : no
+              });
             }
           } else if (s.cabin === "business") {
             sj = (sj || 0) + (open ? 1 : 0);
@@ -242,7 +259,8 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 09:31Z";
           }
         }
       }
-      return st ? { sa, st, sw, sl, sc, se, sg, sj, sf } : null;
+      const sm = smRaw.sort((a, b) => a.row - b.row || a.col.localeCompare(b.col)).map((x) => x.str);
+      return st ? { sa, st, sw, sl, sc, se, sg, sj, sf, sm } : null;
     }
     const pairs = [];
     for (const spoke of SPOKES) pairs.push([HUB, spoke], [spoke, HUB]);

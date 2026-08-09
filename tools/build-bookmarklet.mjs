@@ -67,6 +67,13 @@ for (const t of targets) {
     console.error(`${t.label}: 座席属性の集計が入っていません。`);
     process.exit(1);
   }
+  // 空いている座席番号の一覧（座席表クリックの元データ）も同様。
+  // minify すると変数名 smRaw は消えるので、プロパティ名として残る形
+  // （minify後 "sm:", 素のままなら "smRaw"）のどちらかで見る。
+  if (!/\bsm:|smRaw/.test(code)) {
+    console.error(`${t.label}: 座席番号の一覧が入っていません。`);
+    process.exit(1);
+  }
   writeFileSync(t.out, code + "\n");
   console.log(`${t.label.padEnd(16)} ${String(code.length).padStart(6)} 字 → ${t.out.replace(root + "/", "")}`);
 }

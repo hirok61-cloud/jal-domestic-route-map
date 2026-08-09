@@ -154,6 +154,52 @@ td.fno{font-weight:700;color:var(--red)}
 .trend{margin-left:5px;font-size:10px}
 .trend.up{color:var(--ok);font-weight:700}
 .trend.down{color:var(--sub)}
+/* 普通席セルをクリックすると座席表の詳細が開く。座席の情報がある便だけ
+   button にする。中身（バッジ等）の見た目は素のセルと変わらないようにする。 */
+.seatcell{display:block;width:100%;border:none;background:none;padding:0;margin:0;
+  text-align:left;font:inherit;color:inherit;cursor:pointer;border-radius:6px}
+.seatcell:hover{background:var(--chipbg)}
+.seatcell:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+/* ---------- 座席表の詳細（モーダル） ---------- */
+.seatmodal{position:fixed;inset:0;z-index:200;background:rgba(10,8,6,.5);
+  display:flex;align-items:flex-end;justify-content:center}
+@media (min-width:640px){.seatmodal{align-items:center}}
+.seatmodal[hidden]{display:none}
+.seatmodal-panel{background:var(--panel);color:var(--ink);width:100%;max-width:560px;
+  max-height:86vh;overflow-y:auto;border-radius:18px 18px 0 0;box-shadow:var(--shadow)}
+@media (min-width:640px){.seatmodal-panel{border-radius:18px;max-height:80vh}}
+.seatmodal-head{display:flex;align-items:flex-start;gap:10px;justify-content:space-between;
+  padding:16px 18px 10px;position:sticky;top:0;background:var(--panel);
+  border-bottom:1px solid var(--hair)}
+.seatmodal-head b{color:var(--red);font-size:15px}
+.seatmodal-sub{display:block;margin-top:2px;font-size:12px;color:var(--sub)}
+.seatmodal-close{flex:none;border:none;background:var(--chipbg);color:var(--sub);
+  width:30px;height:30px;border-radius:50%;font-size:16px;cursor:pointer;line-height:1}
+.seatmodal-close:hover{color:var(--red)}
+.seatmodal-note{margin:12px 18px;padding:10px 13px;font-size:12px;line-height:1.7;
+  color:var(--sub);background:var(--chipbg);border-radius:10px}
+.seatmodal-note b{color:var(--ink)}
+.seatmodal-legend{display:flex;flex-wrap:wrap;gap:10px 16px;margin:0 18px 12px;font-size:11px;color:var(--sub)}
+.seatmodal-legend span{display:inline-flex;align-items:center;gap:5px}
+.seatmodal-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;
+  border:1.5px solid var(--panel-edge);background:var(--bg)}
+.seatmodal-legend .lw i{border-color:var(--hover)}
+.seatmodal-legend .la i{border-color:var(--gold)}
+.seatmodal-legend .lp i{border-color:var(--ok);background:var(--ok-bg)}
+.seatrow{display:flex;align-items:flex-start;gap:10px;padding:6px 18px}
+.seatrow:nth-child(odd){background:var(--bg)}
+.seatrowno{flex:none;width:26px;padding-top:6px;font-size:11px;color:var(--sub);
+  font-variant-numeric:tabular-nums;text-align:right}
+.seatrowseats{display:flex;flex-wrap:wrap;gap:6px}
+.seatchip{display:inline-flex;flex-direction:column;align-items:center;gap:1px;
+  min-width:34px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--panel-edge);
+  background:var(--bg);font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;
+  line-height:1.25}
+.seatchip.w{border-color:var(--hover)}
+.seatchip.a{border-color:var(--gold)}
+.seatchip.pick{border-color:var(--ok);background:var(--ok-bg);color:var(--ok)}
+.seatchip i{font-style:normal;font-weight:700;font-size:8.5px;letter-spacing:.02em;opacity:.85}
+.seatmodal-empty{margin:0 18px 18px;font-size:12.5px;color:var(--sub)}
 /* 前回から空席が出た便のお知らせ */
 .newseats{border:1px solid var(--ok);background:var(--ok-bg);border-radius:12px;
   padding:11px 15px;font-size:12.5px;line-height:1.8;margin-bottom:16px}
@@ -259,6 +305,10 @@ footer a{color:var(--hover)}
   ご搭乗・ご予約の際は必ず<a href="https://www.jal.co.jp/ja-jp/" target="_blank" rel="noopener">JAL公式サイト</a>でご確認ください。
   <span class="fan">本サイトは個人が作成した非公式のファンサイトであり、日本航空株式会社およびJALグループ各社とは一切関係ありません。</span>
 </footer>
+
+<div class="seatmodal" id="seatmodal" hidden>
+  <div class="seatmodal-panel" id="seatmodal-body"></div>
+</div>
 
 <script>
 "use strict";
@@ -374,6 +424,88 @@ function trendNote(f){
   return `<span class="trend ${up ? "up" : "down"}">${up ? "↑" : "↓"}${label}</span>`;
 }
 
+/* -------- 座席表の詳細 --------
+   収集は「空いている普通席の一覧」だけを持ち帰る（誰がどこに座っているかは
+   取っていない）。そのため、埋まっている席をグレーで敷き詰めるような
+   本物の座席図は作れない・作らない。あくまで「空いている席の一覧」を
+   見やすく並べるだけにする。追加のJALへの問い合わせは発生しない。
+
+   render() のたびに作り直す軽いルックアップ。DOM の data-* にJSONを
+   埋め込むより、クリック時にここを引く方がエスケープの心配がない。 */
+let SEAT_LOOKUP = [];
+
+function parseSeatEntry(entry){
+  const [no, flags = ""] = entry.split(":");
+  const m = no.match(/^(\d+)([A-Za-z]+)$/);
+  return {
+    no, row: m ? Number(m[1]) : 0, col: m ? m[2] : no,
+    window: flags.includes("W"), aisle: flags.includes("A"),
+    exit: flags.includes("E"), legroom: flags.includes("L"),
+  };
+}
+
+/** 普通席セルの中身。座席の一覧がある便だけ、クリックできるボタンにする。 */
+function seatCell(route, f){
+  const inner = badge(f.eco) + trendNote(f) + seatmapNote(f);
+  if (!f.sm || !f.sm.length) return inner;
+  const id = SEAT_LOOKUP.push({ route, f }) - 1;
+  return `<button type="button" class="seatcell" data-seat-id="${id}">${inner}</button>`;
+}
+
+function seatChip(s){
+  const cls = ["seatchip"];
+  if (s.window) cls.push("w");
+  if (s.aisle) cls.push("a");
+  if (s.exit || s.legroom) cls.push("pick");
+  const tags = [s.exit && "非常口", s.legroom && "足元"].filter(Boolean);
+  return `<span class="${cls.join(" ")}"><b>${s.col}</b>${tags.length ? `<i>${tags.join("・")}</i>` : ""}</span>`;
+}
+
+function openSeatDetail(route, f){
+  const seats = (f.sm || []).map(parseSeatEntry);
+  const byRow = new Map();
+  for (const s of seats) (byRow.get(s.row) || byRow.set(s.row, []).get(s.row)).push(s);
+  const rows = [...byRow.keys()].sort((a, b) => a - b);
+
+  const rowsHtml = rows.map((r) => `
+    <div class="seatrow">
+      <span class="seatrowno">${r}</span>
+      <div class="seatrowseats">${byRow.get(r).sort((a, b) => a.col.localeCompare(b.col)).map(seatChip).join("")}</div>
+    </div>`).join("");
+
+  // 運賃だけ先に保存された直後は、座席表が1つ前の収集時点のものになる（本文と同じ考え方）
+  const at = f.saAt || DATA.generatedAt;
+
+  document.getElementById("seatmodal-body").innerHTML = `
+    <div class="seatmodal-head">
+      <div>
+        <b>${f.no}</b>　${AP[route.o] || route.o} <span class="arrow">→</span> ${AP[route.d] || route.d}
+        <span class="seatmodal-sub">${f.dep} → ${f.arr}　${acLabel(f.ac)}</span>
+      </div>
+      <button type="button" class="seatmodal-close" id="seatmodal-close" aria-label="閉じる">×</button>
+    </div>
+    <p class="seatmodal-note">
+      空いている普通席 <b>${seats.length}席</b>（${hhmm(at)}時点）。
+      <b>満席の席は表示していません。</b>先着順のため、実際に選ぼうとした時点で
+      埋まっていることがあります。詳しくはJAL公式でご確認ください。
+    </p>
+    ${seats.length ? `
+    <div class="seatmodal-legend">
+      <span class="lw"><i></i>窓側</span>
+      <span class="la"><i></i>通路側</span>
+      <span class="lp"><i></i>非常口・足元ゆったり</span>
+    </div>
+    ${rowsHtml}` : '<p class="seatmodal-empty">座席の情報がありません。</p>'}
+  `;
+  document.getElementById("seatmodal").hidden = false;
+  document.body.style.overflow = "hidden";
+}
+
+function closeSeatDetail(){
+  document.getElementById("seatmodal").hidden = true;
+  document.body.style.overflow = "";
+}
+
 function routeMatches(route){
   if (state.dir === "out" && route.o !== DATA.hub) return false;
   if (state.dir === "in" && route.d !== DATA.hub) return false;
@@ -396,6 +528,7 @@ function flightsOf(route){
 
 function render(){
   const list = document.getElementById("list");
+  SEAT_LOOKUP = []; // 座席表クリックの参照先。render のたびに作り直す
   const visible = DATA.routes.filter(routeMatches).sort((a, b) => {
     // 羽田側ではないほうの空港（＝相手先）の位置で北から並べる
     const ra = geoRank(a.o === DATA.hub ? a.d : a.o);
@@ -442,7 +575,7 @@ function render(){
           <td class="fno mono">${f.no}</td>
           <td class="mono">${f.dep} → ${f.arr}</td>
           <td>${acLabel(f.ac)}${f.op && f.op !== "JL" ? " / " + (OPNAME[f.op] || f.op) : ""}</td>
-          <td>${badge(f.eco)}${trendNote(f)}${seatmapNote(f)}</td>
+          <td>${seatCell(route, f)}</td>
           <td>${badge(f.clsj)}${cabinSeatNote(f.sj)}</td>
           <td>${badge(f.first)}${cabinSeatNote(f.sf)}</td>
           <td class="mono">${fare}</td>
@@ -727,6 +860,21 @@ loadAvailability()
       clearTimeout(timer);
       const v = ev.target.value.trim().toLowerCase();
       timer = setTimeout(() => { state.q = v; render(); }, 150);
+    });
+
+    /* 座席表の詳細。list は render() のたびに作り直すので、個々のボタンにではなく
+       document に1回だけ仕掛ける（委譲）。 */
+    document.addEventListener("click", ev => {
+      const cell = ev.target.closest(".seatcell");
+      if (cell) {
+        const item = SEAT_LOOKUP[Number(cell.dataset.seatId)];
+        if (item) openSeatDetail(item.route, item.f);
+        return;
+      }
+      if (ev.target.id === "seatmodal" || ev.target.id === "seatmodal-close") closeSeatDetail();
+    });
+    document.addEventListener("keydown", ev => {
+      if (ev.key === "Escape" && !document.getElementById("seatmodal").hidden) closeSeatDetail();
     });
   })
   .catch(err => {

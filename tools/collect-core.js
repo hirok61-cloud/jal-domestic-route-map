@@ -247,6 +247,7 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
     /* 同じレスポンスからクラスJ・ファーストと、窓側/通路側も数える。
        W=窓側, A=通路側（座席属性コード）。 */
     let sa = 0, st = 0, sw = 0, sl = 0, sc = 0, se = 0, sg = 0, sj = null, sf = null;
+    const smRaw = []; // 空いている普通席の一覧（クリックで座席表を見せる用）
     for (const deck of decks) {
       for (const s of deck.seats || []) {
         const t = s.travelers && s.travelers[0];
@@ -260,17 +261,39 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
                実測 2,900 席がこの4つにちょうど分かれた（重複も取りこぼしもなし）。
                1W を窓に数えていなかったぶん、窓側を約1割少なく出していた。
                1W が窓である裏付け: LS(左側)+RS(右側)=314 が W+1W=314 と一致する。 */
-            if (codes.includes("W") || codes.includes("1W")) sw++;
-            if (codes.includes("A")) sl++;
+            const isWindow = codes.includes("W") || codes.includes("1W");
+            const isAisle = codes.includes("A");
+            const isExit = codes.includes("E");
+            const isLeg = codes.includes("L");
+            if (isWindow) sw++;
+            if (isAisle) sl++;
             if (codes.includes("9")) sc++;  // 中央席
             /* E=非常口席 / L=足元が広い席。実データ2,900席で、E の255席には
                1A（乳幼児不可）がちょうど同数付いていた＝非常口列である裏付け。 */
-            if (codes.includes("E")) se++;
-            if (codes.includes("L")) sg++;
+            if (isExit) se++;
+            if (isLeg) sg++;
             codeStats.n++;
             noteCodes(codeStats.t, t.seatCharacteristicsCodes);
             noteCodes(codeStats.s, s.seatCharacteristicsCodes);
             noteShape(s, t);
+
+            /* 空いている席番号を持ち帰る。追加のリクエストはない（同じ応答から拾うだけ）。
+               満席の席は持たない＝どの席が埋まっているかは分からない前提で、
+               「空いている席だけを軽く見せる」用途に絞っている。
+               形式は "15H:WE" のように 席番号:属性1文字ずつ（窓W/通路A/非常口E/足元L）。
+               どれも付かない中央席は "15D" とだけ書く。 */
+            let flags = "";
+            if (isWindow) flags += "W";
+            if (isAisle) flags += "A";
+            if (isExit) flags += "E";
+            if (isLeg) flags += "L";
+            const no = String(s.seatNumber || "");
+            const m = no.match(/^(\d+)([A-Za-z]+)$/);
+            smRaw.push({
+              str: flags ? `${no}:${flags}` : no,
+              row: m ? Number(m[1]) : 999,
+              col: m ? m[2] : no,
+            });
           }
         } else if (s.cabin === "business") {
           sj = (sj || 0) + (open ? 1 : 0);
@@ -279,7 +302,10 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
         }
       }
     }
-    return st ? { sa, st, sw, sl, sc, se, sg, sj, sf } : null;
+    const sm = smRaw
+      .sort((a, b) => a.row - b.row || a.col.localeCompare(b.col))
+      .map((x) => x.str);
+    return st ? { sa, st, sw, sl, sc, se, sg, sj, sf, sm } : null;
   }
 
   const pairs = [];

@@ -170,9 +170,9 @@ const jalOk = (seat) => {
         seatmaps: [{
           decks: [{
             seats: [
-              { cabin: "eco", seatCharacteristicsCodes: ["W", "1A"], travelers: [{ seatAvailabilityStatus: "available", seatCharacteristicsCodes: ["W"] }] },
-              { cabin: "eco", seatCharacteristicsCodes: ["A"], travelers: [{ seatAvailabilityStatus: "available", seatCharacteristicsCodes: ["A"] }] },
-              { cabin: "eco", seatCharacteristicsCodes: ["E"], travelers: [{ seatAvailabilityStatus: "occupied" }] },
+              { cabin: "eco", seatNumber: "15A", seatCharacteristicsCodes: ["W", "1A"], travelers: [{ seatAvailabilityStatus: "available", seatCharacteristicsCodes: ["W"] }] },
+              { cabin: "eco", seatNumber: "15C", seatCharacteristicsCodes: ["A"], travelers: [{ seatAvailabilityStatus: "available", seatCharacteristicsCodes: ["A"] }] },
+              { cabin: "eco", seatNumber: "16D", seatCharacteristicsCodes: ["E"], travelers: [{ seatAvailabilityStatus: "occupied" }] },
             ],
           }],
         }],
@@ -215,6 +215,12 @@ const cases = [
         log.saved.at(-1).codes.s["1A"] > 0 && !log.saved.at(-1).codes.t["1A"],
       "項目名と実物を1件持ち帰る": log.saved.at(-1).codes.keys.includes("seat.cabin")
         && /seatAvailabilityStatus/.test(log.saved.at(-1).codes.sample),
+      "空いている席番号の一覧を持ち帰る": (() => {
+        const f = log.saved.at(-1).routes.flatMap((r) => r.flights || []).find((x) => x.sm);
+        return !!f && f.sm.length === 2 && f.sm.includes("15A:W") && f.sm.includes("15C:A");
+      })(),
+      "満席の席(16D)は含めない": !log.saved.at(-1).routes.flatMap((r) => r.flights || [])
+        .some((f) => (f.sm || []).some((s) => s.startsWith("16D"))),
       "成功で終わる": ok(out),
     }),
   },
