@@ -34,7 +34,7 @@ const res = (status, body) => ({
 const text = (out) => (typeof out === "string" ? out : JSON.stringify(out));
 
 /* ---- 偽ブラウザ。収集スクリプトが触るところだけ用意する ---- */
-function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日", blockFetchOnly }) {
+function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日", blockFetchOnly, hangSave }) {
   const log = { saved: [], searches: 0, seatmaps: 0, finished: null, progress: [] };
 
   const node = (tag) => {
@@ -89,6 +89,7 @@ function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日", bloc
 
   const env = {
     __blockFetchOnly: blockFetchOnly,
+    __hangSave: hangSave,
     document,
     __JAL_SEATS_KEY: "TESTKEY", // ブックマークレットが渡す合言葉のかわり
     location: { host, hostname: host },
@@ -110,6 +111,7 @@ function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日", bloc
       setRequestHeader() {}
       send(body) {
         if (env.__blockFetchOnly === false) { this.onerror(); return; }
+        if (env.__hangSave) { log.saved.push(JSON.parse(body)); return; } // 何も鳴らさない
         Promise.resolve()
           .then(() => saver(log.saved.push(JSON.parse(body)), log))
           .then(async (r) => {
@@ -135,6 +137,7 @@ function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日", bloc
         if (init.signal.aborted) throw Object.assign(new Error("aborted"), { name: "AbortError" });
         var aborted = new Promise((_, rej) => init.signal.addEventListener("abort",
           () => rej(Object.assign(new Error("aborted"), { name: "AbortError" }))));
+        aborted.catch(() => {}); // 誰も待っていないときに未処理の例外にしない
       }
       const race = (p) => (init?.signal ? Promise.race([p, aborted]) : p);
       if (String(url).includes("api.dom.jal.co.jp")) {
@@ -289,6 +292,16 @@ const cases = [
     }),
   },
   {
+    name: "保存先が黙り込んでも必ず抜ける",
+    hangSave: true,
+    jal: (seat) => jalOk(seat),
+    saver: () => new Promise(() => {}), // 永久に返事をしない
+    check: (log, out) => ({
+      "止まらずに失敗として抜ける": /保存できませんでした/.test(text(out)),
+      "返事がない旨を出す": /返事をしませんでした|応答がありません/.test(text(out)),
+    }),
+  },
+  {
     name: "保存が3回とも駄目",
     jal: (seat) => jalOk(seat),
     saver: () => res(503, { error: "落ちています" }),
@@ -310,7 +323,7 @@ for (const shell of shells) {
   console.log(`\n=============== ${shell.name} ===============`);
   for (const c of cases) {
     FLIGHTS_PER_ROUTE = c.flightsPerRoute || 1;
-    const env = makeEnv({ jal: c.jal, saver: c.saver, blockFetchOnly: c.blockFetchOnly });
+    const env = makeEnv({ jal: c.jal, saver: c.saver, blockFetchOnly: c.blockFetchOnly, hangSave: c.hangSave });
     vm.createContext(env);
     vm.runInContext(source, env);
 

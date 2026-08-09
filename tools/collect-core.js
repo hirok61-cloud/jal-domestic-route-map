@@ -45,6 +45,17 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
    「進捗が止まったため中断しました」で終わっていた（座席表 91/231 で実際に発生）。
    打ち切れば呼び出し側が例外として拾い、その1便を飛ばして続けられる。 */
 const TIMEOUT_MS = 30000;
+const SAVE_TIMEOUT_MS = 20000; // 保存は120KB程度。回線が生きていれば数秒で終わる
+
+/* 送信手段そのものが黙り込んでも必ず抜けられるようにする。
+   fetch も XHR も横取りされている端末では、こちらの期限だけが頼りになる。 */
+function withDeadline(promise, ms, label) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, rej) => { timer = setTimeout(() => rej(new Error(`${label}が${ms / 1000}秒で返事をしませんでした`)), ms); }),
+  ]).finally(() => clearTimeout(timer));
+}
 async function fetchWithTimeout(url, init) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
@@ -69,11 +80,11 @@ function postByXhr(url, body, headers) {
   return new Promise((resolve, reject) => {
     const x = new XMLHttpRequest();
     x.open("POST", url, true);
-    x.timeout = TIMEOUT_MS;
+    x.timeout = SAVE_TIMEOUT_MS;
     for (const [k, v] of Object.entries(headers)) x.setRequestHeader(k, v);
     x.onload = () => resolve({ ok: x.status >= 200 && x.status < 300, status: x.status, text: x.responseText });
     x.onerror = () => reject(new Error("XHRも通りませんでした（通信そのものが遮られています）"));
-    x.ontimeout = () => reject(new Error(`XHRの応答がありません（${TIMEOUT_MS / 1000}秒）`));
+    x.ontimeout = () => reject(new Error(`XHRの応答がありません（${SAVE_TIMEOUT_MS / 1000}秒）`));
     x.send(body);
   });
 }
@@ -288,9 +299,13 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
     for (let attempt = 1; attempt <= 3 && !hopeless; attempt++) {
       for (const way of ways) {
         try {
-          const res = way === "fetch"
-            ? await fetchWithTimeout(ENDPOINT, { method: "POST", headers, body })
-            : await postByXhr(ENDPOINT, body, headers);
+          report("save-try", { way, attempt, seconds: SAVE_TIMEOUT_MS / 1000 });
+          const res = await withDeadline(
+            way === "fetch"
+              ? fetchWithTimeout(ENDPOINT, { method: "POST", headers, body })
+              : postByXhr(ENDPOINT, body, headers),
+            SAVE_TIMEOUT_MS, way === "fetch" ? "通常の送信" : "XHRでの送信",
+          );
           if (res.ok) { sendBy = way; return; }
           const detail = way === "fetch"
             ? (await res.json().catch(() => ({}))).error

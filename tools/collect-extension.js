@@ -39,6 +39,7 @@ import { createRun, jstDate, ENDPOINT } from "./collect-core.js";
     if (kind === "fares" && x.i % 10 === 0) post(`${x.label}分を取得中 ${x.i + 1}/${x.total}`);
     else if (kind === "seats" && x.i % 10 === 0) post(`${x.label}分の座席表 ${x.i + 1}/${x.total}`);
     else if (kind === "saving") post(`${x.label}分を保存しています`);
+    else if (kind === "save-try") post(`保存を送信中（${x.way} ${x.attempt}回目）`);
     else if (kind === "save-retry") post(`保存をやり直しています（${x.error}）`);
   };
 

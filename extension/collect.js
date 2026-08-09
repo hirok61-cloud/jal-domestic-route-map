@@ -1,6 +1,6 @@
 /* 生成物。編集しないこと。もとは tools/collect-core.js と collect-extension.js。
    直したら npm run build:bookmarklet && npm run test:collect && npm run purge:cdn */
-var __JAL_SEATS_BUILD__ = "2026-08-09 09:16Z";
+var __JAL_SEATS_BUILD__ = "2026-08-09 09:31Z";
 (() => {
   // tools/collect-core.js
   var ENDPOINT = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats";
@@ -55,6 +55,16 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 09:16Z";
   };
   var sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   var TIMEOUT_MS = 3e4;
+  var SAVE_TIMEOUT_MS = 2e4;
+  function withDeadline(promise, ms, label) {
+    let timer;
+    return Promise.race([
+      promise,
+      new Promise((_, rej) => {
+        timer = setTimeout(() => rej(new Error(`${label}が${ms / 1e3}秒で返事をしませんでした`)), ms);
+      })
+    ]).finally(() => clearTimeout(timer));
+  }
   async function fetchWithTimeout(url, init) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
@@ -70,11 +80,11 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 09:16Z";
     return new Promise((resolve, reject) => {
       const x = new XMLHttpRequest();
       x.open("POST", url, true);
-      x.timeout = TIMEOUT_MS;
+      x.timeout = SAVE_TIMEOUT_MS;
       for (const [k, v] of Object.entries(headers)) x.setRequestHeader(k, v);
       x.onload = () => resolve({ ok: x.status >= 200 && x.status < 300, status: x.status, text: x.responseText });
       x.onerror = () => reject(new Error("XHRも通りませんでした（通信そのものが遮られています）"));
-      x.ontimeout = () => reject(new Error(`XHRの応答がありません（${TIMEOUT_MS / 1e3}秒）`));
+      x.ontimeout = () => reject(new Error(`XHRの応答がありません（${SAVE_TIMEOUT_MS / 1e3}秒）`));
       x.send(body);
     });
   }
@@ -246,7 +256,12 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 09:16Z";
       for (let attempt = 1; attempt <= 3 && !hopeless; attempt++) {
         for (const way of ways) {
           try {
-            const res = way === "fetch" ? await fetchWithTimeout(ENDPOINT, { method: "POST", headers: headers2, body }) : await postByXhr(ENDPOINT, body, headers2);
+            report("save-try", { way, attempt, seconds: SAVE_TIMEOUT_MS / 1e3 });
+            const res = await withDeadline(
+              way === "fetch" ? fetchWithTimeout(ENDPOINT, { method: "POST", headers: headers2, body }) : postByXhr(ENDPOINT, body, headers2),
+              SAVE_TIMEOUT_MS,
+              way === "fetch" ? "通常の送信" : "XHRでの送信"
+            );
             if (res.ok) {
               sendBy = way;
               return;
@@ -402,6 +417,7 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 09:16Z";
       if (kind === "fares" && x.i % 10 === 0) post(`${x.label}分を取得中 ${x.i + 1}/${x.total}`);
       else if (kind === "seats" && x.i % 10 === 0) post(`${x.label}分の座席表 ${x.i + 1}/${x.total}`);
       else if (kind === "saving") post(`${x.label}分を保存しています`);
+      else if (kind === "save-try") post(`保存を送信中（${x.way} ${x.attempt}回目）`);
       else if (kind === "save-retry") post(`保存をやり直しています（${x.error}）`);
     };
     const run = createRun({
