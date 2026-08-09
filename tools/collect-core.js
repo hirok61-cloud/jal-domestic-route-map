@@ -18,6 +18,18 @@
 export const ENDPOINT = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats";
 export const SITE = "https://jal-domestic-route-map.vercel.app/seats/";
 
+/* 保存先は2つ用意して順に試す。**宛先そのものを変えられる**ことが要点。
+   端末によっては supabase.co への通信だけが弾かれる（広告ブロッカーや
+   プライバシー系のアプリが既知のバックエンドを遮断していると起こる）。
+   2026-08-09、2台の端末で「70区間は取れるのに保存だけが必ず失敗する」状態を確認し、
+   Supabase のログでもその時間帯にPOSTが1件も届いていないことを裏付けた。
+   fetch を XHR に変えても宛先が同じなら同じように弾かれるので、宛先を変える。
+   2つめはこのサイト自身の中継（api/save.js）で、上流は同じ Edge Function。 */
+const SAVE_ENDPOINTS = [
+  { url: ENDPOINT, name: "保存先" },
+  { url: "https://jal-domestic-route-map.vercel.app/api/save", name: "サイト経由" },
+];
+
 export const HUB = "HND";
 export const SPOKES = [
   "AKJ", "AOJ", "ASJ", "AXT", "CTS", "FUK", "GAJ", "HIJ", "HKD", "ISG",
@@ -46,6 +58,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
    打ち切れば呼び出し側が例外として拾い、その1便を飛ばして続けられる。 */
 const TIMEOUT_MS = 30000;
 const SAVE_TIMEOUT_MS = 20000; // 保存は120KB程度。回線が生きていれば数秒で終わる
+const SAVE_BUDGET_MS = 90000;  // 保存1回にかける上限。宛先も手段も総当たりするので頭を打つ
 
 /* 送信手段そのものが黙り込んでも必ず抜けられるようにする。
    fetch も XHR も横取りされている端末では、こちらの期限だけが頼りになる。 */
@@ -312,34 +325,44 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
   for (const spoke of SPOKES) pairs.push([HUB, spoke], [spoke, HUB]);
 
   /* 8〜10分かけて集めたものを、送信1回の失敗で捨てないようにする。
-     スマホの回線は一瞬切れることがあるので、間を空けて3回まで試す。
-     さらに、fetch が横取りされている端末があるので XHR でも送ってみる。 */
-  let sendBy = "fetch"; // 一度通った手段は覚えておき、2回目以降はそちらを先に使う
+     宛先2つ（保存先そのもの / サイト経由の中継）× 手段2つ（fetch / XHR）を
+     総当たりし、それを3周まで繰り返す。宛先ごと弾かれる端末があるので、
+     手段を変えるだけでは足りず、**宛先を変えられる**ことが効く。 */
+  let sendBy = null; // 一度通った組み合わせは覚えて、次回はそれを先に試す
   async function save(snap) {
     const headers = { "content-type": "application/json", "x-update-key": updateKey };
     const body = JSON.stringify(snap);
-    const ways = sendBy === "xhr" ? ["xhr", "fetch"] : ["fetch", "xhr"];
     const trouble = [];
+    const started = Date.now();
 
-    let hopeless = false; // 合言葉違い・中身不正。手段を変えても待っても直らない
+    // 通った実績のある組み合わせを先頭に持ってくる
+    const combos = [];
+    for (const ep of SAVE_ENDPOINTS) for (const way of ["fetch", "xhr"]) combos.push({ ep, way });
+    combos.sort((a, b) => (sendBy && b.ep.url === sendBy.url && b.way === sendBy.way ? 1 : 0)
+      - (sendBy && a.ep.url === sendBy.url && a.way === sendBy.way ? 1 : 0));
+
+    let hopeless = false; // 合言葉違い・中身不正。宛先も手段も変えても直らない
     for (let attempt = 1; attempt <= 3 && !hopeless; attempt++) {
-      for (const way of ways) {
+      for (const { ep, way } of combos) {
+        // 全体の持ち時間を超えたら打ち切る。黙って何分も粘らない
+        if (Date.now() - started > SAVE_BUDGET_MS) { trouble.push("時間切れ"); hopeless = true; break; }
+        const label = `${ep.name}へ${way === "fetch" ? "通常の方法" : "別の方法(XHR)"}`;
         try {
-          report("save-try", { way, attempt, seconds: SAVE_TIMEOUT_MS / 1000 });
+          report("save-try", { way, host: ep.name, attempt, seconds: SAVE_TIMEOUT_MS / 1000 });
           const res = await withDeadline(
             way === "fetch"
-              ? fetchWithTimeout(ENDPOINT, { method: "POST", headers, body })
-              : postByXhr(ENDPOINT, body, headers),
-            SAVE_TIMEOUT_MS, way === "fetch" ? "通常の送信" : "XHRでの送信",
+              ? fetchWithTimeout(ep.url, { method: "POST", headers, body })
+              : postByXhr(ep.url, body, headers),
+            SAVE_TIMEOUT_MS, label,
           );
-          if (res.ok) { sendBy = way; return; }
+          if (res.ok) { sendBy = { url: ep.url, way }; return; }
           const detail = way === "fetch"
             ? (await res.json().catch(() => ({}))).error
             : (() => { try { return JSON.parse(res.text).error; } catch { return null; } })();
-          trouble.push(`${way}: ${detail || "HTTP " + res.status}`);
+          trouble.push(`${label}: ${detail || "HTTP " + res.status}`);
           if (res.status === 400 || res.status === 401) { hopeless = true; break; }
         } catch (e) {
-          trouble.push(`${way}: ${String(e.message || e)}`);
+          trouble.push(`${label}: ${String(e.message || e)}`);
         }
       }
       if (!hopeless && attempt < 3) {

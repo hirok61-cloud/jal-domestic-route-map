@@ -221,7 +221,7 @@ window.__JAL_SEATS_BOOTED = Date.now();
             ? `${x.stats.flights}便中${x.stats.withSeats}便に空席`
             : `座席表 ${x.stats.seatChecked}便分`, null);
       } else if (kind === "save-try") {
-        show(null, `${x.way === "fetch" ? "通常の方法" : "別の方法（XHR）"}で送信中…`
+        show(null, `${x.host}へ${x.way === "fetch" ? "通常の方法" : "別の方法（XHR）"}で送信中…`
           + ` ${x.attempt}回目（最大${x.seconds}秒待ちます）`, null);
       } else if (kind === "save-retry") {
         show(null, `保存に失敗しました。${x.wait}秒後にもう一度試します（${x.error}）`, null);

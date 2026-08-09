@@ -1,9 +1,13 @@
 /* 生成物。編集しないこと。もとは tools/collect-core.js と collect-extension.js。
    直したら npm run build:bookmarklet && npm run test:collect && npm run purge:cdn */
-var __JAL_SEATS_BUILD__ = "2026-08-09 10:14Z";
+var __JAL_SEATS_BUILD__ = "2026-08-09 14:23Z";
 (() => {
   // tools/collect-core.js
   var ENDPOINT = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats";
+  var SAVE_ENDPOINTS = [
+    { url: ENDPOINT, name: "保存先" },
+    { url: "https://jal-domestic-route-map.vercel.app/api/save", name: "サイト経由" }
+  ];
   var HUB = "HND";
   var SPOKES = [
     "AKJ",
@@ -56,6 +60,7 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 10:14Z";
   var sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   var TIMEOUT_MS = 3e4;
   var SAVE_TIMEOUT_MS = 2e4;
+  var SAVE_BUDGET_MS = 9e4;
   function withDeadline(promise, ms, label) {
     let timer;
     return Promise.race([
@@ -264,24 +269,33 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 10:14Z";
     }
     const pairs = [];
     for (const spoke of SPOKES) pairs.push([HUB, spoke], [spoke, HUB]);
-    let sendBy = "fetch";
+    let sendBy = null;
     async function save(snap) {
       const headers2 = { "content-type": "application/json", "x-update-key": updateKey };
       const body = JSON.stringify(snap);
-      const ways = sendBy === "xhr" ? ["xhr", "fetch"] : ["fetch", "xhr"];
       const trouble = [];
+      const started = Date.now();
+      const combos = [];
+      for (const ep of SAVE_ENDPOINTS) for (const way of ["fetch", "xhr"]) combos.push({ ep, way });
+      combos.sort((a, b) => (sendBy && b.ep.url === sendBy.url && b.way === sendBy.way ? 1 : 0) - (sendBy && a.ep.url === sendBy.url && a.way === sendBy.way ? 1 : 0));
       let hopeless = false;
       for (let attempt = 1; attempt <= 3 && !hopeless; attempt++) {
-        for (const way of ways) {
+        for (const { ep, way } of combos) {
+          if (Date.now() - started > SAVE_BUDGET_MS) {
+            trouble.push("時間切れ");
+            hopeless = true;
+            break;
+          }
+          const label = `${ep.name}へ${way === "fetch" ? "通常の方法" : "別の方法(XHR)"}`;
           try {
-            report("save-try", { way, attempt, seconds: SAVE_TIMEOUT_MS / 1e3 });
+            report("save-try", { way, host: ep.name, attempt, seconds: SAVE_TIMEOUT_MS / 1e3 });
             const res = await withDeadline(
-              way === "fetch" ? fetchWithTimeout(ENDPOINT, { method: "POST", headers: headers2, body }) : postByXhr(ENDPOINT, body, headers2),
+              way === "fetch" ? fetchWithTimeout(ep.url, { method: "POST", headers: headers2, body }) : postByXhr(ep.url, body, headers2),
               SAVE_TIMEOUT_MS,
-              way === "fetch" ? "通常の送信" : "XHRでの送信"
+              label
             );
             if (res.ok) {
-              sendBy = way;
+              sendBy = { url: ep.url, way };
               return;
             }
             const detail = way === "fetch" ? (await res.json().catch(() => ({}))).error : (() => {
@@ -291,13 +305,13 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 10:14Z";
                 return null;
               }
             })();
-            trouble.push(`${way}: ${detail || "HTTP " + res.status}`);
+            trouble.push(`${label}: ${detail || "HTTP " + res.status}`);
             if (res.status === 400 || res.status === 401) {
               hopeless = true;
               break;
             }
           } catch (e) {
-            trouble.push(`${way}: ${String(e.message || e)}`);
+            trouble.push(`${label}: ${String(e.message || e)}`);
           }
         }
         if (!hopeless && attempt < 3) {
@@ -435,7 +449,7 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 10:14Z";
       if (kind === "fares" && x.i % 10 === 0) post(`${x.label}分を取得中 ${x.i + 1}/${x.total}`);
       else if (kind === "seats" && x.i % 10 === 0) post(`${x.label}分の座席表 ${x.i + 1}/${x.total}`);
       else if (kind === "saving") post(`${x.label}分を保存しています`);
-      else if (kind === "save-try") post(`保存を送信中（${x.way} ${x.attempt}回目）`);
+      else if (kind === "save-try") post(`保存を送信中（${x.host} / ${x.way} ${x.attempt}回目）`);
       else if (kind === "save-retry") post(`保存をやり直しています（${x.error}）`);
     };
     const run = createRun({

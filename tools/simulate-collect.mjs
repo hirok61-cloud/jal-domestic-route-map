@@ -34,7 +34,7 @@ const res = (status, body) => ({
 const text = (out) => (typeof out === "string" ? out : JSON.stringify(out));
 
 /* ---- 偽ブラウザ。収集スクリプトが触るところだけ用意する ---- */
-function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日", blockFetchOnly, hangSave }) {
+function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日", blockFetchOnly, hangSave, blockHost }) {
   const log = { saved: [], searches: 0, seatmaps: 0, finished: null, progress: [] };
 
   const node = (tag) => {
@@ -90,6 +90,7 @@ function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日", bloc
   const env = {
     __blockFetchOnly: blockFetchOnly,
     __hangSave: hangSave,
+    __blockHost: blockHost,
     document,
     __JAL_SEATS_KEY: "TESTKEY", // ブックマークレットが渡す合言葉のかわり
     location: { host, hostname: host },
@@ -110,6 +111,7 @@ function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日", bloc
       open(method, url) { this._url = url; }
       setRequestHeader() {}
       send(body) {
+        if (env.__blockHost && String(this._url).includes(env.__blockHost)) { this.onerror(); return; }
         if (env.__blockFetchOnly === false) { this.onerror(); return; }
         if (env.__hangSave) { log.saved.push(JSON.parse(body)); return; } // 何も鳴らさない
         Promise.resolve()
@@ -146,6 +148,11 @@ function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日", bloc
         return race(Promise.resolve().then(() => jal(seat, init, log)));
       }
       if (String(url).includes("action=finish")) return res(200, { ok: true });
+      /* 宛先ごと遮断される端末がある（supabase.co だけ弾かれる等）。
+         その場合は手段を変えても通らず、宛先を変えるしかない。 */
+      if (env.__blockHost && String(url).includes(env.__blockHost)) {
+        throw String(url) + " blocked";
+      }
       /* 端末によっては、ページ内の fetch が横取りされて第三者ドメインだけ弾かれる。
          そのときJALのAPI（同一サイト）は通るので、保存だけが落ちる。 */
       if (env.__blockFetchOnly !== undefined) {
@@ -292,9 +299,23 @@ const cases = [
     saver: () => res(200, { ok: true }),
     check: (log, out) => ({
       "1件も保存できない": log.saved.length === 0,
-      "両方の理由を出す": /fetch:/.test(text(out)) && /xhr:/.test(text(out)),
+      // 宛先2つ×手段2つを総当たりしたことが、理由の一覧から読み取れること
+      "両方の宛先を試した理由を出す":
+        /保存先へ/.test(text(out)) && /サイト経由へ/.test(text(out)),
+      "両方の手段を試した理由を出す":
+        /通常の方法/.test(text(out)) && /別の方法\(XHR\)/.test(text(out)),
       "環境も添える": /fetch=/.test(text(out)),
       "JSONを落とす": /ダウンロード/.test(text(out)) || out?.ok === false,
+    }),
+  },
+  {
+    name: "保存先のドメインごと弾かれてもサイト経由で保存できる",
+    blockHost: "supabase.co",
+    jal: (seat) => jalOk(seat),
+    saver: () => res(200, { ok: true }),
+    check: (log, out) => ({
+      "完走する": ok(out),
+      "サイト経由で保存が通る": log.saved.length === 6,
     }),
   },
   {
@@ -312,7 +333,7 @@ const cases = [
     jal: (seat) => jalOk(seat),
     saver: () => res(503, { error: "落ちています" }),
     check: (log, out) => ({
-      "3回×2手段＝6回試す": log.saved.length === 6,
+      "3周×宛先2×手段2＝12回試す": log.saved.length === 12,
       "理由を出す": /保存できませんでした/.test(text(out)) && /落ちています/.test(text(out)),
     }),
   },
@@ -329,7 +350,7 @@ for (const shell of shells) {
   console.log(`\n=============== ${shell.name} ===============`);
   for (const c of cases) {
     FLIGHTS_PER_ROUTE = c.flightsPerRoute || 1;
-    const env = makeEnv({ jal: c.jal, saver: c.saver, blockFetchOnly: c.blockFetchOnly, hangSave: c.hangSave });
+    const env = makeEnv({ jal: c.jal, saver: c.saver, blockFetchOnly: c.blockFetchOnly, hangSave: c.hangSave, blockHost: c.blockHost });
     vm.createContext(env);
     vm.runInContext(source, env);
 
