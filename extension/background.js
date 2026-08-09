@@ -45,7 +45,19 @@ const endRun = () => chrome.storage.local.remove("runningSince").catch(() => {})
 
 /* ------------------------------------------------------------------ 小道具 */
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/* Service Worker は「chrome.*のAPI呼び出しが何も無い素の待ち」が続くと、
+   Chromeの判断で無言のまま終了させられることがある（2026-08-10、朝7時の
+   自動更新がこの30秒待ちの最中に落ちて、進捗もエラーも記録されず消えた実績あり）。
+   長く待つときは軽いAPI呼び出しを挟んで、Service Workerを起こしたままにする。 */
+async function sleep(ms) {
+  const STEP_MS = 15000;
+  let remaining = ms;
+  while (remaining > 0) {
+    await new Promise((r) => setTimeout(r, Math.min(STEP_MS, remaining)));
+    remaining -= STEP_MS;
+    if (remaining > 0) await chrome.storage.local.get("runningSince").catch(() => {});
+  }
+}
 
 async function getKey() {
   const { updateKey } = await chrome.storage.local.get("updateKey");
@@ -221,9 +233,32 @@ async function runAuto() {
 
 /* ------------------------------------------------------------ 依頼を拾う */
 
+/* sleep() を keep-alive にしても、Service Worker が本当に落ちることはありうる
+   （Chrome自体の再起動・強制終了など）。落ちると runningSince が残ったまま
+   誰も片付けないので、そのジョブの想定所要時間を大きく超えていたら「無応答」と
+   みなして自分で片付け、次の周期ですぐ拾い直す。50分固定だった旧実装だと、
+   1日分（20分程度）のジョブが落ちても最大50分も次を拾えなかった。 */
+async function watchdog() {
+  const { runningSince = 0, job = null } = await chrome.storage.local.get(["runningSince", "job"]);
+  if (!runningSince) return false;
+  const days = Array.isArray(job?.days) && job.days.length ? job.days.length : 2;
+  const maxMs = COLLECT_MS_PER_DAY * days + 5 * 60 * 1000; // 収集の上限＋余裕5分
+  if (Date.now() - runningSince < maxMs) return true; // まだ動いていておかしくない
+
+  await log(`自動復旧: 前回の収集が無応答のため中断扱いにしました（依頼#${job?.id ?? "-"}）`);
+  if (job?.id) {
+    await api(`?action=finish&id=${job.id}`, {
+      method: "POST",
+      body: JSON.stringify({ ok: false, message: "拡張のバックグラウンド処理が途中で止まりました" }),
+    }).catch(() => {});
+  }
+  await chrome.storage.local.remove(["runningSince", "job"]).catch(() => {});
+  setBadge("");
+  return false;
+}
+
 async function poll() {
-  const { runningSince = 0 } = await chrome.storage.local.get("runningSince");
-  if (runningSince && Date.now() - runningSince < 50 * 60 * 1000) return; // 収集中
+  if (await watchdog()) return; // 収集中（本当にまだ動いていそうなときだけ待つ）
   if (!(await getKey())) return; // 未設定のうちは何もしない
   try {
     const res = await api("?action=claim");
