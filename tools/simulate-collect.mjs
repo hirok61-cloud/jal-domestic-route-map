@@ -102,6 +102,7 @@ function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日" }) {
     setTimeout: (fn, ms) => setTimeout(fn, Math.min(ms || 0, 3)),
     clearTimeout, setInterval, clearInterval, queueMicrotask,
     Date, JSON, Math, Object, Array, String, Number, Promise, Map, Set, Error, console,
+    AbortController,
     // 拡張との受け渡し
     chrome: {
       storage: { local: { get: async () => ({ updateKey: "TESTKEY", job: { id: 1, days: [0, 1] } }) } },
@@ -113,10 +114,17 @@ function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日" }) {
       },
     },
     fetch: async (url, init) => {
+      // 打ち切り（AbortController）が効くことも試したいので、signal を尊重する
+      if (init?.signal) {
+        if (init.signal.aborted) throw Object.assign(new Error("aborted"), { name: "AbortError" });
+        var aborted = new Promise((_, rej) => init.signal.addEventListener("abort",
+          () => rej(Object.assign(new Error("aborted"), { name: "AbortError" }))));
+      }
+      const race = (p) => (init?.signal ? Promise.race([p, aborted]) : p);
       if (String(url).includes("api.dom.jal.co.jp")) {
         const seat = String(url).includes("seatmaps");
         if (seat) log.seatmaps++; else log.searches++;
-        return jal(seat, init, log);
+        return race(Promise.resolve().then(() => jal(seat, init, log)));
       }
       if (String(url).includes("action=finish")) return res(200, { ok: true });
       log.saved.push(JSON.parse(init.body));
@@ -215,6 +223,16 @@ const cases = [
     check: (log, out) => ({
       "やり直して完走する": ok(out),
       "保存を試した回数が増える": log.saved.length === 5,
+    }),
+  },
+  {
+    name: "座席表の返事が返ってこなくても止まらない",
+    jal: (seat) => (seat ? new Promise(() => {}) : jalOk(false)), // 座席表だけ永久に待たせる
+    saver: () => res(200, { ok: true }),
+    check: (log, out) => ({
+      "打ち切って最後まで進む": ok(out),
+      "座席表は全便ぶん試している": log.seatmaps === 140,
+      "保存は1日2回＝計4回": log.saved.length === 4,
     }),
   },
   {

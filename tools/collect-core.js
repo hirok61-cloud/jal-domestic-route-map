@@ -39,6 +39,23 @@ export const jstDate = (offsetDays) => {
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/* 返事が返ってこないリクエストで収集全体が止まらないようにする。
+   タイムアウトを持たせていなかったため、1本ハングすると先へ進めず、
+   「進捗が止まったため中断しました」で終わっていた（座席表 91/231 で実際に発生）。
+   打ち切れば呼び出し側が例外として拾い、その1便を飛ばして続けられる。 */
+const TIMEOUT_MS = 30000;
+async function fetchWithTimeout(url, init) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal });
+  } catch (e) {
+    throw ctrl.signal.aborted ? new Error(`応答がありません（${TIMEOUT_MS / 1000}秒）`) : e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /* statusCode は HK=確保可 / HL=キャンセル待ち(満席)。ただし「対象者限定」の運賃は
    満席の便でも HK・quota 0 を返すので、空席の判定は quota の最大値で行う。 */
 function fold(payload) {
@@ -110,7 +127,7 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
 
   /** 1区間分空席照会する。 */
   async function search(origin, destination, date) {
-    const res = await fetch(API, {
+    const res = await fetchWithTimeout(API, {
       method: "POST",
       credentials: "include",
       headers: headers(),
@@ -159,7 +176,7 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
      指定できる席は別管理で、JALは当日空港割り当て分を確保しているため、
      運賃が「空席あり」でも座席表は埋まっていることがある。 */
   async function seatmap(route, flight, date) {
-    const res = await fetch(SEATMAP_API, {
+    const res = await fetchWithTimeout(SEATMAP_API, {
       method: "POST",
       credentials: "include",
       headers: headers(),
@@ -219,7 +236,7 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
     let last = "";
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        const res = await fetch(ENDPOINT, {
+        const res = await fetchWithTimeout(ENDPOINT, {
           method: "POST",
           headers: { "content-type": "application/json", "x-update-key": updateKey },
           body: JSON.stringify(snap),

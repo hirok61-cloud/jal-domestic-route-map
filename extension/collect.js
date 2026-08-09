@@ -52,6 +52,18 @@
     return t.toISOString().slice(0, 10);
   };
   var sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  var TIMEOUT_MS = 3e4;
+  async function fetchWithTimeout(url, init) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+    try {
+      return await fetch(url, { ...init, signal: ctrl.signal });
+    } catch (e) {
+      throw ctrl.signal.aborted ? new Error(`応答がありません（${TIMEOUT_MS / 1e3}秒）`) : e;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
   function fold(payload) {
     const flights = (payload.dictionaries || {}).flight || {};
     const byFlight = /* @__PURE__ */ new Map();
@@ -109,7 +121,7 @@
       "ama-client-ref": crypto.randomUUID() + "--" + crypto.randomUUID()
     });
     async function search(origin, destination, date) {
-      const res = await fetch(API, {
+      const res = await fetchWithTimeout(API, {
         method: "POST",
         credentials: "include",
         headers: headers(),
@@ -146,7 +158,7 @@
       codeStats.sample = JSON.stringify({ seat, traveler }).slice(0, 700);
     };
     async function seatmap(route, flight, date) {
-      const res = await fetch(SEATMAP_API, {
+      const res = await fetchWithTimeout(SEATMAP_API, {
         method: "POST",
         credentials: "include",
         headers: headers(),
@@ -201,7 +213,7 @@
       let last = "";
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-          const res = await fetch(ENDPOINT, {
+          const res = await fetchWithTimeout(ENDPOINT, {
             method: "POST",
             headers: { "content-type": "application/json", "x-update-key": updateKey },
             body: JSON.stringify(snap)
