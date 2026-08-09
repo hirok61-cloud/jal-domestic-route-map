@@ -16,7 +16,11 @@
 // サーバからの取得は403、空席APIのCORSも booking.jal.co.jp オリジン固定。
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
-const UPDATE_KEY = Deno.env.get("JAL_SEATS_UPDATE_KEY") ?? "YhainQDvJix0rT3rcyqfyKPvslt65ecU";
+/* 合言葉は Supabase の環境変数にだけ置く。ここに既定値を書かないこと。
+   2026-08-09、既定値を書いたまま public リポジトリに push されていて、
+   誰でも読める状態だった（＝誰でもスナップショットを上書きできた）。
+   未設定なら書き込みを一切通さない。黙って既定値に戻るより、止まったほうがよい。 */
+const UPDATE_KEY = Deno.env.get("JAL_SEATS_UPDATE_KEY") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SNAPSHOTS = "jal_seat_snapshots";
@@ -36,6 +40,10 @@ const json = (body: unknown, status = 200, extra: Record<string, string> = {}) =
     status,
     headers: { ...CORS, "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...extra },
   });
+
+/* 弾いた理由を分けておく。環境変数の設定漏れと、合言葉違いは対処が別。 */
+const denied = () =>
+  json({ error: UPDATE_KEY ? "合言葉が違います" : "保存先の合言葉が未設定です（JAL_SEATS_UPDATE_KEY）" }, 401);
 
 const db = (path: string, init: RequestInit = {}) =>
   fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -81,7 +89,7 @@ Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
   const action = url.searchParams.get("action") ?? "";
   const hub = url.searchParams.get("hub") ?? "HND";
-  const authed = req.headers.get("x-update-key") === UPDATE_KEY;
+  const authed = UPDATE_KEY !== "" && req.headers.get("x-update-key") === UPDATE_KEY;
 
   /* ---------------------------------------------------------- 依頼を積む */
   if (req.method === "POST" && action === "request") {
@@ -129,7 +137,7 @@ Deno.serve(async (req: Request) => {
 
   /* ------------------------------------------------- 依頼を拾う（収集側） */
   if (req.method === "GET" && action === "claim") {
-    if (!authed) return json({ error: "合言葉が違います" }, 401);
+    if (!authed) return denied();
     await rpc("jal_expire_stale_requests");
     const rows = await db(`${REQUESTS}?status=eq.pending&order=requested_at.asc&limit=1&select=id,hub,day_offsets`)
       .then((r) => r.json()).catch(() => []);
@@ -148,7 +156,7 @@ Deno.serve(async (req: Request) => {
 
   /* ------------------------------------------------------ 進捗を書き込む */
   if (req.method === "POST" && action === "progress") {
-    if (!authed) return json({ error: "合言葉が違います" }, 401);
+    if (!authed) return denied();
     const id = Number(url.searchParams.get("id"));
     const body = await req.json().catch(() => ({}));
     await db(`${REQUESTS}?id=eq.${id}`, {
@@ -160,7 +168,7 @@ Deno.serve(async (req: Request) => {
 
   /* -------------------------------------------------------- 依頼を閉じる */
   if (req.method === "POST" && action === "finish") {
-    if (!authed) return json({ error: "合言葉が違います" }, 401);
+    if (!authed) return denied();
     const id = Number(url.searchParams.get("id"));
     const body = await req.json().catch(() => ({}));
     await db(`${REQUESTS}?id=eq.${id}`, {
@@ -243,7 +251,7 @@ Deno.serve(async (req: Request) => {
 
   /* ------------------------------------------ スナップショットを上書き */
   if (req.method !== "POST") return json({ error: "許可されていないメソッドです" }, 405);
-  if (!authed) return json({ error: "合言葉が違います" }, 401);
+  if (!authed) return denied();
 
   const raw = await req.text();
   if (raw.length > MAX_BODY) return json({ error: "データが大きすぎます" }, 413);

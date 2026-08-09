@@ -88,9 +88,22 @@ JALの予約画面（人のブラウザ）
 - テーブル `jal_seat_snapshots` / `jal_seat_history` / `jal_seat_requests`
 - 関数 `jal_expire_stale_requests` / `jal_prune_old_snapshots` / `jal_prune_old_history`
 
-**書き込み用の合言葉**は `x-update-key` ヘッダ。**リポジトリには置いていない**
-（収集スクリプトは公開配信されるため）。ブックマークレットと拡張だけが持つ。
-変えるときは Edge Function の環境変数 `JAL_SEATS_UPDATE_KEY` を設定する。
+**書き込み用の合言葉**は `x-update-key` ヘッダ。**置き場所は Supabase の環境変数
+`JAL_SEATS_UPDATE_KEY` だけ**で、リポジトリには一切置かない。
+持っているのはブックマークレット（URLに埋め込まれる）と拡張（`chrome.storage.local`）。
+
+- **未設定なら書き込みを全部拒否する**（fail closed）。以前は「環境変数が無ければ
+  既定値を使う」と書いてあり、その既定値がソースに直書きされたまま public リポジトリに
+  push されていた。2026-08-09 に発覚し、合言葉を入れ替えた
+- `npm run check:secrets`（`tools/check-secrets.mjs`）がコミット前に見張る。
+  **照合はハッシュで行い、値そのものはどこにも書かない。** ハッシュの一覧は
+  追跡しない `.secret-hashes`（.gitignore 済み）。新しい端末では
+  `printf '%s' '合言葉' | node tools/check-secrets.mjs --add` で作る
+- `.git/hooks/pre-commit` に仕掛けてある（フックは追跡されないので端末ごとに入れ直す）
+- **合言葉を変える順番**: ①Supabaseの環境変数を新しい値にする →
+  ②拡張のオプションを貼り替え → ③`/seats/update.html` でブックマークレットを
+  作り直して登録し直す（合言葉はURLに埋め込まれているので再登録が必須）。
+  ②③のあいだ更新は「合言葉が違います」で弾かれるが、収集は手動なので実害はない
 
 ### Edge Function の口
 

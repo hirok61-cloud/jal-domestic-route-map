@@ -84,7 +84,9 @@ JALの予約画面（人が開いたブラウザ）
   Edge Function が service role で行う）
 - **合言葉はこのリポジトリに置かない。** ブックマークレット（＝利用者のブラウザ）
   だけが持ち、`window.__JAL_SEATS_KEY` として収集スクリプトに渡す。
-  変える場合は Edge Function の環境変数 `JAL_SEATS_UPDATE_KEY` を設定する。
+  置き場所は Edge Function の環境変数 `JAL_SEATS_UPDATE_KEY` だけ。
+  **未設定なら書き込みを全部拒否する**（黙って既定値に戻らない）。
+  コミット前に `npm run check:secrets` が見張っている。
 
 ## なぜブラウザ上で収集するのか
 

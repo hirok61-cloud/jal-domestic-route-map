@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "build:bookmarklet": "node tools/build-bookmarklet.mjs",
-    "test:collect": "node tools/simulate-collect.mjs"
+    "test:collect": "node tools/simulate-collect.mjs",
+    "check:secrets": "node tools/check-secrets.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.1"
