@@ -203,14 +203,19 @@ td.fno{font-weight:700;color:var(--red)}
 .seatrowseats::-webkit-scrollbar{display:none}
 /* グループ間の隙間＝通路。ここが2つあれば通路2本、1つなら通路1本と分かる */
 .seataisle{flex:none;width:12px}
+/* 幅は固定（min-widthではなくwidth）。非常口・足元のタグが付くと横に
+   伸びて、同じ列でもタグの有無で位置がズレていたため（例: H列だけ
+   「非常口・足元」で幅が変わり、右隣のJ・K列が行ごとに前後する）。
+   幅を固定し、タグは横に並べず<i>ごと（=flexの列で1行ずつ）縦に積む。 */
 .seatchip{display:inline-flex;flex:none;flex-direction:column;align-items:center;gap:0;
-  min-width:26px;padding:3px 4px;border-radius:7px;border:1.5px solid var(--panel-edge);
+  width:30px;padding:3px 2px;border-radius:7px;border:1.5px solid var(--panel-edge);
   background:var(--bg);font-size:10.5px;font-weight:700;font-variant-numeric:tabular-nums;
-  line-height:1.2;white-space:nowrap}
+  line-height:1.2}
+.seatchip b{white-space:nowrap}
 .seatchip.w{border-color:var(--hover)}
 .seatchip.a{border-color:var(--gold)}
 .seatchip.pick{border-color:var(--ok);background:var(--ok-bg);color:var(--ok)}
-.seatchip i{font-style:normal;font-weight:700;font-size:7.5px;letter-spacing:0;opacity:.85}
+.seatchip i{display:block;white-space:nowrap;font-style:normal;font-weight:700;font-size:7.5px;letter-spacing:0;opacity:.85}
 /* 空席の情報が無い列。位置の骨格だけ薄く見せる */
 .seatchip.ghost{border-style:dashed;border-color:var(--panel-edge);color:var(--sub);
   opacity:.4;background:transparent}
@@ -482,14 +487,16 @@ function seatCell(route, f){
   return `<button type="button" class="seatcell" data-seat-id="${id}">${inner}</button>`;
 }
 
-/** 空いている席のチップ。座席番号と、あれば非常口/足元のタグを出す。 */
+/** 空いている席のチップ。座席番号と、あれば非常口/足元のタグを出す。
+    タグが2つとも付くときは「・」で1つに繋げず、<i>を2つに分けて縦に積む
+    （幅を固定しているので、繋げると文字がはみ出すか縮小されてしまう）。 */
 function seatChip(s){
   const cls = ["seatchip"];
   if (s.window) cls.push("w");
   if (s.aisle) cls.push("a");
   if (s.exit || s.legroom) cls.push("pick");
   const tags = [s.exit && "非常口", s.legroom && "足元"].filter(Boolean);
-  return `<span class="${cls.join(" ")}"><b>${s.col}</b>${tags.length ? `<i>${tags.join("・")}</i>` : ""}</span>`;
+  return `<span class="${cls.join(" ")}"><b>${s.col}</b>${tags.map((t) => `<i>${t}</i>`).join("")}</span>`;
 }
 
 /** 席が無い/満席側の薄いプレースホルダ。列の形だけ伝える。 */
