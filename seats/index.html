@@ -313,6 +313,12 @@ footer a{color:var(--hover)}
     <input type="number" id="minok" min="1" inputmode="numeric" placeholder="座席数&gt;"
       title="「空席あり」（運賃残席9以上）か、座席表の実際の空きがこの数より多い便だけ表示します。運賃残席は9が上限のため、実数はこちらのほうが当てになります。"
       aria-label="座席表の空きがこの数より多い便だけ表示（空席ありは常に含む）">
+    <div class="seg" id="minokpresets" aria-label="よく使う座席数のショートカット">
+      <button type="button" data-min="5">5</button>
+      <button type="button" data-min="10">10</button>
+      <button type="button" data-min="20">20</button>
+      <button type="button" data-min="30">30</button>
+    </div>
   </div>
   <input type="search" id="apsearch" placeholder="空港名で絞り込み" aria-label="空港名で絞り込み">
   <div class="asof" id="asof"></div>
@@ -405,7 +411,12 @@ const geoRank = code => {
   return i < 0 ? GEO_ORDER.length : i;
 };
 
-const state = {dir:"all", seats:"avail", kind:"all", q:"", date:null, minOk:""};
+/* 「当日搭乗の目安」の数字は、毎回同じものを使うことが多いはずなので覚えておく。
+   合言葉と違って秘密ではないので localStorage でよい。 */
+const MINOK_KEY = "jalSeatsMinOk";
+const savedMinOk = localStorage.getItem(MINOK_KEY) || "";
+
+const state = {dir:"all", seats:"avail", kind:"all", q:"", date:null, minOk:savedMinOk};
 
 /* 座席の種類での絞り込み。値はそのまま便レコードのキーになっている
    （sw=窓側 / sl=通路側 / se=非常口 / sg=足元が広い）。 */
@@ -947,11 +958,37 @@ loadAvailability()
       const v = ev.target.value.trim().toLowerCase();
       timer = setTimeout(() => { state.q = v; render(); }, 150);
     });
+
+    /* 「当日搭乗の目安」。前回入れた数字を反映してから使う。
+       ショートカットのボタン（5/10/20/30）は、いま入っている数字と同じものを
+       押した状態で見せる（一致しなければどれも押されていない見た目にする）。 */
+    const $minok = document.getElementById("minok");
+    const $minokpresets = document.getElementById("minokpresets");
+    const syncMinokPresets = () => {
+      [...$minokpresets.children].forEach(b => b.classList.toggle("on", b.dataset.min === state.minOk));
+    };
+    const applyMinOk = (v) => {
+      state.minOk = v;
+      localStorage.setItem(MINOK_KEY, v);
+      syncMinokPresets();
+      render();
+    };
+    $minok.value = savedMinOk;
+    syncMinokPresets();
+
     let minokTimer;
-    document.getElementById("minok").addEventListener("input", ev => {
+    $minok.addEventListener("input", ev => {
       clearTimeout(minokTimer);
       const v = ev.target.value.trim();
-      minokTimer = setTimeout(() => { state.minOk = v; render(); }, 150);
+      minokTimer = setTimeout(() => applyMinOk(v), 150);
+    });
+    $minokpresets.addEventListener("click", ev => {
+      const b = ev.target.closest("button");
+      if (!b) return;
+      // 同じ数字をもう一度押したら解除する（トグル）
+      const v = state.minOk === b.dataset.min ? "" : b.dataset.min;
+      $minok.value = v;
+      applyMinOk(v);
     });
 
     /* 座席表の詳細。list は render() のたびに作り直すので、個々のボタンにではなく
