@@ -110,6 +110,8 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
   box-shadow:0 3px 12px color-mix(in srgb,var(--red) 38%,transparent);transition:transform .15s,opacity .15s}
 .refresh:hover:not(:disabled){transform:translateY(-1px)}
 .refresh:disabled{opacity:.6;cursor:default;transform:none}
+/* 制度枠（JALオンライン）の記録ボタン。空席の更新とは別物なので色を分ける */
+.refresh.corp{background:linear-gradient(135deg,#37618e,#24405e);box-shadow:none}
 .refresh .spin{width:11px;height:11px;border-radius:50%;flex:none;
   border:2px solid rgba(255,255,255,.45);border-top-color:#fff;display:none}
 .refresh.busy .spin{display:block;animation:spin .8s linear infinite}
@@ -324,6 +326,10 @@ footer a{color:var(--hover)}
   <div class="asof" id="asof"></div>
   <button class="refresh" id="refresh" title="JALから最新の空席を取り直します">
     <span class="spin" aria-hidden="true"></span><span id="refreshlabel">最新に更新</span>
+  </button>
+  <button class="refresh corp" id="corpbtn"
+    title="JALオンライン（制度利用）で予約できる便を記録します。先にJALオンラインにログインし、1回検索しておいてください">
+    <span class="spin" aria-hidden="true"></span><span id="corplabel">制度枠を記録</span>
   </button>
   <a class="updatelink" href="https://www.jal.co.jp/ja-jp/" target="_blank" rel="noopener">JAL公式サイト</a>
   <a class="updatelink" href="https://booking.jal.co.jp/jl/dom-corp/john-top" target="_blank" rel="noopener">JALオンライン</a>
@@ -927,6 +933,38 @@ $refresh.addEventListener("click", async () => {
   } catch (e) {
     setBusy(false);
     runbar(`<b>依頼を送れませんでした。</b> ${e.message}`, "err");
+  }
+});
+
+/* 制度枠（JALオンライン・法人）の記録。
+   空席の更新とは別のハブ(JOH)に依頼を積むだけで、拾うのは同じMacの拡張。
+   当日ぶんしか出ないので日の選択は無い。所要は70区間×2（法人＋公式）で約3分。
+   **先にJALオンラインにログインし、1回検索しておく必要がある**
+   （sessionStorageはタブ単位で、検索して初めて認証トークンが入るため）。 */
+const $corpbtn = document.getElementById("corpbtn");
+$corpbtn.addEventListener("click", async () => {
+  $corpbtn.disabled = true;
+  $corpbtn.classList.add("busy");
+  runbar("<b>制度枠の記録を依頼しています…</b>");
+  try {
+    const res = await fetch(`${REMOTE}?action=request&hub=JOH`, {
+      method: "POST",
+      headers: {"content-type": "application/json"},
+      body: JSON.stringify({from: extPresent ? "このPC" : "別の端末", days: [0]}),
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const {id} = await res.json();
+    if (extPresent) window.postMessage({type: "JAL_SEATS_RUN"}, "*");
+    const startedAt = Date.now();
+    runbar("<b>記録中…</b> JALオンラインで予約できる便を調べています（3分ほど）。"
+      + "ログインしていないと失敗します。");
+    clearInterval(polling);
+    polling = setInterval(() => pollRequest(id, startedAt).catch(() => {}), 3000);
+  } catch (e) {
+    runbar(`<b>依頼を送れませんでした。</b> ${e.message}`, "err");
+  } finally {
+    $corpbtn.disabled = false;
+    $corpbtn.classList.remove("busy");
   }
 });
 

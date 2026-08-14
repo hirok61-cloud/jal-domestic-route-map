@@ -53,6 +53,20 @@ const SAVE_ENDPOINTS = [
 ];
 
 export const HUB = "HND";
+
+/* 法人（JALオンライン）ぶんの置き場所。
+   Edge Function は (hub, 搭乗日) で1行なので、**ハブ名を分けるだけで
+   既存の空席データと混ざらない**。テーブルもEdge Functionも変更が要らない
+   （本番のEdge Functionはリポジトリ版と細部が違い、再デプロイすると
+   巻き戻る危険があるため、サーバを触らずに済むこの形にした）。
+   取り出すときは `?action=all&hub=JOH`。hub は英大文字3文字である必要がある。 */
+export const CORP_HUB = "JOH";
+
+/* 法人モードも**公式と同じ35路線・70区間**を見る（2026-08-15、本人の希望で
+   7路線の抜粋から変更）。区間が一致していると、公式の日次スナップショット
+   （hub=HND・同じ日付）と便名で突き合わせるときに欠けが出ない。
+   法人モードは1区間につき法人＋公式の2回叩くので、1回の掃引は
+   140リクエスト・約3分（座席表は取らないので、公式収集の8〜10分よりは短い）。 */
 export const SPOKES = [
   "AKJ", "AOJ", "ASJ", "AXT", "CTS", "FUK", "GAJ", "HIJ", "HKD", "ISG",
   "ITM", "IZO", "KCZ", "KIX", "KKJ", "KMI", "KMJ", "KMQ", "KOJ", "KUH",
@@ -247,6 +261,14 @@ function describeError(payload) {
   if (!err) return ["empty", "残りの便なし"];
   const text = (err.title || err.detail || err.code || "").toLowerCase();
   if (text.includes("cancel")) return ["cancelled", "全便欠航"];
+  /* 法人（JALオンライン）の検索では、その区間・日付にこの契約で買える運賃が
+     無いときに JSL001E009 が返る。**これは異常ではなく通常の応答**で、
+     70区間のうち大半がこれになることもある。"error" に分類すると
+     「3区間続けて error ならセッション拒否」の安全弁に引っかかって
+     毎回中断してしまうので、必ず empty 扱いにすること。 */
+  if (err.code === "JSL001E009" || text.includes("fare and route")) {
+    return ["empty", "この契約では取り扱いなし"];
+  }
   if (text.includes("no flight") || text.includes("not found")) return ["empty", "残りの便なし"];
   return ["error", err.title || err.code || "取得失敗"];
 }
@@ -259,8 +281,11 @@ function describeError(payload) {
  * @param runId       この収集の識別子。同じ収集の2度目の保存を見分けるのに使う
  * @param report      進捗を外に伝える。呼び出し側が画面に出す
  * @param onSaveFailed 保存を諦めたときに呼ぶ（ブックマークレットはJSONを落とす）
+ * @param corporate   JALオンライン（法人・制度利用）として集めるか。
+ *                    true のとき、検索条件が法人向けに変わり、座席表は取らず、
+ *                    保存先のハブが CORP_HUB になる。詳細は docs/JAL_ONLINE_CORP.md
  */
-export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFailed }) {
+export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFailed, corporate = false }) {
   const headers = () => ({
     accept: "application/json",
     "content-type": "application/json",
@@ -269,8 +294,8 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
     "ama-client-ref": crypto.randomUUID() + "--" + crypto.randomUUID(),
   });
 
-  /** 1区間分空席照会する。 */
-  async function search(origin, destination, date) {
+  /** 1区間分空席照会する。asCorp で法人／一般を切り替える（既定はこの収集のモード）。 */
+  async function search(origin, destination, date, asCorp = corporate) {
     const res = await fetchWithTimeout(API, {
       method: "POST",
       credentials: "include",
@@ -283,7 +308,12 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
           departureDateTime: date + "T00:00:00.000",
           isRequestedBound: true,
         }],
-        jalSearchPreferences: { discountCode: "JCF", isCorporate: false },
+        /* 一般＝JCF・非法人。法人（JALオンライン）＝NONE・法人。
+           実機のJOHNが送っている本文をそのまま採ったもので、
+           **叩くAPIもヘッダも認証もまったく同じ。違いはここだけ**。 */
+        jalSearchPreferences: asCorp
+          ? { discountCode: "NONE", isCorporate: true }
+          : { discountCode: "JCF", isCorporate: false },
         searchPreferences: { showSoldOut: true, includeWaitlist: true },
         contentVersionId: CONTENT_VERSION,
       }),
@@ -501,6 +531,18 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
       if (res.status !== 200) {
         entry.status = "error";
         entry.message = res.thrown ? "通信できず（" + res.thrown + "）" : "HTTP " + res.status;
+      } else if (payload.message && !payload.data && !payload.errors) {
+        /* セッション切れ。**`errors` ではなく `message` で返る**ので、
+           拾わないと「便が0件」に見えてしまう（2026-08-15に実際に踏んだ）。
+           画面はログイン済みのまま見えるので、なお気づきにくい。
+           回復しないので、その場で止める。 */
+        throw new Error(
+          "JALのセッションが切れています（" + String(payload.message).slice(0, 60) + "）。"
+          + (corporate
+            ? "JALオンラインにログインし直し、企業（ＬＴ００）を選び、"
+              + "一度検索してから実行してください。"
+            : "空席照会の画面を開き直してから、もう一度実行してください。"),
+        );
       } else if (payload.errors) {
         [entry.status, entry.message] = describeError(payload);
       } else {
@@ -508,6 +550,31 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
         entry.status = entry.flights.length ? "ok" : "empty";
         if (!entry.flights.length) entry.message = "残りの便なし";
       }
+      /* 法人モードでは、**同じ瞬間の公式の空席もあわせて取る**。
+         「制度枠が出る便と出ない便の違い」を後から分析するための材料。
+         公式ぶんを別途取ると数時間ずれてしまう（実搭乗率は刻々と変わる）ので、
+         ここで並べて取る。1区間あたり2リクエストになるが、14区間なので約35秒。
+
+         保存する flights は**公式の全便**にして、各便が制度枠で取れるかを
+         `zl` に持たせる。こうすると「出た便」と「出なかった便」が同じ表に並び、
+         そのまま分析に使える。座席表の実数（sa）は公式の日次収集
+         （hub=HND・同じ日付）に入っているので、便名で後から突き合わせる。 */
+      if (corporate && entry.status !== "error") {
+        const bookable = new Set((entry.flights || []).map((f) => f.no));
+        entry.zlCount = bookable.size;
+        await sleep(DELAY_MS);
+        try {
+          const pub = await search(origin, destination, date, false);
+          const pl = pub.payload || {};
+          const pubFlights = pub.status === 200 && !pl.errors && !pl.message ? fold(pl) : [];
+          if (pubFlights.length) {
+            entry.flights = pubFlights.map((f) => ({ ...f, zl: bookable.has(f.no) }));
+            entry.status = "ok";
+            delete entry.message;
+          }
+        } catch { /* 公式が取れなくても、制度枠の記録は残す */ }
+      }
+
       routes.push(entry);
 
       /* 出だしから1区間も取れないのは、JALにセッションを弾かれているとき。
@@ -527,10 +594,16 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
       generatedAt: new Date().toISOString(),
       runId,
       date,
-      hub: HUB,
-      source: "JAL公式 空席照会API (api.dom.jal.co.jp/rmweb-api/search/air-bounds)",
-      note: "残席数は9が上限（9席以上でも9と返る）。普通席=eco / クラスJ=clsj / ファースト=first。"
-        + " sa=座席表で選べる普通席数 / st=普通席の総座席数。",
+      hub: corporate ? CORP_HUB : HUB,
+      source: corporate
+        ? "JALオンライン（法人・制度利用）の空席照会 (api.dom.jal.co.jp/rmweb-api/search/air-bounds)"
+        : "JAL公式 空席照会API (api.dom.jal.co.jp/rmweb-api/search/air-bounds)",
+      note: corporate
+        ? "flights は公式の全便。zl=true がその時点で制度で予約できた便。"
+          + " eco は公式の運賃残席（9が上限）。座席表(sa)は取っていないので、"
+          + " 必要なら同じ日付の hub=HND のスナップショットと便名で突き合わせる。"
+        : "残席数は9が上限（9席以上でも9と返る）。普通席=eco / クラスJ=clsj / ファースト=first。"
+          + " sa=座席表で選べる普通席数 / st=普通席の総座席数。",
       routes,
       // 座席属性コードの実地調査ぶん（窓側の数え方を直すための材料。表示には使わない）
       ...(codeStats.n ? { codes: codeStats } : {}),
@@ -542,10 +615,30 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
       throw new Error("JALから空席を取得できませんでした（セッションが弾かれた可能性）");
     }
 
+    /* 法人モードで1便も見つからないときは保存しない。
+       この状態は次の3つの区別がつかないため:
+         (a) JALオンラインにログインしていない
+         (b) ログインはしたが企業（ＬＴ００）を選んでいない
+         (c) 本当にその日の制度枠がゼロ
+       (a)(b)でも全区間が JSL001E009「取り扱いなし」になるとみられ、
+       そのまま保存すると「予約できる便は無い」と表示され続けてしまう。
+       既存の「全区間 error なら保存しない」と同じ考え方で、止めて理由を出す。
+       ※(c) が実際に起きうるなら、この判定は見直すこと（実データ待ち）。 */
+    if (corporate && !routes.some((r) => r.zlCount > 0)) {
+      throw new Error(
+        "制度で予約できる便が1件も見つかりませんでした。"
+        + "JALオンラインにログインし、企業（ＬＴ００）を選んだ状態で実行してください。"
+        + "（本当にその日の枠がゼロのときも同じ表示になります）",
+      );
+    }
+
     const count = (fn) => routes.reduce((n, r) => n + (r.flights || []).filter(fn).length, 0);
     const stats = {
       flights: routes.reduce((n, r) => n + (r.flights || []).length, 0),
-      withSeats: count((f) => f.eco > 0),
+      // 法人では「制度で取れた便数」を数える（eco は公式の残席なので意味が違う）
+      withSeats: corporate
+        ? routes.reduce((n, r) => n + (r.zlCount || 0), 0)
+        : count((f) => f.eco > 0),
       failed: routes.filter((r) => r.status === "error").length,
       seatChecked: 0,
       seatZero: 0,
@@ -554,6 +647,10 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
     // 運賃ベースの結果をまず保存する（座席表の途中で止まっても無駄にならない）
     report("saving", { label, stats, phase: "fares" });
     await save(snapshot());
+
+    /* 法人（JALオンライン）は「その便を制度で予約できるか」だけが要るので、
+       ここで終わり。座席表は1便2.3秒かかるうえ、制度枠の判断には使わない。 */
+    if (corporate) return stats;
 
     /* 運賃が「空席あり」の便だけ座席表を見る。満席の便は見ても意味がない。
        運賃の在庫と座席表は別管理なので、ここで実際に選べる席数が分かる。 */

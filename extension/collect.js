@@ -1,6 +1,6 @@
 /* 生成物。編集しないこと。もとは tools/collect-core.js と collect-extension.js。
    直したら npm run build:bookmarklet && npm run test:collect && npm run purge:cdn */
-var __JAL_SEATS_BUILD__ = "2026-08-09 23:14Z";
+var __JAL_SEATS_BUILD__ = "2026-08-14 21:27Z";
 (() => {
   // tools/collect-core.js
   var ENDPOINT = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats";
@@ -9,6 +9,7 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 23:14Z";
     { url: "https://jal-seats-relay2.vercel.app/api/save", name: "中継経由", ways: ["fetch", "xhr", "iframe"] }
   ];
   var HUB = "HND";
+  var CORP_HUB = "JOH";
   var SPOKES = [
     "AKJ",
     "AOJ",
@@ -192,11 +193,14 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 23:14Z";
     if (!err) return ["empty", "残りの便なし"];
     const text = (err.title || err.detail || err.code || "").toLowerCase();
     if (text.includes("cancel")) return ["cancelled", "全便欠航"];
+    if (err.code === "JSL001E009" || text.includes("fare and route")) {
+      return ["empty", "この契約では取り扱いなし"];
+    }
     if (text.includes("no flight") || text.includes("not found")) return ["empty", "残りの便なし"];
     return ["error", err.title || err.code || "取得失敗"];
   }
   function createRun({ auth, updateKey, runId, report = () => {
-  }, onSaveFailed }) {
+  }, onSaveFailed, corporate = false }) {
     const headers = () => ({
       accept: "application/json",
       "content-type": "application/json",
@@ -204,7 +208,7 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 23:14Z";
       "x-api-key": API_KEY,
       "ama-client-ref": crypto.randomUUID() + "--" + crypto.randomUUID()
     });
-    async function search(origin, destination, date) {
+    async function search(origin, destination, date, asCorp = corporate) {
       const res = await fetchWithTimeout(API, {
         method: "POST",
         credentials: "include",
@@ -217,7 +221,10 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 23:14Z";
             departureDateTime: date + "T00:00:00.000",
             isRequestedBound: true
           }],
-          jalSearchPreferences: { discountCode: "JCF", isCorporate: false },
+          /* 一般＝JCF・非法人。法人（JALオンライン）＝NONE・法人。
+             実機のJOHNが送っている本文をそのまま採ったもので、
+             **叩くAPIもヘッダも認証もまったく同じ。違いはここだけ**。 */
+          jalSearchPreferences: asCorp ? { discountCode: "NONE", isCorporate: true } : { discountCode: "JCF", isCorporate: false },
           searchPreferences: { showSoldOut: true, includeWaitlist: true },
           contentVersionId: CONTENT_VERSION
         })
@@ -398,12 +405,32 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 23:14Z";
         if (res.status !== 200) {
           entry.status = "error";
           entry.message = res.thrown ? "通信できず（" + res.thrown + "）" : "HTTP " + res.status;
+        } else if (payload.message && !payload.data && !payload.errors) {
+          throw new Error(
+            "JALのセッションが切れています（" + String(payload.message).slice(0, 60) + "）。" + (corporate ? "JALオンラインにログインし直し、企業（ＬＴ００）を選び、一度検索してから実行してください。" : "空席照会の画面を開き直してから、もう一度実行してください。")
+          );
         } else if (payload.errors) {
           [entry.status, entry.message] = describeError(payload);
         } else {
           entry.flights = fold(payload);
           entry.status = entry.flights.length ? "ok" : "empty";
           if (!entry.flights.length) entry.message = "残りの便なし";
+        }
+        if (corporate && entry.status !== "error") {
+          const bookable = new Set((entry.flights || []).map((f) => f.no));
+          entry.zlCount = bookable.size;
+          await sleep(DELAY_MS);
+          try {
+            const pub = await search(origin, destination, date, false);
+            const pl = pub.payload || {};
+            const pubFlights = pub.status === 200 && !pl.errors && !pl.message ? fold(pl) : [];
+            if (pubFlights.length) {
+              entry.flights = pubFlights.map((f) => ({ ...f, zl: bookable.has(f.no) }));
+              entry.status = "ok";
+              delete entry.message;
+            }
+          } catch {
+          }
         }
         routes.push(entry);
         if (routes.length >= 3 && !routes.some((r) => r.status !== "error")) {
@@ -417,9 +444,9 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 23:14Z";
         generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
         runId,
         date,
-        hub: HUB,
-        source: "JAL公式 空席照会API (api.dom.jal.co.jp/rmweb-api/search/air-bounds)",
-        note: "残席数は9が上限（9席以上でも9と返る）。普通席=eco / クラスJ=clsj / ファースト=first。 sa=座席表で選べる普通席数 / st=普通席の総座席数。",
+        hub: corporate ? CORP_HUB : HUB,
+        source: corporate ? "JALオンライン（法人・制度利用）の空席照会 (api.dom.jal.co.jp/rmweb-api/search/air-bounds)" : "JAL公式 空席照会API (api.dom.jal.co.jp/rmweb-api/search/air-bounds)",
+        note: corporate ? "flights は公式の全便。zl=true がその時点で制度で予約できた便。 eco は公式の運賃残席（9が上限）。座席表(sa)は取っていないので、 必要なら同じ日付の hub=HND のスナップショットと便名で突き合わせる。" : "残席数は9が上限（9席以上でも9と返る）。普通席=eco / クラスJ=clsj / ファースト=first。 sa=座席表で選べる普通席数 / st=普通席の総座席数。",
         routes,
         // 座席属性コードの実地調査ぶん（窓側の数え方を直すための材料。表示には使わない）
         ...codeStats.n ? { codes: codeStats } : {}
@@ -427,16 +454,23 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 23:14Z";
       if (routes.every((r) => r.status === "error")) {
         throw new Error("JALから空席を取得できませんでした（セッションが弾かれた可能性）");
       }
+      if (corporate && !routes.some((r) => r.zlCount > 0)) {
+        throw new Error(
+          "制度で予約できる便が1件も見つかりませんでした。JALオンラインにログインし、企業（ＬＴ００）を選んだ状態で実行してください。（本当にその日の枠がゼロのときも同じ表示になります）"
+        );
+      }
       const count = (fn) => routes.reduce((n, r) => n + (r.flights || []).filter(fn).length, 0);
       const stats = {
         flights: routes.reduce((n, r) => n + (r.flights || []).length, 0),
-        withSeats: count((f) => f.eco > 0),
+        // 法人では「制度で取れた便数」を数える（eco は公式の残席なので意味が違う）
+        withSeats: corporate ? routes.reduce((n, r) => n + (r.zlCount || 0), 0) : count((f) => f.eco > 0),
         failed: routes.filter((r) => r.status === "error").length,
         seatChecked: 0,
         seatZero: 0
       };
       report("saving", { label, stats, phase: "fares" });
       await save(snapshot());
+      if (corporate) return stats;
       const targets = [];
       for (const r of routes) {
         for (const f of r.flights || []) if (f.eco > 0) targets.push([r, f]);
@@ -484,7 +518,8 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 23:14Z";
     if (!updateKey) return finish(false, { error: "合言葉が未設定です" });
     const creds = JSON.parse(sessionStorage.getItem("apiAuthCreds") || "{}");
     if (!creds.authToken) return finish(false, { error: "JALのセッションを取得できませんでした" });
-    const OFFSETS = Array.isArray(job?.days) && job.days.length ? job.days : [0, 1];
+    const corporate = job?.hub === CORP_HUB;
+    const OFFSETS = corporate ? [0] : Array.isArray(job?.days) && job.days.length ? job.days : [0, 1];
     const send = (path, body) => fetch(ENDPOINT + path, {
       method: "POST",
       headers: { "content-type": "application/json", "x-update-key": updateKey },
@@ -502,7 +537,8 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 23:14Z";
       auth: "Bearer " + creds.authToken,
       updateKey,
       runId: crypto.randomUUID(),
-      report
+      report,
+      corporate
     });
     const parts = [];
     try {
@@ -514,7 +550,7 @@ var __JAL_SEATS_BUILD__ = "2026-08-09 23:14Z";
           dayIndex: d,
           dayCount: OFFSETS.length
         });
-        parts.push(`${label} ${s.flights}便中${s.withSeats}便に空席` + (s.seatChecked ? `（座席表確認 ${s.seatChecked}便・うち座席表満席 ${s.seatZero}便）` : ""));
+        parts.push(corporate ? `${label} 制度で予約できる便 ${s.withSeats}便（${s.flights}便中）` : `${label} ${s.flights}便中${s.withSeats}便に空席` + (s.seatChecked ? `（座席表確認 ${s.seatChecked}便・うち座席表満席 ${s.seatZero}便）` : ""));
       }
       const summary = parts.join(" / ");
       if (job?.id) await send(`?action=finish&id=${job.id}`, { ok: true, message: summary });

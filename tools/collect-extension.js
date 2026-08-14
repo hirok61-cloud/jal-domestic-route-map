@@ -11,7 +11,7 @@
    直接 extension/collect.js を編集しないこと（次のビルドで消える）。
    =========================================================================== */
 
-import { createRun, jstDate, ENDPOINT } from "./collect-core.js";
+import { createRun, jstDate, ENDPOINT, CORP_HUB } from "./collect-core.js";
 
 (async () => {
   const finish = (ok, extra) =>
@@ -23,8 +23,17 @@ import { createRun, jstDate, ENDPOINT } from "./collect-core.js";
   const creds = JSON.parse(sessionStorage.getItem("apiAuthCreds") || "{}");
   if (!creds.authToken) return finish(false, { error: "JALのセッションを取得できませんでした" });
 
-  /* 依頼が日を指定していればそれに従う（0=今日 / 1=翌日）。 */
-  const OFFSETS = Array.isArray(job?.days) && job.days.length ? job.days : [0, 1];
+  /* 依頼のハブで、公式サイトぶんか JALオンライン（法人・制度利用）ぶんかを分ける。
+     依頼テーブルは前から hub を運んでいるので、サーバ側の変更は要らない
+     （`?action=request&hub=JOH` で積むと `?action=claim` が job.hub で返す）。 */
+  const corporate = job?.hub === CORP_HUB;
+
+  /* 依頼が日を指定していればそれに従う（0=今日 / 1=翌日）。
+     制度枠は当日ぶんしか出ない（翌日以降は「まだ解放されていない」が返る）ので、
+     法人モードでは翌日を見に行かない。詳細は docs/JAL_ONLINE_CORP.md */
+  const OFFSETS = corporate
+    ? [0]
+    : (Array.isArray(job?.days) && job.days.length ? job.days : [0, 1]);
 
   const send = (path, body) => fetch(ENDPOINT + path, {
     method: "POST",
@@ -48,6 +57,7 @@ import { createRun, jstDate, ENDPOINT } from "./collect-core.js";
     updateKey,
     runId: crypto.randomUUID(),
     report,
+    corporate,
   });
 
   const parts = [];
@@ -57,8 +67,10 @@ import { createRun, jstDate, ENDPOINT } from "./collect-core.js";
       const s = await run.collectDay({
         date: jstDate(OFFSETS[d]), label, dayIndex: d, dayCount: OFFSETS.length,
       });
-      parts.push(`${label} ${s.flights}便中${s.withSeats}便に空席`
-        + (s.seatChecked ? `（座席表確認 ${s.seatChecked}便・うち座席表満席 ${s.seatZero}便）` : ""));
+      parts.push(corporate
+        ? `${label} 制度で予約できる便 ${s.withSeats}便（${s.flights}便中）`
+        : `${label} ${s.flights}便中${s.withSeats}便に空席`
+          + (s.seatChecked ? `（座席表確認 ${s.seatChecked}便・うち座席表満席 ${s.seatZero}便）` : ""));
     }
 
     const summary = parts.join(" / ");

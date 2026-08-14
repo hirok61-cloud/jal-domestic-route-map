@@ -34,7 +34,7 @@ const res = (status, body) => ({
 const text = (out) => (typeof out === "string" ? out : JSON.stringify(out));
 
 /* ---- 偽ブラウザ。収集スクリプトが触るところだけ用意する ---- */
-function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日", blockFetchOnly, hangSave, blockHost }) {
+function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日", blockFetchOnly, hangSave, blockHost, job }) {
   const log = { saved: [], searches: 0, seatmaps: 0, finished: null, progress: [] };
 
   const node = (tag) => {
@@ -159,7 +159,7 @@ function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日", bloc
     },
     // 拡張との受け渡し
     chrome: {
-      storage: { local: { get: async () => ({ updateKey: "TESTKEY", job: { id: 1, days: [0, 1] } }) } },
+      storage: { local: { get: async () => ({ updateKey: "TESTKEY", job: job || { id: 1, days: [0, 1] } }) } },
       runtime: {
         sendMessage: (m) => {
           if (m.type === "collect-finished") log.finished = m;
@@ -243,7 +243,62 @@ const jalOk = (seat) => {
 
 const ok = (out) => /更新しました/.test(text(out)) || out?.ok === true;
 
+/* JALオンライン（法人・制度利用）の応答。
+   **大半の区間は JSL001E009 を返すのが正常**（その契約で買える運賃が無い区間）。
+   これを error 扱いにすると「3区間続けて error ならセッション拒否」で毎回止まる。 */
+const CORP_NO_FARE = () => res(200, {
+  errors: [{ code: "JSL001E009", title: "No flights due to fare and route constrain" }],
+});
+
 const cases = [
+  {
+    name: "法人モード：大半が取り扱いなしでも完走して保存する",
+    shellOnly: "Chrome拡張",
+    job: { id: 9, hub: "JOH", days: [0] },
+    jal: (seat) => jalOk(seat),
+    saver: () => res(200, { ok: true }),
+    check: (log, out) => ({
+      "70区間×(法人+公式)＝140回。翌日は解放されないので見に行かない": log.searches === 140,
+      "座席表は取らない": log.seatmaps === 0,
+      "保存は1回だけ": log.saved.length === 1,
+      "法人のハブで保存する": log.saved.at(-1).hub === "JOH",
+      "取り扱いなしは error ではなく empty": log.saved.at(-1).routes
+        .filter((r) => r.status === "error").length === 0,
+      "公式の全便を持ち、制度で取れるかを zl に持たせる": (() => {
+        const f = log.saved.at(-1).routes.flatMap((r) => r.flights || []);
+        return f.length > 0 && f.every((x) => typeof x.zl === "boolean");
+      })(),
+      "予約できる便を数えて返す": /制度で予約できる便/.test(text(out)),
+      "完了する": ok(out),
+    }),
+  },
+  {
+    name: "法人モード：セッション切れを検知して止まる",
+    shellOnly: "Chrome拡張",
+    job: { id: 11, hub: "JOH", days: [0] },
+    /* 認証切れは errors ではなく message で返る。これを拾えないと
+       「便が0件」に見えて、空のまま毎日記録し続けることになる（実際に踏んだ）。 */
+    jal: () => res(200, { message: "User is not authorized to access this resource" }),
+    saver: () => res(200, { ok: true }),
+    check: (log, out) => ({
+      "1区間目で止める（14区間叩ききらない）": log.searches <= 2,
+      "保存しない": log.saved.length === 0,
+      "セッション切れと分かる理由を出す": /セッションが切れ/.test(text(out)),
+      "失敗として終わる": !ok(out),
+    }),
+  },
+  {
+    name: "法人モード：1便も無いときは保存せずに理由を出す",
+    shellOnly: "Chrome拡張",
+    job: { id: 10, hub: "JOH", days: [0] },
+    jal: () => CORP_NO_FARE(),
+    saver: () => res(200, { ok: true }),
+    check: (log, out) => ({
+      "空のスナップショットを保存しない": log.saved.length === 0,
+      "ログインを促す理由を出す": /ログイン/.test(text(out)) && /ＬＴ００/.test(text(out)),
+      "失敗として終わる": !ok(out),
+    }),
+  },
   {
     name: "正常に完走する",
     jal: (seat) => jalOk(seat),
@@ -389,8 +444,10 @@ for (const shell of shells) {
   const source = await bundle(shell.entry);
   console.log(`\n=============== ${shell.name} ===============`);
   for (const c of cases) {
+    // 法人モードは拡張だけの配線（ブックマークレットには入れていない）
+    if (c.shellOnly && c.shellOnly !== shell.name) continue;
     FLIGHTS_PER_ROUTE = c.flightsPerRoute || 1;
-    const env = makeEnv({ jal: c.jal, saver: c.saver, blockFetchOnly: c.blockFetchOnly, hangSave: c.hangSave, blockHost: c.blockHost });
+    const env = makeEnv({ jal: c.jal, saver: c.saver, blockFetchOnly: c.blockFetchOnly, hangSave: c.hangSave, blockHost: c.blockHost, job: c.job });
     vm.createContext(env);
     vm.runInContext(source, env);
 
