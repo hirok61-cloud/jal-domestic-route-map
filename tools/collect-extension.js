@@ -41,12 +41,23 @@ import { createRun, jstDate, ENDPOINT, CORP_HUB } from "./collect-core.js";
     body: JSON.stringify(body),
   });
 
-  /* 進捗は10件ごとに送る。background.js は依頼の updated_at が5分止まったら
-     中断とみなすので、間隔を空けすぎないこと。 */
-  const post = (message) => chrome.runtime.sendMessage({ type: "collect-progress", job, message });
+  /* 進捗は「10件ごと、ただし前回から60秒たっていれば必ず」送る。
+     **件数だけで間引くと、遅い実行が誤って殺される。**
+     JALへのリクエストは30秒でタイムアウトする（TIMEOUT_MS）ので、
+     座席表が10便続けてタイムアウトすると 10×30秒＝300秒＝
+     「無進捗5分で中断」の閾値にちょうど達してしまう。
+     2026-08-15、実際にこれで「座席表 1/284（進捗が止まったため中断しました）」
+     と表示された（拡張側は失敗も完了も記録しておらず、まだ動いていた）。
+     時間でも送るようにして、生きている実行が黙って殺されないようにする。 */
+  let lastPostAt = 0;
+  const post = (message) => {
+    lastPostAt = Date.now();
+    chrome.runtime.sendMessage({ type: "collect-progress", job, message });
+  };
+  const due = (i) => i % 10 === 0 || Date.now() - lastPostAt > 60000;
   const report = (kind, x) => {
-    if (kind === "fares" && x.i % 10 === 0) post(`${x.label}分を取得中 ${x.i + 1}/${x.total}`);
-    else if (kind === "seats" && x.i % 10 === 0) post(`${x.label}分の座席表 ${x.i + 1}/${x.total}`);
+    if (kind === "fares" && due(x.i)) post(`${x.label}分を取得中 ${x.i + 1}/${x.total}`);
+    else if (kind === "seats" && due(x.i)) post(`${x.label}分の座席表 ${x.i + 1}/${x.total}`);
     else if (kind === "saving") post(`${x.label}分を保存しています`);
     else if (kind === "save-try") post(`保存を送信中（${x.host} / ${x.way} ${x.attempt}回目）`);
     else if (kind === "save-retry") post(`保存をやり直しています（${x.error}）`);

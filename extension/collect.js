@@ -1,6 +1,6 @@
 /* 生成物。編集しないこと。もとは tools/collect-core.js と collect-extension.js。
    直したら npm run build:bookmarklet && npm run test:collect && npm run purge:cdn */
-var __JAL_SEATS_BUILD__ = "2026-08-14 23:29Z";
+var __JAL_SEATS_BUILD__ = "2026-08-14 23:54Z";
 (() => {
   // tools/collect-core.js
   var ENDPOINT = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats";
@@ -530,10 +530,15 @@ var __JAL_SEATS_BUILD__ = "2026-08-14 23:29Z";
       headers: { "content-type": "application/json", "x-update-key": updateKey },
       body: JSON.stringify(body)
     });
-    const post = (message) => chrome.runtime.sendMessage({ type: "collect-progress", job, message });
+    let lastPostAt = 0;
+    const post = (message) => {
+      lastPostAt = Date.now();
+      chrome.runtime.sendMessage({ type: "collect-progress", job, message });
+    };
+    const due = (i) => i % 10 === 0 || Date.now() - lastPostAt > 6e4;
     const report = (kind, x) => {
-      if (kind === "fares" && x.i % 10 === 0) post(`${x.label}分を取得中 ${x.i + 1}/${x.total}`);
-      else if (kind === "seats" && x.i % 10 === 0) post(`${x.label}分の座席表 ${x.i + 1}/${x.total}`);
+      if (kind === "fares" && due(x.i)) post(`${x.label}分を取得中 ${x.i + 1}/${x.total}`);
+      else if (kind === "seats" && due(x.i)) post(`${x.label}分の座席表 ${x.i + 1}/${x.total}`);
       else if (kind === "saving") post(`${x.label}分を保存しています`);
       else if (kind === "save-try") post(`保存を送信中（${x.host} / ${x.way} ${x.attempt}回目）`);
       else if (kind === "save-retry") post(`保存をやり直しています（${x.error}）`);
