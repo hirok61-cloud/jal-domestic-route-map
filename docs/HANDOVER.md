@@ -173,7 +173,7 @@ JALのサイトを開いた状態で呼び出すと、30秒ほどで空席照会
 - **`fetch` が例外を投げるのとHTTPエラーは原因が別**。例外はCORSヘッダの付かない応答
   （＝Akamaiの遮断ページ）か通信断で、HTTPエラーはJALが返事はしている状態。
   区別して表示しないと切り分けができない
-- **一部の端末は保存先のドメインごと遮断される（対策済み・実機での完全解決は未確認）**。
+- **一部の端末は保存先のドメインごと遮断される（2026-08-14、実機での完全解決を確認済み）**。
   実機2台（Android・別のiPhone）で「70区間は取れるのに保存だけが必ず失敗する」状態を確認。
   **Supabase側のログでも、その時間帯（22:48〜23:15 JST）にPOSTが1件も届いていない。**
   JALのAPIは同じ `jal.co.jp` なので通り、第三者ドメインの `supabase.co` だけが落ちる。
@@ -196,9 +196,9 @@ JALのサイトを開いた状態で呼び出すと、30秒ほどで空席照会
     fetch/XHRのJS APIを一切使わず、通常のHTML `<form>` をiframeへPOSTする。
     結果はレスポンス本文を直接読めないので、中継が返すHTMLに仕込んだ
     `<script>` から `postMessage` で伝える。curlとBrowser paneでの単体検証
-    （818msで実際のSupabaseエラーが返る）までは通ったが、**実機での最終確認は
-    まだ**。詳細・実機での「内容をコピー」の実際の文面・デプロイの注意点は
-    `docs/HANDOVER_ANDROID_SAVE_ISSUE.md` の「2026-08-10 追記2」
+    （818msで実際のSupabaseエラーが返る）に続き、**2026-08-14、依頼者の
+    Android・配偶者のiPhoneの両方で実機確認済み＝解決**。詳細・経緯は
+    `docs/HANDOVER_ANDROID_SAVE_ISSUE.md`
   - `tools/collect-core.js` の `SAVE_ENDPOINTS` は各要素に `ways`
     （`["fetch","xhr"]` または中継のみ `["fetch","xhr","iframe"]`）を持ち、
     宛先×対応する手段を総当たりする
