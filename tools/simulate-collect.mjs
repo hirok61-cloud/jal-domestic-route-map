@@ -34,7 +34,7 @@ const res = (status, body) => ({
 const text = (out) => (typeof out === "string" ? out : JSON.stringify(out));
 
 /* ---- 偽ブラウザ。収集スクリプトが触るところだけ用意する ---- */
-function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日", blockFetchOnly, hangSave, blockHost, job }) {
+function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日", blockFetchOnly, hangSave, blockHost, job, corp }) {
   const log = { saved: [], searches: 0, seatmaps: 0, finished: null, progress: [] };
 
   const node = (tag) => {
@@ -128,7 +128,14 @@ function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日", bloc
     document,
     __JAL_SEATS_KEY: "TESTKEY", // ブックマークレットが渡す合言葉のかわり
     location: { host, hostname: host },
-    sessionStorage: { getItem: () => JSON.stringify({ authToken: "dummy-token" }) },
+    /* corpData はブックマークレットが「JALオンライン(法人)のページか」を
+       見分けるのに使う目印（sessionStorageはタブ単位なので、これが入っているのは
+       JOHNログインを経由したセッションだけ）。 */
+    sessionStorage: {
+      getItem: (key) => key === "corpData"
+        ? (corp ? JSON.stringify({ selected: true }) : null)
+        : JSON.stringify({ authToken: "dummy-token" }),
+    },
     crypto: { randomUUID: () => nodeCrypto.randomUUID() },
     performance: { now: () => 60000 },
     navigator: { userAgent: "test", wakeLock: null, clipboard: null },
@@ -300,6 +307,20 @@ const cases = [
     }),
   },
   {
+    name: "法人モード（ブックマークレット）：sessionStorageのcorpDataで自動判定する",
+    shellOnly: "ブックマークレット",
+    corp: true,
+    jal: (seat) => jalOk(seat),
+    saver: () => res(200, { ok: true }),
+    check: (log, out) => ({
+      "日の選択を出さず今日だけ集める（70区間×2）": log.searches === 140,
+      "座席表は取らない": log.seatmaps === 0,
+      "法人のハブで保存する": log.saved.at(-1).hub === "JOH",
+      "予約できる便を数えて返す": /制度で予約できる便/.test(text(out)),
+      "完了する": ok(out),
+    }),
+  },
+  {
     name: "正常に完走する",
     jal: (seat) => jalOk(seat),
     saver: () => res(200, { ok: true }),
@@ -447,7 +468,7 @@ for (const shell of shells) {
     // 法人モードは拡張だけの配線（ブックマークレットには入れていない）
     if (c.shellOnly && c.shellOnly !== shell.name) continue;
     FLIGHTS_PER_ROUTE = c.flightsPerRoute || 1;
-    const env = makeEnv({ jal: c.jal, saver: c.saver, blockFetchOnly: c.blockFetchOnly, hangSave: c.hangSave, blockHost: c.blockHost, job: c.job });
+    const env = makeEnv({ jal: c.jal, saver: c.saver, blockFetchOnly: c.blockFetchOnly, hangSave: c.hangSave, blockHost: c.blockHost, job: c.job, corp: c.corp });
     vm.createContext(env);
     vm.runInContext(source, env);
 

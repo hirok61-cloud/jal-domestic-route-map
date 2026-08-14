@@ -112,6 +112,19 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
 .refresh:disabled{opacity:.6;cursor:default;transform:none}
 /* 制度枠（JALオンライン）の記録ボタン。空席の更新とは別物なので色を分ける */
 .refresh.corp{background:linear-gradient(135deg,#37618e,#24405e);box-shadow:none}
+.corppanel{margin:14px 22px;padding:16px 18px;border:1px solid var(--panel-edge);border-radius:14px;
+  background:var(--panel);box-shadow:var(--card-shadow)}
+.corppanel h3{margin:0 0 3px;font-size:14px}
+.corppanel .stamp{color:var(--sub);font-size:11.5px;margin-bottom:10px}
+.corppanel .stamp b{color:var(--ink)}
+.corppanel .warn{font-size:11.5px;color:var(--sub);background:var(--chipbg);border-radius:10px;
+  padding:8px 11px;margin-bottom:12px;line-height:1.6}
+.corptable{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 10px;font-size:12.5px}
+.corptable .row{display:flex;justify-content:space-between;gap:8px;padding:5px 8px;border-radius:8px;
+  background:var(--bg)}
+.corptable .row b{font-variant-numeric:tabular-nums}
+.corptable .row.zero{opacity:.55}
+.corppanel .close{float:right;border:none;background:none;color:var(--sub);cursor:pointer;font-size:12px}
 .refresh .spin{width:11px;height:11px;border-radius:50%;flex:none;
   border:2px solid rgba(255,255,255,.45);border-top-color:#fff;display:none}
 .refresh.busy .spin{display:block;animation:spin .8s linear infinite}
@@ -334,8 +347,10 @@ footer a{color:var(--hover)}
   <a class="updatelink" href="https://www.jal.co.jp/ja-jp/" target="_blank" rel="noopener">JAL公式サイト</a>
   <a class="updatelink" href="https://booking.jal.co.jp/jl/dom-corp/john-top" target="_blank" rel="noopener">JALオンライン</a>
   <a class="updatelink" href="update.html">更新のやり方</a>
+  <a class="updatelink" id="corpview" href="#">制度枠の記録を見る</a>
 </div>
 <div class="runbar" id="runbar" hidden></div>
+<div class="corppanel" id="corppanel" hidden></div>
 <main>
   <div class="notice" id="notice"></div>
   <div id="newseats"></div>
@@ -965,6 +980,61 @@ $corpbtn.addEventListener("click", async () => {
   } finally {
     $corpbtn.disabled = false;
     $corpbtn.classList.remove("busy");
+  }
+});
+
+/* 制度枠（JALオンライン）の記録を、押されたときだけ取りに行って表示する。
+   バッジのように常時出すと「古い記録を現在の状況」と誤解されるおそれがある
+   （搭乗数時間前から徐々に解放される便があるため）。そこでリンクを踏んだときだけ
+   取得時刻つきで見せる、点検表のような扱いにしてある。 */
+const $corppanel = document.getElementById("corppanel");
+const $corpview = document.getElementById("corpview");
+
+function renderCorpPanel(payload){
+  const routes = payload.routes || [];
+  const total = routes.reduce((n, r) => n + (r.flights || []).length, 0);
+  const zl = routes.reduce((n, r) => n + (r.flights || []).filter(f => f.zl).length, 0);
+  const gotAt = new Date(payload.generatedAt);
+  const ageMin = Math.round((Date.now() - gotAt.getTime()) / 60000);
+  const ageLabel = ageMin < 60 ? `${ageMin}分前` : `${Math.floor(ageMin / 60)}時間${ageMin % 60}分前`;
+
+  const rows = routes.map(r => {
+    const fl = r.flights || [];
+    const n = fl.filter(f => f.zl).length;
+    return {seg: `${r.o}→${r.d}`, n, total: fl.length};
+  }).filter(r => r.total > 0).sort((a, b) => (a.n / a.total) - (b.n / b.total));
+
+  $corppanel.innerHTML = `
+    <button class="close" id="corpclose">閉じる ✕</button>
+    <h3>JALオンライン（制度）の記録</h3>
+    <div class="stamp">取得: <b>${gotAt.toLocaleString("ja-JP", {timeZone: "Asia/Tokyo"})}</b>
+      （${ageLabel}）／ 全${total}便中 <b>${zl}便</b>が記録時点で予約できました</div>
+    <div class="warn">これは<b>記録した瞬間の結果</b>です。搭乗数時間前から徐々に枠が
+      解放される便があるため、その後に予約できるようになっている場合があります。
+      現在の状況ではありません。</div>
+    <div class="corptable">${rows.map(r =>
+      `<div class="row${r.n === 0 ? " zero" : ""}"><span>${r.seg}</span><b>${r.n}/${r.total}</b></div>`
+    ).join("")}</div>`;
+  $corppanel.hidden = false;
+  document.getElementById("corpclose").onclick = () => { $corppanel.hidden = true; };
+}
+
+$corpview.addEventListener("click", async (e) => {
+  e.preventDefault();
+  $corppanel.hidden = false;
+  $corppanel.innerHTML = "読み込み中…";
+  try {
+    const res = await fetch(`${REMOTE}?action=all&hub=JOH`, {cache: "no-store"});
+    if (!res.ok) throw new Error(res.status === 404 ? "まだ記録がありません" : "HTTP " + res.status);
+    const body = await res.json();
+    const dates = Object.keys(body.days || {}).sort();
+    if (!dates.length) throw new Error("まだ記録がありません");
+    renderCorpPanel(body.days[dates[dates.length - 1]]);
+  } catch (err) {
+    $corppanel.innerHTML = `<button class="close" id="corpclose">閉じる ✕</button>
+      <h3>JALオンライン（制度）の記録</h3>
+      <div class="warn">${err.message}。先に「制度枠を記録」を実行してください。</div>`;
+    document.getElementById("corpclose").onclick = () => { $corppanel.hidden = true; };
   }
 });
 

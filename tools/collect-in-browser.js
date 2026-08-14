@@ -161,11 +161,19 @@ window.__JAL_SEATS_BOOTED = Date.now();
     return;
   }
 
+  /* JALオンライン（法人・制度利用）のページかどうかは、URLだけでは判別できない
+     （検索結果 /jl/dom-bkg/upsell は公式・法人どちらも同じパスに来る）。
+     JOHNログインを経由したセッションだけが持つ sessionStorage の値で判定する。
+     公式の検索フローではこのキーには触れないので、これが入っていれば法人とみなす。 */
+  const corpSignal = sessionStorage.getItem("corpData");
+  const corporate = !!(corpSignal && corpSignal !== "null" && corpSignal !== "{}");
+
   /* ------------------------------------------------------------ 収集する日 */
 
   /* 座席表まで見ると1日8〜10分かかるので、両日まとめると20分近くになる。
-     要る日だけ選べるほうが実用的。 */
-  const OFFSETS = await new Promise((resolve) => {
+     要る日だけ選べるほうが実用的。
+     法人（制度枠）は当日ぶんしか解放されないので、選ばせずに今日固定にする。 */
+  const OFFSETS = corporate ? [0] : await new Promise((resolve) => {
     const md = (n) => {
       const d = new Date(Date.now() + 9 * 3600000 + n * 86400000);
       return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
@@ -191,6 +199,8 @@ window.__JAL_SEATS_BOOTED = Date.now();
     ui.appendChild(box);
   });
 
+  if (corporate) show("JALオンライン（制度枠）を記録します", "70区間・約3分かかります", 0);
+
   /* ------------------------------------------------------------------ 収集 */
 
   const download = (out) => {
@@ -208,6 +218,7 @@ window.__JAL_SEATS_BOOTED = Date.now();
     updateKey: window.__JAL_SEATS_KEY || "",
     runId: crypto.randomUUID(),
     onSaveFailed: download,
+    corporate,
     report: (kind, x) => {
       if (kind === "fares") {
         show(`${x.label}分を取得中… ${x.i + 1} / ${x.total}`,
@@ -217,9 +228,10 @@ window.__JAL_SEATS_BOOTED = Date.now();
           `${x.origin} → ${x.destination} ${x.no}　残り約${x.leftSec}秒` + KEEP_OPEN, x.pct);
       } else if (kind === "saving") {
         show(`${x.label}分を保存しています…`,
-          x.phase === "fares"
-            ? `${x.stats.flights}便中${x.stats.withSeats}便に空席`
-            : `座席表 ${x.stats.seatChecked}便分`, null);
+          corporate ? `制度で予約できる便 ${x.stats.withSeats}便`
+            : x.phase === "fares"
+              ? `${x.stats.flights}便中${x.stats.withSeats}便に空席`
+              : `座席表 ${x.stats.seatChecked}便分`, null);
       } else if (kind === "save-try") {
         const wayLabel = { fetch: "通常の方法", xhr: "別の方法（XHR）", iframe: "隠しフォーム（iframe）" };
         show(null, `${x.host}へ${wayLabel[x.way] || x.way}で送信中…`
@@ -256,9 +268,12 @@ window.__JAL_SEATS_BOOTED = Date.now();
       const s = await run.collectDay({
         date: jstDate(OFFSETS[d]), label, dayIndex: d, dayCount: OFFSETS.length,
       });
-      parts.push(`${label} ${s.flights}便中<b>${s.withSeats}便</b>に空席`
-        + (s.seatChecked ? `／座席表を見ると<b>${s.seatZero}便</b>は座席なし` : "")
-        + (s.failed ? `（取得失敗 ${s.failed}区間）` : ""));
+      parts.push(corporate
+        ? `制度で予約できる便 <b>${s.withSeats}便</b>（${s.flights}便中）`
+          + (s.failed ? `（取得失敗 ${s.failed}区間）` : "")
+        : `${label} ${s.flights}便中<b>${s.withSeats}便</b>に空席`
+          + (s.seatChecked ? `／座席表を見ると<b>${s.seatZero}便</b>は座席なし` : "")
+          + (s.failed ? `（取得失敗 ${s.failed}区間）` : ""));
     }
   } catch (e) {
     document.removeEventListener("visibilitychange", onHide);
