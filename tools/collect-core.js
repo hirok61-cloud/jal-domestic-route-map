@@ -76,7 +76,16 @@ export const SPOKES = [
 
 const API = "https://api.dom.jal.co.jp/rmweb-api/search/air-bounds";
 const SEATMAP_API = "https://api.dom.jal.co.jp/rmweb-api/shopping/seatmaps";
-const CONTENT_VERSION = "/jl/statics/dom-bkg/content/1.0.170/";
+/* JALが不定期に上げる。**古いままだと seatmap API が壊れる**
+   （2026-08-15に実際に発覚: 1.0.170はHTTP 200のまま
+   `{"errors":[{"code":"JSLCMNE002","title":"404 Not Found ... E21.json"}]}`
+   のようなエラー本文を返すようになっていた。seatmap() は status しか
+   見ていないため、これが「座席0」として静かに処理され、直近48時間の
+   座席詳細がまるごと更新されない実害につながった。search API 側は
+   古い版でも黙って通るため、運賃データだけは正常に見えて発見が遅れた。
+   ズレていないか、たまに実機の値と突き合わせて確認すること
+   （JOHNページの実際のリクエストから読み取れる）。 */
+const CONTENT_VERSION = "/jl/statics/dom-bkg/content/1.0.171/";
 const API_KEY = "JZWuY6OJ5M2IfvIgZVRMA7dhbjk7jTtga0lclevt";
 export const DELAY_MS = 1200; // JALのサーバを叩く間隔。短くしないこと
 const SEAT_SAVE_EVERY = 50;   // 座席表を何便ぶん取るごとに保存するか
@@ -688,6 +697,21 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
       stats.seatZero = count((f) => f.sa === 0);
       report("saving", { label, stats, phase: "seats" });
       await save(snapshot());
+
+      /* 座席表APIはHTTP 200のまま中身がエラー本文のことがある
+         （seatmap()はstatusしか見ないため、nullが返って「その便は座席表なし」
+         と区別がつかない）。CONTENT_VERSIONがずれるとこれが**全便**で起き、
+         2026-08-15、48時間気づかず座席詳細が更新され続けなかった実害が出た。
+         個々の失敗は（タイムアウト等）想定内なので打ち切らないが、狙った
+         対象が10件以上あるのに1件も取れていなければ、保存はしたうえで
+         理由を出す（＝運賃は保存済みのまま失敗として気づけるようにする）。 */
+      if (targets.length >= 10 && stats.seatChecked === 0) {
+        throw new Error(
+          "座席表が1件も取得できませんでした。CONTENT_VERSION が"
+          + "古くなっている可能性があります（tools/collect-core.js）。"
+          + `運賃${stats.flights}便中${stats.withSeats}便に空席、までは保存済みです。`,
+        );
+      }
     }
     return stats;
   }

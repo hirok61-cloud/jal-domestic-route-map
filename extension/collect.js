@@ -1,6 +1,6 @@
 /* 生成物。編集しないこと。もとは tools/collect-core.js と collect-extension.js。
    直したら npm run build:bookmarklet && npm run test:collect && npm run purge:cdn */
-var __JAL_SEATS_BUILD__ = "2026-08-14 22:07Z";
+var __JAL_SEATS_BUILD__ = "2026-08-14 23:29Z";
 (() => {
   // tools/collect-core.js
   var ENDPOINT = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats";
@@ -49,7 +49,7 @@ var __JAL_SEATS_BUILD__ = "2026-08-14 22:07Z";
   ];
   var API = "https://api.dom.jal.co.jp/rmweb-api/search/air-bounds";
   var SEATMAP_API = "https://api.dom.jal.co.jp/rmweb-api/shopping/seatmaps";
-  var CONTENT_VERSION = "/jl/statics/dom-bkg/content/1.0.170/";
+  var CONTENT_VERSION = "/jl/statics/dom-bkg/content/1.0.171/";
   var API_KEY = "JZWuY6OJ5M2IfvIgZVRMA7dhbjk7jTtga0lclevt";
   var DELAY_MS = 1200;
   var SEAT_SAVE_EVERY = 50;
@@ -505,6 +505,11 @@ var __JAL_SEATS_BUILD__ = "2026-08-14 22:07Z";
         stats.seatZero = count((f) => f.sa === 0);
         report("saving", { label, stats, phase: "seats" });
         await save(snapshot());
+        if (targets.length >= 10 && stats.seatChecked === 0) {
+          throw new Error(
+            `座席表が1件も取得できませんでした。CONTENT_VERSION が古くなっている可能性があります（tools/collect-core.js）。運賃${stats.flights}便中${stats.withSeats}便に空席、までは保存済みです。`
+          );
+        }
       }
       return stats;
     }
