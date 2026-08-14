@@ -97,6 +97,9 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
 .filterbar input[type=search]{background:var(--bg);border:1px solid var(--panel-edge);border-radius:999px;
   padding:6px 14px;font-size:12.5px;width:180px;outline:none}
 .filterbar input[type=search]:focus{border-color:var(--red)}
+.filterbar input[type=number]{background:var(--bg);border:1px solid var(--panel-edge);border-radius:999px;
+  padding:6px 12px;font-size:12.5px;width:64px;outline:none;font-variant-numeric:tabular-nums}
+.filterbar input[type=number]:focus{border-color:var(--red)}
 .asof{margin-left:auto;font-size:11.5px;color:var(--sub);letter-spacing:.04em}
 .asof b{color:var(--ink);font-variant-numeric:tabular-nums}
 .updatelink{font-size:11.5px;color:var(--sub);text-decoration:none;border-bottom:1px dotted var(--sub);white-space:nowrap}
@@ -305,6 +308,12 @@ footer a{color:var(--hover)}
       <button data-kind="sg">足元ゆったり</button>
     </div>
   </div>
+  <div class="field">
+    <span class="lbl">当日搭乗の目安</span>
+    <input type="number" id="minok" min="1" inputmode="numeric" placeholder="座席数&gt;"
+      title="「空席あり」（運賃残席9以上）か、座席表の実際の空きがこの数より多い便だけ表示します。運賃残席は9が上限のため、実数はこちらのほうが当てになります。"
+      aria-label="座席表の空きがこの数より多い便だけ表示（空席ありは常に含む）">
+  </div>
   <input type="search" id="apsearch" placeholder="空港名で絞り込み" aria-label="空港名で絞り込み">
   <div class="asof" id="asof"></div>
   <button class="refresh" id="refresh" title="JALから最新の空席を取り直します">
@@ -396,7 +405,7 @@ const geoRank = code => {
   return i < 0 ? GEO_ORDER.length : i;
 };
 
-const state = {dir:"all", seats:"avail", kind:"all", q:"", date:null};
+const state = {dir:"all", seats:"avail", kind:"all", q:"", date:null, minOk:""};
 
 /* 座席の種類での絞り込み。値はそのまま便レコードのキーになっている
    （sw=窓側 / sl=通路側 / se=非常口 / sg=足元が広い）。 */
@@ -589,6 +598,15 @@ function flightsOf(route){
   /* 座席の種類は座席表から数えているので、座席表をまだ見ていない便は
      「その席が空いているか分からない」。分からないものは出さない。 */
   if (state.kind !== "all") list = list.filter(f => (f[state.kind] || 0) > 0);
+  /* 当日でも乗れそうな便の目安。運賃の残席(eco)は9が上限で「空席あり」に
+     まとまってしまうため、それだけでは何席あるか分からない。かわりに
+     座席表の実際の空き数(sa)がこの数より多いかを見る。運賃側が「空席あり」
+     （9以上）なら、座席表をまだ見ていなくても対象に含める（=どちらかを
+     満たせば表示。座席表未確認かつ運賃が9未満のものは判断材料が無いので出さない）。 */
+  if (state.minOk !== "" && Number.isFinite(Number(state.minOk))) {
+    const n = Number(state.minOk);
+    list = list.filter(f => f.eco >= 9 || (f.sa !== undefined && f.sa > n));
+  }
   return list;
 }
 
@@ -630,6 +648,8 @@ function render(){
         : (route.message || "情報なし");
       const none = state.kind !== "all"
         ? `${KIND_LABEL[state.kind]}が空いている便はありません。`
+        : state.minOk !== "" && Number.isFinite(Number(state.minOk))
+        ? "その条件で当日乗れそうな便はありません。"
         : (state.seats === "full" ? "満席の便はありません。" : "空席のある便はありません。");
       html.push(`<div class="empty">${route.status === "ok" ? none : reason}</div>`);
     } else {
@@ -926,6 +946,12 @@ loadAvailability()
       clearTimeout(timer);
       const v = ev.target.value.trim().toLowerCase();
       timer = setTimeout(() => { state.q = v; render(); }, 150);
+    });
+    let minokTimer;
+    document.getElementById("minok").addEventListener("input", ev => {
+      clearTimeout(minokTimer);
+      const v = ev.target.value.trim();
+      minokTimer = setTimeout(() => { state.minOk = v; render(); }, 150);
     });
 
     /* 座席表の詳細。list は render() のたびに作り直すので、個々のボタンにではなく
