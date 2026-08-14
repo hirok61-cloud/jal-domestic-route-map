@@ -82,6 +82,8 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
   letter-spacing:.06em;padding:11px 2px 10px;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s}
 .subtab:hover{color:var(--red)}
 .subtab.active{color:var(--red);border-bottom-color:var(--red)}
+.subtab.ext{font-weight:600;opacity:.85}
+.subtab .extmark{font-size:10px;margin-left:3px;vertical-align:1px}
 .stats{margin-left:14px;display:flex;gap:8px}
 .stat{background:var(--panel);border:1px solid var(--panel-edge);border-radius:12px;
   padding:5px 14px;text-align:center;line-height:1.25;box-shadow:var(--card-shadow)}
@@ -306,6 +308,8 @@ footer .fan{color:var(--sub);letter-spacing:.04em}
 <nav class="subtabs" aria-label="国内線コンテンツ切替">
   <a class="subtab active" href="./" aria-current="page">ルートマップ</a>
   <a class="subtab" href="seats/">空席状況</a>
+  <a class="subtab ext" href="https://booking.jal.co.jp/jl/dom-corp/john-top" target="_blank" rel="noopener"
+     title="JALオンライン（要ログイン）で予約する">JALオンライン<span class="extmark" aria-hidden="true">↗</span></a>
   <button class="seatbtn" id="seatbtn" aria-pressed="false" disabled title="空席データを読み込み中"><span class="dotmark"></span><span class="long">地図を</span>空席で塗り分け</button>
 </nav>
 <div class="opbar">
