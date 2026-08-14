@@ -341,7 +341,7 @@ footer a{color:var(--hover)}
     <span class="spin" aria-hidden="true"></span><span id="refreshlabel">最新に更新</span>
   </button>
   <button class="refresh corp" id="corpbtn"
-    title="JALオンライン（制度利用）で予約できる便を記録します。先にJALオンラインにログインし、1回検索しておいてください">
+    title="JALオンライン（制度利用）で予約できる便を記録します。先にJALオンラインにログインし、企業（ＬＴ００）を選んでおいてください（検索は不要です）">
     <span class="spin" aria-hidden="true"></span><span id="corplabel">制度枠を記録</span>
   </button>
   <a class="updatelink" href="https://www.jal.co.jp/ja-jp/" target="_blank" rel="noopener">JAL公式サイト</a>
@@ -954,8 +954,9 @@ $refresh.addEventListener("click", async () => {
 /* 制度枠（JALオンライン・法人）の記録。
    空席の更新とは別のハブ(JOH)に依頼を積むだけで、拾うのは同じMacの拡張。
    当日ぶんしか出ないので日の選択は無い。所要は70区間×2（法人＋公式）で約3分。
-   **先にJALオンラインにログインし、1回検索しておく必要がある**
-   （sessionStorageはタブ単位で、検索して初めて認証トークンが入るため）。 */
+   **先にJALオンラインにログインし、企業（ＬＴ００）を選んでおく必要がある**
+   （sessionStorageはタブ単位なので、そのタブでログインし直していること）。
+   検索は不要（2026-08-15、開くだけで認証トークンが入ることを確認済み）。 */
 const $corpbtn = document.getElementById("corpbtn");
 $corpbtn.addEventListener("click", async () => {
   $corpbtn.disabled = true;

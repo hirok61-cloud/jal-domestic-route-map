@@ -154,19 +154,27 @@ window.__JAL_SEATS_BOOTED = Date.now();
       + "JALのページではなく新しいタブで動いてしまいます）。");
     return;
   }
-  const creds = JSON.parse(sessionStorage.getItem("apiAuthCreds") || "{}");
-  if (!creds.authToken) {
-    fail("ログイン情報が見つかりません",
-      "先に国内線を1回検索して、便が並んだ画面で実行してください。");
-    return;
-  }
-
   /* JALオンライン（法人・制度利用）のページかどうかは、URLだけでは判別できない
      （検索結果 /jl/dom-bkg/upsell は公式・法人どちらも同じパスに来る）。
      JOHNログインを経由したセッションだけが持つ sessionStorage の値で判定する。
-     公式の検索フローではこのキーには触れないので、これが入っていれば法人とみなす。 */
+     公式の検索フローではこのキーには触れないので、これが入っていれば法人とみなす。
+     エラー文言を出し分けるため、認証チェックより先に判定しておく。 */
   const corpSignal = sessionStorage.getItem("corpData");
   const corporate = !!(corpSignal && corpSignal !== "null" && corpSignal !== "{}");
+
+  const creds = JSON.parse(sessionStorage.getItem("apiAuthCreds") || "{}");
+  if (!creds.authToken) {
+    /* 法人（JALオンライン）はページを開くだけで（検索なしで）トークンが用意される
+       ことを2026-08-15に確認済み。それでも無いのは、ページを開いてすぐか、
+       セッションが切れている（無操作で約1時間）ときなので、検索を促す文言は出さない。
+       公式は逆に「検索して作ったセッションでないとAPIが通らない」という制約が
+       実測で確定しているので、こちらは検索を促す。docs/JAL_ONLINE_CORP.md 参照。 */
+    fail("ログイン情報が見つかりません", corporate
+      ? "JALオンラインのページを開き直してから実行してください。"
+        + "しばらく放置していた場合はセッションが切れている可能性があります。"
+      : "先に国内線を1回検索して、便が並んだ画面で実行してください。");
+    return;
+  }
 
   /* ------------------------------------------------------------ 収集する日 */
 

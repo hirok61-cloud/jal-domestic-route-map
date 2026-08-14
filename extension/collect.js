@@ -1,6 +1,6 @@
 /* 生成物。編集しないこと。もとは tools/collect-core.js と collect-extension.js。
    直したら npm run build:bookmarklet && npm run test:collect && npm run purge:cdn */
-var __JAL_SEATS_BUILD__ = "2026-08-14 21:53Z";
+var __JAL_SEATS_BUILD__ = "2026-08-14 22:07Z";
 (() => {
   // tools/collect-core.js
   var ENDPOINT = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats";
@@ -407,7 +407,7 @@ var __JAL_SEATS_BUILD__ = "2026-08-14 21:53Z";
           entry.message = res.thrown ? "通信できず（" + res.thrown + "）" : "HTTP " + res.status;
         } else if (payload.message && !payload.data && !payload.errors) {
           throw new Error(
-            "JALのセッションが切れています（" + String(payload.message).slice(0, 60) + "）。" + (corporate ? "JALオンラインにログインし直し、企業（ＬＴ００）を選び、一度検索してから実行してください。" : "空席照会の画面を開き直してから、もう一度実行してください。")
+            "JALのセッションが切れています（" + String(payload.message).slice(0, 60) + "）。" + (corporate ? "JALオンラインにログインし直し、企業（ＬＴ００）を選んでから実行してください。" : "空席照会の画面を開き直してから、もう一度実行してください。")
           );
         } else if (payload.errors) {
           [entry.status, entry.message] = describeError(payload);
@@ -435,7 +435,7 @@ var __JAL_SEATS_BUILD__ = "2026-08-14 21:53Z";
         routes.push(entry);
         if (routes.length >= 3 && !routes.some((r) => r.status !== "error")) {
           throw new Error(
-            "JALに接続を断られています（" + (entry.message || "理由不明") + "）。空席照会の画面を開き直し、国内線を1回検索してから、もう一度実行してください。"
+            "JALに接続を断られています（" + (entry.message || "理由不明") + "）。" + (corporate ? "JALオンラインを開き直してから、もう一度実行してください。" : "空席照会の画面を開き直し、国内線を1回検索してから、もう一度実行してください。")
           );
         }
         await sleep(DELAY_MS);

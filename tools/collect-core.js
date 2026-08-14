@@ -539,8 +539,7 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
         throw new Error(
           "JALのセッションが切れています（" + String(payload.message).slice(0, 60) + "）。"
           + (corporate
-            ? "JALオンラインにログインし直し、企業（ＬＴ００）を選び、"
-              + "一度検索してから実行してください。"
+            ? "JALオンラインにログインし直し、企業（ＬＴ００）を選んでから実行してください。"
             : "空席照会の画面を開き直してから、もう一度実行してください。"),
         );
       } else if (payload.errors) {
@@ -583,7 +582,9 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
       if (routes.length >= 3 && !routes.some((r) => r.status !== "error")) {
         throw new Error(
           "JALに接続を断られています（" + (entry.message || "理由不明") + "）。"
-          + "空席照会の画面を開き直し、国内線を1回検索してから、もう一度実行してください。",
+          + (corporate
+            ? "JALオンラインを開き直してから、もう一度実行してください。"
+            : "空席照会の画面を開き直し、国内線を1回検索してから、もう一度実行してください。"),
         );
       }
 
