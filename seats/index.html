@@ -80,6 +80,8 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
   letter-spacing:.06em;padding:11px 2px 10px;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s}
 .subtab:hover{color:var(--red)}
 .subtab.active{color:var(--red);border-bottom-color:var(--red)}
+.subtab.ext{font-weight:600;opacity:.85}
+.subtab .extmark{font-size:10px;margin-left:3px;vertical-align:1px}
 /* ---------- フィルタバー ---------- */
 .filterbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px 14px;padding:10px 22px;
   border-bottom:1px solid var(--hair);background:var(--panel)}
@@ -282,6 +284,8 @@ footer a{color:var(--hover)}
 <nav class="subtabs" aria-label="国内線コンテンツ切替">
   <a class="subtab" href="../">ルートマップ</a>
   <a class="subtab active" href="./" aria-current="page">空席状況</a>
+  <a class="subtab ext" href="https://booking.jal.co.jp/jl/dom-corp/john-top" target="_blank" rel="noopener"
+     title="JALオンライン（要ログイン）で予約する">JALオンライン<span class="extmark" aria-hidden="true">↗</span></a>
 </nav>
 <div class="filterbar">
   <div class="field">
@@ -336,7 +340,6 @@ footer a{color:var(--hover)}
     <span class="spin" aria-hidden="true"></span><span id="corplabel">制度枠を記録</span>
   </button>
   <a class="updatelink" href="https://www.jal.co.jp/ja-jp/" target="_blank" rel="noopener">JAL公式サイト</a>
-  <a class="updatelink" href="https://booking.jal.co.jp/jl/dom-corp/john-top" target="_blank" rel="noopener">JALオンライン</a>
   <a class="updatelink" href="update.html">更新のやり方</a>
 </div>
 <div class="runbar" id="runbar" hidden></div>
