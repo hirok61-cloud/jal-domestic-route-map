@@ -11,6 +11,9 @@
 const ENDPOINT = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats";
 const TOP_URL = "https://www.jal.co.jp/ja-jp/top";
 const BOOKING_RE = /^https:\/\/booking\.jal\.co\.jp\/jl\/dom-bkg\/upsell/;
+/* tools/collect-core.js の CORP_HUB と同じ値。background.js はモジュールでないため
+   import できず、ここに複製している（ENDPOINT も同様に複製済み）。 */
+const CORP_HUB = "JOH";
 const ALARM = "poll";
 const AUTO_ALARM = "auto";
 
@@ -113,34 +116,82 @@ function waitForUrl(tabId, re, timeoutMs) {
 
 /* -------------------------------------------------------------- 収集の本体 */
 
+/* JALオンライン（法人）にログイン済みのタブを、いま開いているものの中から探す。
+   自動ログインはまだ無いので、新しいウィンドウを開いても未ログインの状態にしか
+   ならず、法人フラグ付きのリクエストは通らない
+   （2026-08-15、「JALに接続を断られています（Required Input not available）」で
+   実機・実データから確認した。ブックマークレット側の corpData 判定と同じロジック）。
+   見つかったタブへ collect.js を注入して使う。新規ウィンドウは開かない。 */
+async function findCorpTab() {
+  let tabs;
+  try {
+    tabs = await chrome.tabs.query({ url: "https://booking.jal.co.jp/*" });
+  } catch {
+    return null;
+  }
+  for (const tab of tabs) {
+    if (tab.status !== "complete" || tab.id == null) continue;
+    try {
+      const [{ result }] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => {
+          const corp = sessionStorage.getItem("corpData");
+          const creds = JSON.parse(sessionStorage.getItem("apiAuthCreds") || "{}");
+          return !!(corp && corp !== "null" && corp !== "{}")
+            && typeof creds.authToken === "string" && creds.authToken.length > 10;
+        },
+      });
+      if (result) return tab.id;
+    } catch { /* このタブは読めなかった（拡張ページ等）。次を試す */ }
+  }
+  return null;
+}
+
 async function runJob(job) {
   if (!(await beginRun())) return;
   setBadge("…");
+  const corporate = job?.hub === CORP_HUB;
   const days = Array.isArray(job?.days) && job.days.length ? job.days.length : 2;
   const collectTimeoutMs = COLLECT_MS_PER_DAY * days;
 
   let win = null;
+  let tabId = null;
   try {
     await log(`開始（依頼#${job?.id ?? "-"}）`);
 
-    // 別ウィンドウで開く。前面は奪わないが、最小化はしない
-    // （完全に隠れたタブはタイマーが絞られて収集が終わらないため）
-    win = await chrome.windows.create({ url: TOP_URL, focused: false, width: 900, height: 700 });
-    const tabId = win.tabs[0].id;
+    if (corporate) {
+      tabId = await findCorpTab();
+      if (tabId == null) {
+        throw new Error(
+          "JALオンラインにログインしたタブが見つかりません。Chromeで"
+          + " https://booking.jal.co.jp/jl/dom-corp/john-top を開き、"
+          + "企業（ＬＴ００）を選んでログインした状態で、もう一度実行してください。",
+        );
+      }
+      await api(`?action=progress&id=${job.id}`, {
+        method: "POST",
+        body: JSON.stringify({ message: "見つかったJALオンラインのタブで収集します" }),
+      }).catch(() => {});
+    } else {
+      // 別ウィンドウで開く。前面は奪わないが、最小化はしない
+      // （完全に隠れたタブはタイマーが絞られて収集が終わらないため）
+      win = await chrome.windows.create({ url: TOP_URL, focused: false, width: 900, height: 700 });
+      tabId = win.tabs[0].id;
 
-    await waitForUrl(tabId, /^https:\/\/www\.jal\.co\.jp\//, NAV_TIMEOUT_MS);
-    await api(`?action=progress&id=${job.id}`, {
-      method: "POST",
-      body: JSON.stringify({ message: "JALのページを準備しています" }),
-    }).catch(() => {});
+      await waitForUrl(tabId, /^https:\/\/www\.jal\.co\.jp\//, NAV_TIMEOUT_MS);
+      await api(`?action=progress&id=${job.id}`, {
+        method: "POST",
+        body: JSON.stringify({ message: "JALのページを準備しています" }),
+      }).catch(() => {});
 
-    // セッションが認められるまで待つ
-    await sleep(MATURE_MS);
+      // セッションが認められるまで待つ
+      await sleep(MATURE_MS);
 
-    // 空席照会ページへ送り込む（人手での検索は不要）
-    await chrome.scripting.executeScript({ target: { tabId }, files: ["prepare.js"] });
-    await waitForUrl(tabId, BOOKING_RE, NAV_TIMEOUT_MS);
-    await sleep(6000);
+      // 空席照会ページへ送り込む（人手での検索は不要）
+      await chrome.scripting.executeScript({ target: { tabId }, files: ["prepare.js"] });
+      await waitForUrl(tabId, BOOKING_RE, NAV_TIMEOUT_MS);
+      await sleep(6000);
+    }
 
     // 収集させる。結果の送信は collect.js が自分で行う。
     // 注入したスクリプトは storage.session を読めない（TRUSTED_CONTEXTS 限定）ので
@@ -161,7 +212,22 @@ async function runJob(job) {
     });
     await chrome.scripting.executeScript({ target: { tabId }, files: ["collect.js"] });
 
-    const result = await done;
+    /* 【2026-08-15に特定した重大バグの修正】ここが最大10〜20分かかる待ちなのに、
+       chrome.*のAPI呼び出しを一切挟んでいなかった。sleep()には8/10の教訓から
+       キープアライブが入っているのに、いちばん長く待つここには入っていなかった。
+       実データで確認: 直近48時間のHND収集12回のうち11回が、この待ちの最中に
+       Service Workerごと落ち、25分後に無応答監視だけが後始末していた
+       （runJob自身のcatchが一度も発火していなかった＝setTimeoutごと消えていた）。
+       sleep()と同じ間隔でpingし、doneの決着で確実に止める。 */
+    const keepAlive = setInterval(() => {
+      chrome.storage.local.get("runningSince").catch(() => {});
+    }, 15000);
+    let result;
+    try {
+      result = await done;
+    } finally {
+      clearInterval(keepAlive);
+    }
     await log(`完了: ${result.summary}`);
     setBadge("");
   } catch (err) {
