@@ -112,19 +112,6 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
 .refresh:disabled{opacity:.6;cursor:default;transform:none}
 /* 制度枠（JALオンライン）の記録ボタン。空席の更新とは別物なので色を分ける */
 .refresh.corp{background:linear-gradient(135deg,#37618e,#24405e);box-shadow:none}
-.corppanel{margin:14px 22px;padding:16px 18px;border:1px solid var(--panel-edge);border-radius:14px;
-  background:var(--panel);box-shadow:var(--card-shadow)}
-.corppanel h3{margin:0 0 3px;font-size:14px}
-.corppanel .stamp{color:var(--sub);font-size:11.5px;margin-bottom:10px}
-.corppanel .stamp b{color:var(--ink)}
-.corppanel .warn{font-size:11.5px;color:var(--sub);background:var(--chipbg);border-radius:10px;
-  padding:8px 11px;margin-bottom:12px;line-height:1.6}
-.corptable{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 10px;font-size:12.5px}
-.corptable .row{display:flex;justify-content:space-between;gap:8px;padding:5px 8px;border-radius:8px;
-  background:var(--bg)}
-.corptable .row b{font-variant-numeric:tabular-nums}
-.corptable .row.zero{opacity:.55}
-.corppanel .close{float:right;border:none;background:none;color:var(--sub);cursor:pointer;font-size:12px}
 .refresh .spin{width:11px;height:11px;border-radius:50%;flex:none;
   border:2px solid rgba(255,255,255,.45);border-top-color:#fff;display:none}
 .refresh.busy .spin{display:block;animation:spin .8s linear infinite}
@@ -172,6 +159,10 @@ td.fno{font-weight:700;color:var(--red)}
 .trend{margin-left:5px;font-size:10px}
 .trend.up{color:var(--ok);font-weight:700}
 .trend.down{color:var(--sub)}
+/* 制度枠（JALオンライン）の記録。既存のバッジ群と同じ見た目のトーンに揃える */
+.corpline{display:block;margin-top:3px;font-size:10.5px;white-space:nowrap}
+.corpline.ok{color:var(--ok);font-weight:700}
+.corpline.ng{color:var(--sub)}
 /* 普通席セルをクリックすると座席表の詳細が開く。座席の情報がある便だけ
    button にする。中身（バッジ等）の見た目は素のセルと変わらないようにする。 */
 .seatcell{display:block;width:100%;border:none;background:none;padding:0;margin:0;
@@ -347,10 +338,8 @@ footer a{color:var(--hover)}
   <a class="updatelink" href="https://www.jal.co.jp/ja-jp/" target="_blank" rel="noopener">JAL公式サイト</a>
   <a class="updatelink" href="https://booking.jal.co.jp/jl/dom-corp/john-top" target="_blank" rel="noopener">JALオンライン</a>
   <a class="updatelink" href="update.html">更新のやり方</a>
-  <a class="updatelink" id="corpview" href="#">制度枠の記録を見る</a>
 </div>
 <div class="runbar" id="runbar" hidden></div>
-<div class="corppanel" id="corppanel" hidden></div>
 <main>
   <div class="notice" id="notice"></div>
   <div id="newseats"></div>
@@ -494,6 +483,35 @@ function cabinSeatNote(n){
     : `<span class="seatmap">座席表 ${n}席</span>`;
 }
 
+/* 制度枠（JALオンライン）の記録。「制度枠を記録」を押した時点のスナップショットを
+   便名で突き合わせて、普通席のバッジの下に一行だけ添える。
+   常設のバッジではなく「記録した瞬間の結果」なので、時刻を必ず添えて、
+   現在の状況と混同されないようにする（詳しくは docs/JAL_ONLINE_CORP.md）。 */
+let CORP = null; // {date, generatedAt, byNo: Map<string, boolean>}
+
+async function loadCorp(){
+  try {
+    const res = await fetch(`${REMOTE}?action=all&hub=JOH`, {cache: "no-store"});
+    if (!res.ok) return;
+    const body = await res.json();
+    const dates = Object.keys(body.days || {}).sort();
+    if (!dates.length) return;
+    const payload = body.days[dates[dates.length - 1]];
+    const byNo = new Map();
+    for (const r of payload.routes || []) {
+      for (const f of r.flights || []) if (typeof f.zl === "boolean") byNo.set(f.no, f.zl);
+    }
+    if (byNo.size) CORP = {date: payload.date, generatedAt: payload.generatedAt, byNo};
+  } catch { /* 記録がまだ無い・オフライン等。出さないだけで支障はない */ }
+}
+
+function corpNote(f){
+  // JOHは当日ぶんしか記録できないので、いま表示している日と合っていないものは出さない
+  if (!CORP || CORP.date !== DATA.date || !CORP.byNo.has(f.no)) return "";
+  const ok = CORP.byNo.get(f.no);
+  return `<span class="corpline ${ok ? "ok" : "ng"}">制度 ${hhmm(CORP.generatedAt)}時点${ok ? "予約可" : "予約不可"}</span>`;
+}
+
 /** 前回の収集からどう動いたか。増えたぶんだけ目立たせる。 */
 function trendNote(f){
   if (f.pe === undefined || f.pe === f.eco) return "";
@@ -524,7 +542,7 @@ function parseSeatEntry(entry){
 
 /** 普通席セルの中身。座席の一覧がある便だけ、クリックできるボタンにする。 */
 function seatCell(route, f){
-  const inner = badge(f.eco) + trendNote(f) + seatmapNote(f);
+  const inner = badge(f.eco) + trendNote(f) + seatmapNote(f) + corpNote(f);
   if (!f.sm || !f.sm.length) return inner;
   const id = SEAT_LOOKUP.push({ route, f }) - 1;
   return `<button type="button" class="seatcell" data-seat-id="${id}">${inner}</button>`;
@@ -984,60 +1002,10 @@ $corpbtn.addEventListener("click", async () => {
   }
 });
 
-/* 制度枠（JALオンライン）の記録を、押されたときだけ取りに行って表示する。
-   バッジのように常時出すと「古い記録を現在の状況」と誤解されるおそれがある
-   （搭乗数時間前から徐々に解放される便があるため）。そこでリンクを踏んだときだけ
-   取得時刻つきで見せる、点検表のような扱いにしてある。 */
-const $corppanel = document.getElementById("corppanel");
-const $corpview = document.getElementById("corpview");
-
-function renderCorpPanel(payload){
-  const routes = payload.routes || [];
-  const total = routes.reduce((n, r) => n + (r.flights || []).length, 0);
-  const zl = routes.reduce((n, r) => n + (r.flights || []).filter(f => f.zl).length, 0);
-  const gotAt = new Date(payload.generatedAt);
-  const ageMin = Math.round((Date.now() - gotAt.getTime()) / 60000);
-  const ageLabel = ageMin < 60 ? `${ageMin}分前` : `${Math.floor(ageMin / 60)}時間${ageMin % 60}分前`;
-
-  const rows = routes.map(r => {
-    const fl = r.flights || [];
-    const n = fl.filter(f => f.zl).length;
-    return {seg: `${r.o}→${r.d}`, n, total: fl.length};
-  }).filter(r => r.total > 0).sort((a, b) => (a.n / a.total) - (b.n / b.total));
-
-  $corppanel.innerHTML = `
-    <button class="close" id="corpclose">閉じる ✕</button>
-    <h3>JALオンライン（制度）の記録</h3>
-    <div class="stamp">取得: <b>${gotAt.toLocaleString("ja-JP", {timeZone: "Asia/Tokyo"})}</b>
-      （${ageLabel}）／ 全${total}便中 <b>${zl}便</b>が記録時点で予約できました</div>
-    <div class="warn">これは<b>記録した瞬間の結果</b>です。搭乗数時間前から徐々に枠が
-      解放される便があるため、その後に予約できるようになっている場合があります。
-      現在の状況ではありません。</div>
-    <div class="corptable">${rows.map(r =>
-      `<div class="row${r.n === 0 ? " zero" : ""}"><span>${r.seg}</span><b>${r.n}/${r.total}</b></div>`
-    ).join("")}</div>`;
-  $corppanel.hidden = false;
-  document.getElementById("corpclose").onclick = () => { $corppanel.hidden = true; };
-}
-
-$corpview.addEventListener("click", async (e) => {
-  e.preventDefault();
-  $corppanel.hidden = false;
-  $corppanel.innerHTML = "読み込み中…";
-  try {
-    const res = await fetch(`${REMOTE}?action=all&hub=JOH`, {cache: "no-store"});
-    if (!res.ok) throw new Error(res.status === 404 ? "まだ記録がありません" : "HTTP " + res.status);
-    const body = await res.json();
-    const dates = Object.keys(body.days || {}).sort();
-    if (!dates.length) throw new Error("まだ記録がありません");
-    renderCorpPanel(body.days[dates[dates.length - 1]]);
-  } catch (err) {
-    $corppanel.innerHTML = `<button class="close" id="corpclose">閉じる ✕</button>
-      <h3>JALオンライン（制度）の記録</h3>
-      <div class="warn">${err.message}。先に「制度枠を記録」を実行してください。</div>`;
-    document.getElementById("corpclose").onclick = () => { $corppanel.hidden = true; };
-  }
-});
+// 空席と並行して取りに行く。無くても表示に支障は無いので待たない。
+// loadAvailability() より先に終わることもあるので、DATA がまだ無ければ何もしない
+// （そちらの初回 render() が、この時点までに入っていた CORP を拾って描く）
+loadCorp().then(() => { if (CORP && DATA) render(); });
 
 loadAvailability()
   .then(days => {
