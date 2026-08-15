@@ -405,16 +405,10 @@ footer a{color:var(--hover)}
       <button data-corp="ng">取れない便</button>
     </div>
   </div>
-  <div class="field">
-    <span class="lbl">座席</span>
-    <div class="seg" id="kindseg">
-      <button data-kind="all" class="on">指定なし</button>
-      <button data-kind="sw">窓側</button>
-      <button data-kind="sl">通路側</button>
-      <button data-kind="se">非常口</button>
-      <button data-kind="sg">足元ゆったり</button>
-    </div>
-  </div>
+  <!-- 座席（窓側/通路側/非常口/足元ゆったり）の絞り込みは、使わないとのことで
+       2026-08-15 に外した。各便の「座席表 N席（窓2・通路6…）」の内訳表示は残してある。
+       戻すときは、この位置に seg#kindseg を置き、bindSeg("kindseg","kind") を呼ぶ。
+       絞り込みのロジック（state.kind と flightsOf）はそのまま残してある。 -->
   <div class="field">
     <span class="lbl">当日搭乗の目安</span>
     <input type="number" id="minok" min="1" inputmode="numeric" placeholder="座席数&gt;"
@@ -1187,8 +1181,7 @@ function renderSummary(){
       + ` 運賃の在庫とは別管理で、JALが当日空港割り当て分を確保しているため、`
       + ` 空席ありでも座席表は満席ということがあります。`
       + `<br><b>「窓・通路・中央」と「非常口・足元ゆったり」は、その座席表から数えた内訳です。</b>`
-      + ` 上の<b>座席</b>で絞り込めます。座席表をまだ見ていない便は、`
-      + ` その席が空いているか分からないため絞り込みには出てきません。`;
+      + ` 普通席の数字をタップすると、空いている座席番号を並べて見られます。`;
 }
 
 function todayJST(){
@@ -1427,7 +1420,6 @@ loadAvailability()
     setBusy(false); // 更新ボタンのラベルを選択中の日に合わせる
     bindSeg("dirseg", "dir");
     bindSeg("seatseg", "seats");
-    bindSeg("kindseg", "kind");
     bindSeg("corpseg", "corp");
     document.getElementById("dayseg").addEventListener("click", ev => {
       const b = ev.target.closest("button");
