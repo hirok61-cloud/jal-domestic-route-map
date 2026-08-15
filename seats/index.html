@@ -217,6 +217,11 @@ td.fno{font-weight:700;color:var(--red)}
 .corpsum .sub{color:var(--sub);font-size:11.5px}
 .corpsum ul{margin:8px 0 0;padding-left:18px}
 .corpsum .hint{color:var(--warn);font-weight:700}
+/* 往復ブロック。片道だけでは旅程として成立しないので、行き先単位で分けて出す */
+.rtblock{margin:10px 0;padding:10px 12px;background:var(--bg);border-radius:10px}
+.rthead{font-weight:700;font-size:12.5px;margin-bottom:2px}
+.rtline{margin-top:5px;line-height:1.7}
+.rtok{color:var(--ok)}
 /* ○×の凡例。ツールチップはスマホで読めないので、本文として出す */
 .corplegend{font-size:11.5px;color:var(--sub);margin:0 0 8px;display:flex;
   align-items:center;gap:14px;flex-wrap:wrap}
@@ -767,7 +772,7 @@ function renderCorpSummary(){
   for (const r of CORP.routes) {
     for (const f of r.flights || []) {
       if (typeof f.zl !== "boolean") continue;
-      rows.push({seg: `${r.o}→${r.d}`, o: r.o, zl: f.zl, eco: f.eco, dep: f.dep});
+      rows.push({seg: `${r.o}→${r.d}`, o: r.o, d: r.d, zl: f.zl, eco: f.eco, dep: f.dep});
     }
   }
   if (!rows.length) { box.hidden = true; return; }
@@ -827,6 +832,26 @@ function renderCorpSummary(){
   const availN = rows.filter(x => x.eco >= 9).length;
   const hiddenPct = availN ? Math.round(hidden / availN * 100) : 0;
 
+  /* 往復セットで見る。片道が取れても帰りが取れなければ旅程として成立しない
+     （実際に方向差が大きく出ており、行きは取れても帰りが全滅の行き先がある）。
+     行き先（HNDでないほうの空港）ごとに、行き・帰りそれぞれに
+     制度で取れる便が1本でもあるかを見る。 */
+  const bySpoke = new Map();
+  for (const x of rows) {
+    const spoke = x.o === "HND" ? x.d : x.o;
+    const s = bySpoke.get(spoke) || {out: false, ret: false};
+    if (x.zl) { if (x.o === "HND") s.out = true; else s.ret = true; }
+    bySpoke.set(spoke, s);
+  }
+  const spokeName = (c) => (typeof AP !== "undefined" && AP[c]) || c;
+  const roundOk = [], outOnly = [], retOnly = [];
+  for (const [spoke, s] of bySpoke) {
+    if (s.out && s.ret) roundOk.push(spoke);
+    else if (s.out) outOnly.push(spoke);
+    else if (s.ret) retOnly.push(spoke);
+  }
+  roundOk.sort(); outOnly.sort(); retOnly.sort();
+
   box.innerHTML = `
     <h3>制度枠のサマリ（${hhmm(CORP.generatedAt)}時点）</h3>
     <div class="corplegend"><span><span class="corpmark ok">○</span>この時刻に予約できた</span>
@@ -836,6 +861,17 @@ function renderCorpSummary(){
       + `空席あり（残席9以上）なのに制度では出ていない便が <b>${hidden} 便</b>`
       + `（空席ありの ${availN} 便中 <b>${hiddenPct}％</b>）あります。`
       + `空席＝制度で取れる、ではありません。</div>` : ""}
+    <div class="rtblock">
+      <div class="rthead">往復（当日中）で見ると</div>
+      <div class="sub">片道が取れても、帰りが取れなければ旅程として成立しません。
+        行き先ごとに、行き・帰りそれぞれに制度で取れる便が1本以上あるかで見ています。</div>
+      <div class="rtline"><b class="rtok">往復とも取れる行き先 ${roundOk.length}</b>
+        ${roundOk.length ? `：${roundOk.map(spokeName).join("、")}` : "（今日は無し）"}</div>
+      ${outOnly.length ? `<div class="rtline"><span class="hint">行きだけ取れる（帰りが取れない）</span>：`
+        + `${outOnly.map(spokeName).join("、")}</div>` : ""}
+      ${retOnly.length ? `<div class="rtline"><span class="hint">帰りだけ取れる（行きが取れない）</span>：`
+        + `${retOnly.map(spokeName).join("、")}</div>` : ""}
+    </div>
     ${lines.length ? `<ul>${lines.map(l => `<li>${l}</li>`).join("")}</ul>` : ""}
     <div class="sub" style="margin-top:8px">これは記録した瞬間の断面です。搭乗数時間前から
       徐々に解放される便があるため、その後に取れるようになることがあります。</div>`;
