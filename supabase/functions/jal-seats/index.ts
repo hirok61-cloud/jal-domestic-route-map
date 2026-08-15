@@ -4,6 +4,7 @@
 //   GET  ?hub=HND&date=2026-08-09  → 指定日のスナップショット（既定は今日）
 //   GET  ?action=all&hub=HND       → 持っている日分まとめて { "YYYY-MM-DD": payload }
 //   POST ?action=request           → 更新依頼を積む（スマホなど収集できない端末用）
+//   GET  ?action=recent&n=8        → 直近の依頼をまとめて（成否の一覧表示用）
 //   GET  ?action=status&id=123     → 依頼の進捗
 //
 // 収集側（x-update-key 必須。MacのChrome拡張とブックマークレットが使う）
@@ -133,6 +134,22 @@ Deno.serve(async (req: Request) => {
       .then((r) => r.json()).catch(() => []);
     if (!Array.isArray(rows) || !rows.length) return json({ error: "見つかりません" }, 404);
     return json(rows[0]);
+  }
+
+  /* ---------------------------------------- 直近の収集が成功したか（公開） */
+  /* 2026-08-15、収集が48時間サイレントに失敗し続けた（座席詳細が更新されない）
+     のに、サイトのどこにも失敗が出ておらず気づけなかった。古いスナップショットが
+     残っているだけだと外からは正常に見えてしまうため、依頼そのものの成否を
+     別途出す。hub は問わない（HND・JOHをまとめて新しい順に返す）。 */
+  if (req.method === "GET" && action === "recent") {
+    await rpc("jal_expire_stale_requests");
+    const n = Math.min(Number(url.searchParams.get("n")) || 8, 30);
+    const rows = await db(
+      `${REQUESTS}?order=requested_at.desc&limit=${n}` +
+      `&select=id,hub,status,message,origin_label,requested_at,updated_at,day_offsets`,
+    ).then((r) => r.json()).catch(() => null);
+    if (!Array.isArray(rows)) return json({ error: "読み取りに失敗しました" }, 502);
+    return json({ requests: rows });
   }
 
   /* ------------------------------------------------- 依頼を拾う（収集側） */
