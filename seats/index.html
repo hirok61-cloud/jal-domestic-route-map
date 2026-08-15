@@ -205,6 +205,11 @@ td.fno{font-weight:700;color:var(--red)}
 .corpsum .sub{color:var(--sub);font-size:11.5px}
 .corpsum ul{margin:8px 0 0;padding-left:18px}
 .corpsum .hint{color:var(--warn);font-weight:700}
+/* ○×の凡例。ツールチップはスマホで読めないので、本文として出す */
+.corplegend{font-size:11.5px;color:var(--sub);margin:0 0 8px;display:flex;
+  align-items:center;gap:14px;flex-wrap:wrap}
+.corplegend>span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.corplegend .corpmark{width:19px;height:19px;font-size:11px}
 .corpsum details summary{cursor:pointer}
 .corpsum details summary .sub{margin-left:4px}
 .corpsum .seglist{margin-top:5px;padding:7px 10px;background:var(--bg);border-radius:8px;
@@ -359,6 +364,15 @@ footer a{color:var(--hover)}
       <button data-seats="avail" class="on">空席あり</button>
       <button data-seats="full">満席のみ</button>
       <button data-seats="all">全便</button>
+    </div>
+  </div>
+  <!-- 制度枠の記録がある日だけ出す（無い日は判断材料が無く、絞り込む意味がない） -->
+  <div class="field" id="corpfield" hidden>
+    <span class="lbl">制度</span>
+    <div class="seg" id="corpseg">
+      <button data-corp="all" class="on">指定なし</button>
+      <button data-corp="ok">取れる便</button>
+      <button data-corp="ng">取れない便</button>
     </div>
   </div>
   <div class="field">
@@ -528,7 +542,7 @@ const geoRank = code => {
 const MINOK_KEY = "jalSeatsMinOk";
 const savedMinOk = localStorage.getItem(MINOK_KEY) || "";
 
-const state = {dir:"all", seats:"avail", kind:"all", q:"", date:null, minOk:savedMinOk};
+const state = {dir:"all", seats:"avail", kind:"all", q:"", date:null, minOk:savedMinOk, corp:"all"};
 
 /* 座席の種類での絞り込み。値はそのまま便レコードのキーになっている
    （sw=窓側 / sl=通路側 / se=非常口 / sg=足元が広い）。 */
@@ -803,6 +817,8 @@ function renderCorpSummary(){
 
   box.innerHTML = `
     <h3>制度枠のサマリ（${hhmm(CORP.generatedAt)}時点）</h3>
+    <div class="corplegend"><span><span class="corpmark ok">○</span>この時刻に予約できた</span>
+      <span><span class="corpmark ng">×</span>できなかった</span></div>
     <div class="lead">対象 ${rows.length} 便のうち <b>${ok} 便（${pct}％）</b> が予約できる状態でした。</div>
     ${hidden ? `<div class="sub"><span class="hint">うち注意</span>：`
       + `空席あり（残席9以上）なのに制度では出ていない便が <b>${hidden} 便</b>`
@@ -971,12 +987,27 @@ function flightsOf(route){
     const n = Number(state.minOk);
     list = list.filter(f => f.eco >= 9 || (f.sa !== undefined && f.sa > n));
   }
+  /* 制度（JALオンライン）で取れた便だけに絞る。記録した瞬間の結果なので、
+     記録が無い日・記録に無い便は判断材料が無い＝出さない。 */
+  if (state.corp !== "all" && CORP && CORP.date === DATA.date) {
+    list = list.filter(f => CORP.byNo.get(f.no) === (state.corp === "ok"));
+  }
   return list;
 }
 
 function render(){
   const list = document.getElementById("list");
   renderCorpSummary(); // 制度枠のサマリ。絞り込みに関係なく全体の結論を出す
+
+  /* 制度の絞り込みは、その日の記録があるときだけ意味がある。
+     記録が無い日に出すと「取れる便0件」と誤解させるので隠す。 */
+  const hasCorp = !!(CORP && CORP.date === DATA.date);
+  document.getElementById("corpfield").hidden = !hasCorp;
+  if (!hasCorp && state.corp !== "all") {
+    state.corp = "all";
+    [...document.getElementById("corpseg").children]
+      .forEach(b => b.classList.toggle("on", b.dataset.corp === "all"));
+  }
   SEAT_LOOKUP = []; // 座席表クリックの参照先。render のたびに作り直す
   const visible = DATA.routes.filter(routeMatches).sort((a, b) => {
     // 羽田側ではないほうの空港（＝相手先）の位置で北から並べる
@@ -1245,7 +1276,7 @@ async function pollRequest(id, startedAt){
     clearInterval(polling);
     setBusy(false);
     runbar(`<b>更新できませんでした。</b> ${job.message || ""}<br>`
-      + `Macが起動していてChromeが動いているときだけ実行できます。`
+      + `Macが起きていてChromeが動いていること、前の収集が終わっていることが必要です。`
       + `<a href="update.html" style="color:inherit"> ほかの更新方法</a>`, "err");
     return;
   }
@@ -1364,6 +1395,7 @@ loadAvailability()
     bindSeg("dirseg", "dir");
     bindSeg("seatseg", "seats");
     bindSeg("kindseg", "kind");
+    bindSeg("corpseg", "corp");
     document.getElementById("dayseg").addEventListener("click", ev => {
       const b = ev.target.closest("button");
       if (!b) return;
