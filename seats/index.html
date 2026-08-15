@@ -14,6 +14,9 @@
   --hover:#0d55a0;
   --ok:#1a7f4b; --ok-bg:#e7f5ec; --warn:#b06000; --warn-bg:#fdf1e2; --full:#8b98a3; --full-bg:#f2f2f0;
   --shadow:0 10px 30px rgba(30,20,20,.12); --card-shadow:0 2px 10px rgba(30,20,20,.06);
+  --area-hokkaido:#eaf1fa; --area-tohoku:#eaf3f5; --area-kanto:#f2f1ec; --area-chubu:#f3f0e8;
+  --area-kansai:#f7efe9; --area-chugoku:#eef2ea; --area-shikoku:#eef3ec; --area-kyushu:#faefe9;
+  --area-okinawa:#fdf0e6;
 }
 @media (prefers-color-scheme: dark){:root{
   --red:#ff4256; --red-deep:#c2182e; --red-soft:#39141a; --gold:#d7bc85;
@@ -22,6 +25,9 @@
   --hover:#5ab0ff;
   --ok:#5ed58f; --ok-bg:#12291d; --warn:#ffb056; --warn-bg:#2e2113; --full:#6c7b87; --full-bg:#1a1f25;
   --shadow:0 10px 30px rgba(0,0,0,.55); --card-shadow:0 2px 10px rgba(0,0,0,.4);
+  --area-hokkaido:#161e28; --area-tohoku:#152023; --area-kanto:#1c1e22; --area-chubu:#211f19;
+  --area-kansai:#241c18; --area-chugoku:#182018; --area-shikoku:#182119; --area-kyushu:#261b16;
+  --area-okinawa:#271d14;
 }}
 :root[data-theme="light"]{
   --red:#b7001e; --red-deep:#8c0017; --red-soft:#fbeef0; --gold:#a98e5e;
@@ -30,6 +36,9 @@
   --hover:#0d55a0;
   --ok:#1a7f4b; --ok-bg:#e7f5ec; --warn:#b06000; --warn-bg:#fdf1e2; --full:#8b98a3; --full-bg:#f2f2f0;
   --shadow:0 10px 30px rgba(30,20,20,.12); --card-shadow:0 2px 10px rgba(30,20,20,.06);
+  --area-hokkaido:#eaf1fa; --area-tohoku:#eaf3f5; --area-kanto:#f2f1ec; --area-chubu:#f3f0e8;
+  --area-kansai:#f7efe9; --area-chugoku:#eef2ea; --area-shikoku:#eef3ec; --area-kyushu:#faefe9;
+  --area-okinawa:#fdf0e6;
 }
 :root[data-theme="dark"]{
   --red:#ff4256; --red-deep:#c2182e; --red-soft:#39141a; --gold:#d7bc85;
@@ -38,6 +47,9 @@
   --hover:#5ab0ff;
   --ok:#5ed58f; --ok-bg:#12291d; --warn:#ffb056; --warn-bg:#2e2113; --full:#6c7b87; --full-bg:#1a1f25;
   --shadow:0 10px 30px rgba(0,0,0,.55); --card-shadow:0 2px 10px rgba(0,0,0,.4);
+  --area-hokkaido:#161e28; --area-tohoku:#152023; --area-kanto:#1c1e22; --area-chubu:#211f19;
+  --area-kansai:#241c18; --area-chugoku:#182018; --area-shikoku:#182119; --area-kyushu:#261b16;
+  --area-okinawa:#271d14;
 }
 *{box-sizing:border-box}
 html,body{margin:0}
@@ -134,6 +146,22 @@ main{padding:18px 22px 40px;max-width:1180px;margin:0 auto}
 .route-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
   padding:11px 16px;border-bottom:1px solid var(--hair);background:linear-gradient(180deg,var(--chipbg),var(--panel))}
 .route-head h2{margin:0;font-size:15px;font-weight:700;letter-spacing:.03em}
+/* 3レターは日本語のあとに小さく添えるだけ。主役は日本語のまま、
+   見ているうちにコードを覚えられるようにする */
+.route-head h2 .iata{margin-left:4px;font-size:10.5px;font-weight:600;color:var(--sub);
+  font-family:ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.06em;vertical-align:1px}
+.route-head h2 .apicon{margin-left:7px;font-size:15px;vertical-align:-1px}
+/* 地域ごとの淡い色。相手先の空港で決める。空席バッジの色（緑/橙/灰）と
+   競合しないよう、あくまで淡い背景にとどめる */
+.route-head.area-hokkaido{background:var(--area-hokkaido)}
+.route-head.area-tohoku{background:var(--area-tohoku)}
+.route-head.area-kanto{background:var(--area-kanto)}
+.route-head.area-chubu{background:var(--area-chubu)}
+.route-head.area-kansai{background:var(--area-kansai)}
+.route-head.area-chugoku{background:var(--area-chugoku)}
+.route-head.area-shikoku{background:var(--area-shikoku)}
+.route-head.area-kyushu{background:var(--area-kyushu)}
+.route-head.area-okinawa{background:var(--area-okinawa)}
 .route-head h2 .arrow{color:var(--red);margin:0 7px}
 .route-head .meta{font-size:11.5px;color:var(--sub);font-variant-numeric:tabular-nums}
 .route-head .jal{margin-left:auto;font-size:11.5px;font-weight:700;color:var(--red);text-decoration:none;
@@ -408,6 +436,45 @@ const AP = {
  OKA:"沖縄(那覇)", UEO:"久米島", KTD:"北大東", MMD:"南大東",
  MMY:"宮古", TRA:"多良間", ISG:"石垣", OGN:"与那国"
 };
+
+/* 空港ごとの名産（絵文字）。路線見出しに小さく添えるだけの飾りで、
+   絞り込みや集計には一切使わない。
+   **ゆるキャラ・地域ブランドのロゴは商標なので使わない**。一般的な名産にとどめる。
+   絵文字の見た目は端末（Mac/iPhone/Android/Windows）で変わる。 */
+const AP_ICON = {
+  CTS:"🦐", HKD:"🦑", AKJ:"🍜", KUH:"🦢", OBO:"🐄", MMB:"🦀", SHB:"🥛", RIS:"🌊", OIR:"🦑",
+  AOJ:"🍎", MSJ:"🐟", AXT:"🍚", GAJ:"🍒", HNA:"🌾", SDJ:"🐄", KIJ:"🍚",
+  MMJ:"🏔️", KMQ:"🦀", FSZ:"🍵", NKM:"🍤", NGO:"🍤",
+  ITM:"🐙", KIX:"🐙", UKB:"🥩", SHM:"🍊", TJH:"🦀",
+  OKI:"🦑", IZO:"⛩️", OKJ:"🍑", HIJ:"🦪", UBJ:"🐡",
+  TAK:"🍜", TKS:"🌀", KCZ:"🐟", MYJ:"🍊",
+  FUK:"🍜", KKJ:"🍌", OIT:"♨️", NGS:"🍜", TSJ:"🦑", IKI:"🐟", FUJ:"⛪",
+  KMJ:"🍉", AXJ:"🐬", KMI:"🥭", KOJ:"🍠", TNE:"🚀", KUM:"🌲",
+  ASJ:"🌺", KKX:"🦋", TKN:"🐂", OKE:"🌷", RNJ:"🐚",
+  OKA:"🌺", UEO:"🦐", KTD:"🌊", MMD:"🌊",
+  MMY:"🐠", TRA:"🌴", ISG:"🐠", OGN:"🦋",
+  HND:"🗼", NRT:"✈️", OKD:"🦐",
+};
+
+/* 地域ごとの淡い色。路線見出しの背景に使う。
+   相手先（羽田でないほう）の空港で決める。文字は同じ系統の濃い色を使い、
+   ライト/ダークどちらでも読めるようにCSS変数側で調整する。 */
+const AP_AREA = {
+  hokkaido: ["CTS","OKD","HKD","AKJ","KUH","OBO","MMB","SHB","RIS","OIR"],
+  tohoku:   ["AOJ","MSJ","AXT","GAJ","HNA","SDJ"],
+  kanto:    ["HND","NRT","NKM","MMJ","FSZ","KIJ"],
+  chubu:    ["NGO","KMQ"],
+  kansai:   ["ITM","KIX","UKB","SHM","TJH"],
+  chugoku:  ["OKI","IZO","OKJ","HIJ","UBJ"],
+  shikoku:  ["TAK","TKS","KCZ","MYJ"],
+  kyushu:   ["FUK","KKJ","OIT","NGS","TSJ","IKI","FUJ","KMJ","AXJ","KMI","KOJ","TNE","KUM"],
+  okinawa:  ["ASJ","KKX","TKN","OKE","RNJ","OKA","UEO","KTD","MMD","MMY","TRA","ISG","OGN"],
+};
+const AREA_OF = {};
+for (const [area, codes] of Object.entries(AP_AREA)) for (const c of codes) AREA_OF[c] = area;
+
+/** 路線見出しの表示。日本語を主役に、3レターを小さく添えて自然に覚えられるようにする。 */
+const apLabel = (code) => `${AP[code] || code}<span class="iata">${code}</span>`;
 
 /* JAL公式APIが返す IATA 機材コード → 表示名 */
 const ACNAME = {
@@ -934,8 +1001,9 @@ function render(){
       : "";
 
     html.push(`<section class="route">
-      <div class="route-head">
-        <h2>${AP[route.o] || route.o}<span class="arrow">→</span>${AP[route.d] || route.d}</h2>
+      <div class="route-head area-${AREA_OF[route.o === "HND" ? route.d : route.o] || "kanto"}">
+        <h2>${apLabel(route.o)}<span class="arrow">→</span>${apLabel(route.d)}<span
+          class="apicon" aria-hidden="true">${AP_ICON[route.o === "HND" ? route.d : route.o] || ""}</span></h2>
         <span class="meta">${meta}</span>
         <a class="jal" href="https://www.jal.co.jp/ja-jp/" target="_blank" rel="noopener">JAL公式で照会</a>
       </div>`);
