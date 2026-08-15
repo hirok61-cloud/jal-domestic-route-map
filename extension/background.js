@@ -20,6 +20,7 @@ const AUTO_ALARM = "auto";
 /* 自動更新の時刻（ローカル時間）。Macが起きているときだけ動くので回数は絞る。
    朝・昼は今日分、夜は翌日分を取る（22時には今日の便がほぼ終わっているため）。 */
 const AUTO_SCHEDULE = [
+  { hour: 0, minute: 5, days: [0], hub: CORP_HUB }, // 制度枠。0時に解放された当日ぶん
   { hour: 7, minute: 0, days: [0] },
   { hour: 12, minute: 0, days: [0] },
   { hour: 22, minute: 0, days: [1] },
@@ -272,31 +273,36 @@ async function scheduleAuto() {
 
 /** 自動更新の時刻になったので、自分で依頼を積んで拾いに行く。 */
 async function runAuto() {
-  const store = await chrome.storage.local.get(["autoUpdate", "lastAutoAt"]);
+  const store = await chrome.storage.local.get(["autoUpdate", "lastAutoBy"]);
   await scheduleAuto(); // まず次回を仕掛け直す
   if (!store.autoUpdate) return;
   if (!(await getKey())) return;
 
+  // いま時刻に近いほうの枠を採用する（寝坊した場合も、その枠の対象日で取る）
+  const hour = new Date().getHours() + new Date().getMinutes() / 60;
+  const slot = AUTO_SCHEDULE.reduce((a, b) =>
+    Math.abs(a.hour - hour) <= Math.abs(b.hour - hour) ? a : b);
+  const hub = slot.hub || "HND";
+
   /* Macが寝ていると予定時刻を過ぎてから発火する。起きた直後に朝と夜の分が
-     続けて走らないよう、直近に自動更新していたら見送る。 */
-  if (store.lastAutoAt && Date.now() - store.lastAutoAt < AUTO_MIN_GAP_MS) {
-    await log("自動更新: 直近に実行済みのため見送り");
+     続けて走らないよう、直近に自動更新していたら見送る。
+     **ハブごとに覚えること。** 1つの値で見ていると、22時（空席）の直後に来る
+     0時5分（制度枠）が毎回「直近に実行済み」で見送られてしまう（2026-08-15）。 */
+  const lastBy = store.lastAutoBy || {};
+  if (lastBy[hub] && Date.now() - lastBy[hub] < AUTO_MIN_GAP_MS) {
+    await log(`自動更新: ${hub} は直近に実行済みのため見送り`);
     return;
   }
 
-  // いま時刻に近いほうの枠を採用する（寝坊した場合も、その枠の対象日で取る）
-  const hour = new Date().getHours();
-  const slot = AUTO_SCHEDULE.reduce((a, b) =>
-    Math.abs(a.hour - hour) <= Math.abs(b.hour - hour) ? a : b);
-
   try {
-    const res = await api("?action=request", {
+    const res = await api(`?action=request&hub=${hub}`, {
       method: "POST",
       body: JSON.stringify({ from: "自動更新", days: slot.days }),
     });
     if (!res.ok) return;
-    await chrome.storage.local.set({ lastAutoAt: Date.now() });
-    await log(`自動更新を開始（${slot.days[0] === 0 ? "今日分" : "明日分"}）`);
+    await chrome.storage.local.set({ lastAutoBy: { ...lastBy, [hub]: Date.now() } });
+    await log(`自動更新を開始（${hub === CORP_HUB ? "制度枠・今日分"
+      : slot.days[0] === 0 ? "今日分" : "明日分"}）`);
     await poll();
   } catch { /* オフライン等。次の枠で拾い直す */ }
 }
