@@ -125,8 +125,14 @@ function waitForUrl(tabId, re, timeoutMs) {
    自動ログインはまだ無いので、新しいウィンドウを開いても未ログインの状態にしか
    ならず、法人フラグ付きのリクエストは通らない
    （2026-08-15、「JALに接続を断られています（Required Input not available）」で
-   実機・実データから確認した。ブックマークレット側の corpData 判定と同じロジック）。
-   見つかったタブへ collect.js を注入して使う。新規ウィンドウは開かない。 */
+   実機・実データから確認した）。
+   見つかったタブへ collect.js を注入して使う。新規ウィンドウは開かない。
+
+   **corpData が有るかどうかで見分けてはいけない**（2026-08-16 実測）。
+   公式の検索フローでも corpData は作られ、中身は {"lastName":"","firstName":""}。
+   これを法人と誤認すると、公式のタブに法人モードの収集を流し込んでしまう。
+   確かな順に選ぶ: ①JOHNのページ（/jl/dom-corp/）を開いているタブ →
+   ②corpData の中身が埋まっているタブ。 */
 async function findCorpTab() {
   let tabs;
   try {
@@ -134,22 +140,29 @@ async function findCorpTab() {
   } catch {
     return null;
   }
+  let fallback = null;
   for (const tab of tabs) {
     if (tab.status !== "complete" || tab.id == null) continue;
     try {
       const [{ result }] = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         func: () => {
-          const corp = sessionStorage.getItem("corpData");
           const creds = JSON.parse(sessionStorage.getItem("apiAuthCreds") || "{}");
-          return !!(corp && corp !== "null" && corp !== "{}")
-            && typeof creds.authToken === "string" && creds.authToken.length > 10;
+          if (typeof creds.authToken !== "string" || creds.authToken.length <= 10) return 0;
+          if (/\/jl\/dom-corp\//.test(location.pathname)) return 2; // JOHNのページそのもの
+          try {
+            const d = JSON.parse(sessionStorage.getItem("corpData") || "null");
+            if (d && typeof d === "object"
+              && Object.values(d).some((v) => typeof v === "string" && v.trim() !== "")) return 1;
+          } catch { /* 壊れていれば法人ではないとみなす */ }
+          return 0;
         },
       });
-      if (result) return tab.id;
+      if (result === 2) return tab.id;                  // これ以上確かなものは無い
+      if (result === 1 && fallback == null) fallback = tab.id;
     } catch { /* このタブは読めなかった（拡張ページ等）。次を試す */ }
   }
-  return null;
+  return fallback;
 }
 
 async function runJob(job) {

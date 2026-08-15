@@ -3,7 +3,7 @@
 
    収集ロジック本体は tools/collect-core.js にある（拡張と共通）。
    ここが受け持つのは、JALのページ上に出す進捗表示と、
-   「今日 / 明日 / 両日」の聞き取り、それに www 側で押されたときの誘導だけ。
+   「今日 / 明日 / 両日 / 制度枠」の聞き取り、それに www 側で押されたときの誘導だけ。
 
    使い方は /seats/update.html を参照。
 
@@ -156,11 +156,26 @@ window.__JAL_SEATS_BOOTED = Date.now();
   }
   /* JALオンライン（法人・制度利用）のページかどうかは、URLだけでは判別できない
      （検索結果 /jl/dom-bkg/upsell は公式・法人どちらも同じパスに来る）。
-     JOHNログインを経由したセッションだけが持つ sessionStorage の値で判定する。
-     公式の検索フローではこのキーには触れないので、これが入っていれば法人とみなす。
-     エラー文言を出し分けるため、認証チェックより先に判定しておく。 */
-  const corpSignal = sessionStorage.getItem("corpData");
-  const corporate = !!(corpSignal && corpSignal !== "null" && corpSignal !== "{}");
+
+     以前は sessionStorage の corpData が有るかどうかだけで自動判定していたが、
+     **これは誤りだった**（2026-08-16 実測）。公式の検索フローでも JAL のアプリが
+     corpData を作っており、中身は {"lastName":"","firstName":""}。"null" でも "{}"
+     でもないので「有れば法人」の判定は**必ず真**になり、スマホからの公式の更新まで
+     法人モードで走っていた（「今日/明日/両日」が出ない・hub=JOH に保存されるので
+     空席＝hub=HND がいつまでも新しくならない）。
+
+     ページの中身から確実に見分ける手が無いので、**押した人に選んでもらう**（下）。
+     corpData の中身と URL は「おすすめ」を光らせるヒントとしてだけ使う。
+     エラー文言を出し分けるため、認証チェックより先に見ておく。 */
+  const corpHint = (() => {
+    if (/\/jl\/dom-corp\//.test(location.pathname)) return true; // JOHNのページそのもの
+    try {
+      const d = JSON.parse(sessionStorage.getItem("corpData") || "null");
+      // 公式は名前が空で入っている。中身が埋まっているときだけ法人とみなす
+      return !!d && typeof d === "object"
+        && Object.values(d).some((v) => typeof v === "string" && v.trim() !== "");
+    } catch { return false; } // 壊れていれば法人ではないとみなす
+  })();
 
   const creds = JSON.parse(sessionStorage.getItem("apiAuthCreds") || "{}");
   if (!creds.authToken) {
@@ -169,40 +184,48 @@ window.__JAL_SEATS_BOOTED = Date.now();
        セッションが切れている（無操作で約1時間）ときなので、検索を促す文言は出さない。
        公式は逆に「検索して作ったセッションでないとAPIが通らない」という制約が
        実測で確定しているので、こちらは検索を促す。docs/JAL_ONLINE_CORP.md 参照。 */
-    fail("ログイン情報が見つかりません", corporate
+    fail("ログイン情報が見つかりません", corpHint
       ? "JALオンラインのページを開き直してから実行してください。"
         + "しばらく放置していた場合はセッションが切れている可能性があります。"
       : "先に国内線を1回検索して、便が並んだ画面で実行してください。");
     return;
   }
 
-  /* ------------------------------------------------------------ 収集する日 */
+  /* ---------------------------------------------------------- 何を更新するか */
 
   /* 座席表まで見ると1日8〜10分かかるので、両日まとめると20分近くになる。
      要る日だけ選べるほうが実用的。
-     法人（制度枠）は当日ぶんしか解放されないので、選ばせずに今日固定にする。 */
-  const OFFSETS = corporate ? [0] : await new Promise((resolve) => {
+     法人（制度枠）は当日ぶんしか解放されないので、選ぶ余地が無い＝今日固定。
+     公式と法人はページからは見分けられない（上のcorpHint参照）ので、
+     日と一緒にここで選んでもらう。 */
+  const { corporate, OFFSETS } = await new Promise((resolve) => {
     const md = (n) => {
       const d = new Date(Date.now() + 9 * 3600000 + n * 86400000);
       return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
     };
-    show("どの日を更新しますか？",
-      "座席表まで見るので<b>1日あたり8〜10分</b>かかります", 0);
+    show("何を更新しますか？", corpHint
+      ? "JALオンラインのページのようです。<b>制度枠</b>なら約3分、"
+        + "空席は座席表まで見るので<b>1日あたり8〜10分</b>かかります"
+      : "空席は座席表まで見るので<b>1日あたり8〜10分</b>、"
+        + "制度枠は約3分かかります", 0);
     const box = document.createElement("div");
     box.style.cssText = "display:flex;gap:6px;margin-top:10px;flex-wrap:wrap";
-    const mk = (text, value) => {
+    const mk = (text, value, opts = {}) => {
       const b = document.createElement("button");
       b.textContent = text;
-      b.style.cssText = "flex:1;min-width:84px;cursor:pointer;border:1px solid #e2e0da;"
-        + "background:#faf9f7;color:#1b1e24;border-radius:999px;padding:8px 10px;"
-        + "font:700 12px/1 inherit";
+      b.style.cssText = `flex:${opts.wide ? "1 0 100%" : "1"};min-width:84px;cursor:pointer;`
+        + "border-radius:999px;padding:8px 10px;font:700 12px/1 inherit;"
+        + (opts.accent
+          ? "border:1px solid #24405e;background:#37618e;color:#fff;"
+          : "border:1px solid #e2e0da;background:#faf9f7;color:#1b1e24;");
       b.onclick = () => { box.remove(); resolve(value); };
       return b;
     };
     box.append(
-      mk(`今日 ${md(0)}`, [0]),
-      mk(`明日 ${md(1)}`, [1]),
-      mk("両日", [0, 1]),
+      mk(`今日 ${md(0)}`, { corporate: false, OFFSETS: [0] }, { accent: !corpHint }),
+      mk(`明日 ${md(1)}`, { corporate: false, OFFSETS: [1] }),
+      mk("両日", { corporate: false, OFFSETS: [0, 1] }),
+      mk("制度枠（今日）", { corporate: true, OFFSETS: [0] }, { wide: true, accent: corpHint }),
     );
     ui.appendChild(box);
   });

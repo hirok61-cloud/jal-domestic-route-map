@@ -34,7 +34,8 @@ const res = (status, body) => ({
 const text = (out) => (typeof out === "string" ? out : JSON.stringify(out));
 
 /* ---- 偽ブラウザ。収集スクリプトが触るところだけ用意する ---- */
-function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日", blockFetchOnly, hangSave, blockHost, job, corp }) {
+function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick, blockFetchOnly, hangSave, blockHost, job, corp }) {
+  pick = pick || "両日";
   const log = { saved: [], searches: 0, seatmaps: 0, finished: null, progress: [] };
 
   const node = (tag) => {
@@ -127,13 +128,18 @@ function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick = "両日", bloc
     },
     document,
     __JAL_SEATS_KEY: "TESTKEY", // ブックマークレットが渡す合言葉のかわり
-    location: { host, hostname: host },
-    /* corpData はブックマークレットが「JALオンライン(法人)のページか」を
-       見分けるのに使う目印（sessionStorageはタブ単位なので、これが入っているのは
-       JOHNログインを経由したセッションだけ）。 */
+    /* pathname は「JALオンラインのページか」のヒントに使う。
+       公式の検索結果と法人の検索結果は同じパスに来るので、既定は公式側。 */
+    location: { host, hostname: host, pathname: "/jl/dom-bkg/upsell" },
+    /* corpData は「JALオンライン(法人)のページか」のヒントに使う。
+       **公式でも入っている**（2026-08-16 実測。中身は名前が空）ので、
+       偽ブラウザも実物と同じ値を返す。ここを null にしていたせいで、
+       「有れば法人」の誤った判定が検証をすり抜けていた。 */
     sessionStorage: {
       getItem: (key) => key === "corpData"
-        ? (corp ? JSON.stringify({ selected: true }) : null)
+        ? JSON.stringify(corp
+          ? { lastName: "ヤマダ", firstName: "タロウ" }
+          : { lastName: "", firstName: "" })
         : JSON.stringify({ authToken: "dummy-token" }),
     },
     crypto: { randomUUID: () => nodeCrypto.randomUUID() },
@@ -307,16 +313,34 @@ const cases = [
     }),
   },
   {
-    name: "法人モード（ブックマークレット）：sessionStorageのcorpDataで自動判定する",
+    name: "法人モード（ブックマークレット）：「制度枠」を押したときだけ法人で集める",
     shellOnly: "ブックマークレット",
     corp: true,
+    pick: "制度枠",
     jal: (seat) => jalOk(seat),
     saver: () => res(200, { ok: true }),
     check: (log, out) => ({
-      "日の選択を出さず今日だけ集める（70区間×2）": log.searches === 140,
+      "今日だけ集める（70区間×2＝公式と法人を同時に）": log.searches === 140,
       "座席表は取らない": log.seatmaps === 0,
       "法人のハブで保存する": log.saved.at(-1).hub === "JOH",
       "予約できる便を数えて返す": /制度で予約できる便/.test(text(out)),
+      "完了する": ok(out),
+    }),
+  },
+  {
+    /* 回帰テスト。公式のセッションにも corpData は入っているので、
+       「有れば法人」で判定すると公式の更新が丸ごと法人モードに化けていた
+       （日を選べない・hub=JOH に保存され、空席が更新されない）。 */
+    name: "公式（ブックマークレット）：corpDataがあっても、選んだ日を公式のハブへ保存する",
+    shellOnly: "ブックマークレット",
+    pick: "両日",
+    jal: (seat) => jalOk(seat),
+    saver: () => res(200, { ok: true }),
+    check: (log, out) => ({
+      "両日ぶん集める（70区間×2日）": log.searches === 140,
+      "座席表も見る": log.seatmaps > 0,
+      "公式のハブで保存する": log.saved.every((s) => s.hub === "HND"),
+      "法人あつかいしない": !/制度で予約できる便/.test(text(out)),
       "完了する": ok(out),
     }),
   },
@@ -490,7 +514,7 @@ for (const shell of shells) {
     // 法人モードは拡張だけの配線（ブックマークレットには入れていない）
     if (c.shellOnly && c.shellOnly !== shell.name) continue;
     FLIGHTS_PER_ROUTE = c.flightsPerRoute || 1;
-    const env = makeEnv({ jal: c.jal, saver: c.saver, blockFetchOnly: c.blockFetchOnly, hangSave: c.hangSave, blockHost: c.blockHost, job: c.job, corp: c.corp });
+    const env = makeEnv({ jal: c.jal, saver: c.saver, blockFetchOnly: c.blockFetchOnly, hangSave: c.hangSave, blockHost: c.blockHost, job: c.job, corp: c.corp, pick: c.pick });
     vm.createContext(env);
     vm.runInContext(source, env);
 
