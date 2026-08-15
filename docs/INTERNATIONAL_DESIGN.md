@@ -35,7 +35,7 @@
 - **JAL自社**（赤）
 - **oneworld運航便**（青）: AA/BA/CX/QF/QR/AY/MH/UL 等
 - **提携(JV)**（紫）: アラスカ航空グループ＝アラスカ航空(AS)＋ハワイアン航空(HA)。JALと共同事業。ハワイアンは2024年にアラスカ傘下入り、パネルに明記。
-- **提携外**（緑）: JALと提携関係にない外国社＝大韓(KE)/アシアナ(OZ)/エバー(BR)/タイ(TG)/KLM(KL)/ルフトハンザ(LH)/エールフランス(AF)/ユナイテッド(UA)/デルタ(DL)。
+- **提携外**（緑）: JALと提携関係にない外国社＝大韓(KE)/アシアナ(OZ)/エバー(BR)/チャイナエアライン(CI)/タイ(TG)/KLM(KL)/ルフトハンザ(LH)/エールフランス(AF)/ユナイテッド(UA)/デルタ(DL)。
 
 ## 実績（2026-07-12時点・2026夏ダイヤ）
 - **112路線・65都市・449便**（往復両方向）。
@@ -45,6 +45,13 @@
 - **照合状況**: 全便がFlightAwareの定刻スケジュール実績に基づく（便名・現地時刻・機材・運航会社を実照合）。
 - **未完（既知の限界）**: 復路が別便名で当日別区間に解決され取得できなかった3路線（NRT-PVG / NRT-TSN / NRT-CMB）は片方向のみ表示。パネルで「この方向の定期便は確認できませんでした」と明示。
 - FlightAwareの「次の運航便」スナップショットのため、季節・曜日運航や当日の機材差し替えで実際と異なる場合あり（参考データと明記）。
+
+## 2026-08-15 追加: チャイナエアライン(CI/CAL)
+既存6キャリア追加時と同じ手法（FlightAware `findflight` の `resultsContent`／`flights` を実照合、CAL5xxx=貨物便として除外、単発ノイズ除外）で日本発着18路線を追加。
+就航都市はFlyTeamの路線一覧で確定（羽田/成田/関西/中部/新千歳/福岡/那覇/広島/高松/熊本/鹿児島/富山 ⇔ 桃園/松山/高雄/台中）。
+新規空港: 高松(TAK)/熊本(KMJ・既存流用)/鹿児島(KOJ)/広島(HIJ)/富山(TOY)/台中(RMQ)をAPに追加。
+富山線(TOY-TPE)は2026-08-20運航再開・月木週2便のためFlightAwareに実績なし、Aviation Wireの公式発表記事（CI170/171月・CI370/371木）を出典に使用。
+NRT/KIX/FUK/NGO/CTS/OKA-TPE、NRT/KIX/FUK-KHH、HND-TSAは既存のJAL/EVA路線オブジェクトにCI便をマージ（新規オブジェクトを作らない）。KHH-KMJ/OKA/RMQ、TPE-HIJ/TAK/KMJ/KOJ、TOY-TPEは新規路線オブジェクト。130→120路線（重複統合後）。
 
 ## 再生成手順（scratchpadのスクリプト）
 `routes.py`→`s1_enum.py`（路線列挙）→`s2a_fetch.py`/`s2b_collect.py`/`s3_fetch.py`（便照合）→`reverse_fill.py`（復路補完）→`process_land.py`（地図）→`assemble.py`（`records_all.json`＋`land.js`＋`template_intl.html`→ `international/index.html` を生成）→`qa.py`（異常検査）。
