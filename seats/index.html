@@ -196,6 +196,18 @@ td.fno{font-weight:700;color:var(--red)}
 .corpmark.ok{background:var(--ok-bg);color:var(--ok)}
 .corpmark.ng{background:var(--full-bg);color:var(--full)}
 .corpmark.na{color:var(--sub);opacity:.5;font-size:12px}
+/* 収集の健康状態。2026-08-15、直近48時間の収集12回中11回が失敗していたのに
+   サイトのどこにも出ておらず気づけなかった反省から追加。
+   古いスナップショットが残っているだけだと外からは正常に見えてしまうため、
+   依頼そのものの成否を別途出す。普段は目立たせず、失敗が続くときだけ赤くする。 */
+.healthbar{margin:14px 22px;padding:9px 14px;border-radius:10px;font-size:11.5px;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.healthbar.ok{background:var(--chipbg);color:var(--sub)}
+.healthbar.warn{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn)}
+.healthbar .hdot{width:7px;height:7px;border-radius:50%;flex:none}
+.healthbar.ok .hdot{background:var(--ok)}
+.healthbar.warn .hdot{background:var(--warn)}
+.healthbar .hitem{white-space:nowrap}
 /* 制度枠のサマリ。取得時点の結論を先に出す */
 .corpsum{margin:14px 22px;padding:14px 18px;border:1px solid var(--panel-edge);border-radius:14px;
   background:var(--panel);box-shadow:var(--card-shadow);font-size:12.5px;line-height:1.8}
@@ -414,6 +426,7 @@ footer a{color:var(--hover)}
 </div>
 <div class="runbar" id="runbar" hidden></div>
 <main>
+  <div class="healthbar" id="healthbar" hidden></div>
   <div class="notice" id="notice"></div>
   <div class="corpsum" id="corpsum" hidden></div>
   <div class="corpsum" id="corpreport" hidden></div>
@@ -1377,6 +1390,43 @@ $reportbtn.addEventListener("click", async () => {
 // 空席と並行して取りに行く。無くても表示に支障は無いので待たない。
 // loadAvailability() より先に終わることもあるので、DATA がまだ無ければ何もしない
 // （そちらの初回 render() が、この時点までに入っていた CORP を拾って描く）
+/* 収集の健康状態。バッジ表示ではなく、押したときだけ見に行く点検表と同じ
+   考え方（docs/JAL_ONLINE_CORP.md）。ハブごとに「直近の依頼が成功したか」
+   だけを見る。件数が少ないので凝った集計はしない。 */
+const HUB_LABEL = {HND: "空席", JOH: "制度枠"};
+async function loadHealth(){
+  try {
+    const res = await fetch(`${REMOTE}?action=recent&n=10`, {cache: "no-store"});
+    if (!res.ok) return;
+    const {requests} = await res.json();
+    if (!Array.isArray(requests) || !requests.length) return;
+
+    // ハブごとに最新の1件だけを見る（一覧は要らない。健康状態の一目判断だけが目的）
+    const latest = new Map();
+    for (const r of requests) if (!latest.has(r.hub)) latest.set(r.hub, r);
+
+    const box = document.getElementById("healthbar");
+    const items = [];
+    let anyFailed = false;
+    for (const [hub, r] of latest) {
+      const label = HUB_LABEL[hub] || hub;
+      const at = hhmm(r.updated_at);
+      if (r.status === "done") {
+        items.push(`<span class="hitem">${label} <b>${at}</b> 成功</span>`);
+      } else if (r.status === "failed") {
+        anyFailed = true;
+        items.push(`<span class="hitem">${label} <b>${at}</b> 失敗（${r.message || "理由不明"}）</span>`);
+      } else {
+        items.push(`<span class="hitem">${label} 収集中…</span>`);
+      }
+    }
+    box.className = "healthbar " + (anyFailed ? "warn" : "ok");
+    box.innerHTML = `<span class="hdot"></span>${items.join("<span class=\"sub\">・</span>")}`;
+    box.hidden = false;
+  } catch { /* 出せなくても本体の表示には影響しない */ }
+}
+loadHealth();
+
 loadCorp().then(() => { if (CORP && DATA) render(); });
 
 loadAvailability()
