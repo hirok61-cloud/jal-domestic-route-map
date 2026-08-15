@@ -181,6 +181,15 @@ td.fno{font-weight:700;color:var(--red)}
 .corpsum details summary .sub{margin-left:4px}
 .corpsum .seglist{margin-top:5px;padding:7px 10px;background:var(--bg);border-radius:8px;
   font-size:11.5px;line-height:1.9;color:var(--sub)}
+/* 詳細レポート。数字の羅列にせず、横棒で大小が一目で分かるようにする */
+.corpsum h4{margin:14px 0 6px;font-size:12px;letter-spacing:.04em;color:var(--sub)}
+.rlist{display:flex;flex-direction:column;gap:3px}
+.rrow{display:flex;align-items:center;gap:8px;font-size:12px}
+.rrow .rk{flex:none;width:96px;font-variant-numeric:tabular-nums}
+.rrow b{flex:none;width:38px;text-align:right;font-variant-numeric:tabular-nums}
+.rrow .sub{font-size:10.5px}
+.bar{flex:1;height:8px;border-radius:99px;background:var(--hair);overflow:hidden;min-width:60px}
+.bar i{display:block;height:100%;background:var(--ok);border-radius:99px}
 /* 普通席セルをクリックすると座席表の詳細が開く。座席の情報がある便だけ
    button にする。中身（バッジ等）の見た目は素のセルと変わらないようにする。 */
 .seatcell{display:block;width:100%;border:none;background:none;padding:0;margin:0;
@@ -355,6 +364,10 @@ footer a{color:var(--hover)}
     title="JALオンライン（制度利用）で予約できる便を記録します。先にJALオンラインにログインし、企業（ＬＴ００）を選んでおいてください（検索は不要です）">
     <span class="spin" aria-hidden="true"></span><span id="corplabel">制度枠を記録</span>
   </button>
+  <button class="refresh corp" id="reportbtn"
+    title="これまでに記録した制度枠のデータをすべて読み込み、傾向をまとめます">
+    <span class="spin" aria-hidden="true"></span><span id="reportlabel">詳細レポート</span>
+  </button>
   <a class="updatelink" href="https://www.jal.co.jp/ja-jp/" target="_blank" rel="noopener">JAL公式サイト</a>
   <a class="updatelink" href="update.html">更新のやり方</a>
 </div>
@@ -362,6 +375,7 @@ footer a{color:var(--hover)}
 <main>
   <div class="notice" id="notice"></div>
   <div class="corpsum" id="corpsum" hidden></div>
+  <div class="corpsum" id="corpreport" hidden></div>
   <div id="newseats"></div>
   <div id="list" class="loading">読み込み中…</div>
 </main>
@@ -524,6 +538,129 @@ async function loadCorp(){
     // routes も持っておく（サマリで路線別・時間帯別の傾向を出すのに要る）
     if (byNo.size) CORP = {date: payload.date, generatedAt: payload.generatedAt, byNo, routes: payload.routes || []};
   } catch { /* 記録がまだ無い・オフライン等。出さないだけで支障はない */ }
+}
+
+/* ================= 詳細レポート（中長期の傾向） =================
+   目的は「明日この便を狙えるか」を過去の実績から判断できるようにすること。
+   サマリ（当日の断面）とは別物で、こちらは日をまたいだ集計。
+
+   **Edge Function の落とし穴**: `GET /?hub=JOH&date=X` は X のデータが無いと
+   **黙って最新のスナップショットを返す**（実測で確認）。素直に過去30日ぶん
+   投げると同じ日のデータが30個返り、「毎日同じ傾向」に見える嘘のレポートになる。
+   受け取った payload.date が要求した日と一致するものだけを採用すること。 */
+const REPORT_DAYS = 60;
+
+async function fetchCorpHistory(onProgress){
+  const days = [];
+  const wanted = [];
+  for (let i = 0; i < REPORT_DAYS; i++) {
+    const d = new Date(Date.now() + 9 * 3600000 - i * 86400000);
+    wanted.push(d.toISOString().slice(0, 10));
+  }
+  // 一気に投げず小分けにする（Edge Function と回線に優しく、進捗も出せる）
+  for (let i = 0; i < wanted.length; i += 6) {
+    const chunk = wanted.slice(i, i + 6);
+    const got = await Promise.all(chunk.map(async date => {
+      try {
+        const res = await fetch(`${REMOTE}?hub=JOH&date=${date}`, {cache: "no-store"});
+        if (!res.ok) return null;
+        const p = await res.json();
+        // ★ 要求した日と違うものが返ってきたら捨てる（上記の落とし穴）
+        return p && p.date === date && Array.isArray(p.routes) ? p : null;
+      } catch { return null; }
+    }));
+    days.push(...got.filter(Boolean));
+    onProgress(days.length, Math.min(i + 6, wanted.length));
+  }
+  return days.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function buildReport(days){
+  const perDay = [];
+  const seg = new Map();   // 区間ごとの通算
+  const hour = new Map();  // 出発時間帯ごとの通算
+  const dow = new Map();   // 曜日ごとの通算
+  let total = 0, ok = 0, availOnly = 0, avail = 0;
+
+  for (const p of days) {
+    let dTotal = 0, dOk = 0;
+    for (const r of p.routes || []) {
+      for (const f of r.flights || []) {
+        if (typeof f.zl !== "boolean") continue;
+        total++; dTotal++;
+        if (f.zl) { ok++; dOk++; }
+        if (f.eco >= 9) { avail++; if (!f.zl) availOnly++; }
+
+        const k = `${r.o}→${r.d}`;
+        const s = seg.get(k) || {n: 0, ok: 0};
+        s.n++; if (f.zl) s.ok++; seg.set(k, s);
+
+        if (f.dep) {
+          const h = Number(f.dep.slice(0, 2));
+          const b = h < 9 ? "早朝〜朝(〜9時)" : h < 14 ? "昼(9〜14時)"
+            : h < 18 ? "夕方(14〜18時)" : "夜(18時〜)";
+          const hb = hour.get(b) || {n: 0, ok: 0};
+          hb.n++; if (f.zl) hb.ok++; hour.set(b, hb);
+        }
+      }
+    }
+    const wd = "日月火水木金土"[new Date(p.date + "T00:00:00+09:00").getDay()];
+    const w = dow.get(wd) || {n: 0, ok: 0};
+    w.n += dTotal; w.ok += dOk; dow.set(wd, w);
+    perDay.push({date: p.date, wd, n: dTotal, ok: dOk,
+      rate: dTotal ? dOk / dTotal : 0, at: p.generatedAt});
+  }
+  return {perDay, seg, hour, dow, total, ok, availOnly, avail};
+}
+
+function renderCorpReport(days){
+  const box = document.getElementById("corpreport");
+  if (!days.length) {
+    box.innerHTML = `<h3>詳細レポート</h3><div class="sub">記録がまだありません。`
+      + `「制度枠を記録」を実行すると、その日ぶんが蓄積されます。</div>`;
+    box.hidden = false;
+    return;
+  }
+  const R = buildReport(days);
+  const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
+  const rows = (m, min) => [...m].map(([k, v]) => ({k, ...v, rate: v.ok / v.n}))
+    .filter(x => x.n >= min).sort((a, b) => b.rate - a.rate);
+
+  const segs = rows(R.seg, 3);
+  const best = segs.slice(0, 8);
+  const worst = segs.slice(-8).reverse();
+  const bar = (r) => `<span class="bar"><i style="width:${Math.round(r * 100)}%"></i></span>`;
+  const line = (x) => `<div class="rrow"><span class="rk">${x.k}</span>${bar(x.rate)}`
+    + `<b>${Math.round(x.rate * 100)}%</b><span class="sub">${x.ok}/${x.n}</span></div>`;
+
+  box.innerHTML = `
+    <h3>詳細レポート（${R.perDay.length}日分・のべ ${R.total} 便）</h3>
+    <div class="lead">通算で <b>${pct(R.ok, R.total)}％</b> の便が制度で予約できる状態でした。</div>
+    <div class="sub">空席あり（残席9以上）だったのに制度では出ていない便は、
+      のべ ${R.availOnly} 便（空席ありの ${R.avail} 便中 ${pct(R.availOnly, R.avail)}％）。</div>
+
+    <h4>日ごとの推移</h4>
+    <div class="rlist">${R.perDay.map(d =>
+      `<div class="rrow"><span class="rk">${d.date.slice(5)}(${d.wd})</span>${bar(d.rate)}`
+      + `<b>${Math.round(d.rate * 100)}%</b><span class="sub">${d.ok}/${d.n} ${hhmm(d.at)}時点</span></div>`
+    ).join("")}</div>
+
+    <h4>取りやすい区間</h4>
+    <div class="rlist">${best.map(line).join("")}</div>
+    <h4>取りにくい区間</h4>
+    <div class="rlist">${worst.map(line).join("")}</div>
+
+    <h4>時間帯</h4>
+    <div class="rlist">${rows(R.hour, 1).map(line).join("")}</div>
+    ${R.perDay.length >= 7 ? `<h4>曜日</h4>
+      <div class="rlist">${rows(R.dow, 1).map(line).join("")}</div>` : ""}
+
+    <div class="sub" style="margin-top:10px">
+      各日は<b>その日に記録した時刻の断面</b>です（記録した時刻がバラつくと日ごとの比較は
+      ぶれます）。同じ日に複数回記録した場合、残るのは最後の1回だけです。
+      ${R.perDay.length < 5 ? "<br><b>まだ日数が少ないため、傾向としては参考程度に見てください。</b>" : ""}
+    </div>`;
+  box.hidden = false;
 }
 
 /* 取得時点の結論を先に出すサマリ。「で、何割いけるのか」に即答することを優先し、
@@ -1114,6 +1251,29 @@ $corpbtn.addEventListener("click", async () => {
   } finally {
     $corpbtn.disabled = false;
     $corpbtn.classList.remove("busy");
+  }
+});
+
+const $reportbtn = document.getElementById("reportbtn");
+$reportbtn.addEventListener("click", async () => {
+  const box = document.getElementById("corpreport");
+  $reportbtn.disabled = true;
+  $reportbtn.classList.add("busy");
+  box.hidden = false;
+  box.innerHTML = `<h3>詳細レポート</h3><div class="sub">記録を読み込んでいます…</div>`;
+  try {
+    const days = await fetchCorpHistory((found, done) => {
+      box.innerHTML = `<h3>詳細レポート</h3>`
+        + `<div class="sub">記録を読み込んでいます… ${done}/${REPORT_DAYS}日を確認`
+        + `（見つかった記録 ${found}日分）</div>`;
+    });
+    renderCorpReport(days);
+    box.scrollIntoView({behavior: "smooth", block: "start"});
+  } catch (e) {
+    box.innerHTML = `<h3>詳細レポート</h3><div class="sub">読み込めませんでした（${e.message}）。</div>`;
+  } finally {
+    $reportbtn.disabled = false;
+    $reportbtn.classList.remove("busy");
   }
 });
 
