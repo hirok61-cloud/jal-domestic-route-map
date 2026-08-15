@@ -177,6 +177,10 @@ td.fno{font-weight:700;color:var(--red)}
 .corpsum .sub{color:var(--sub);font-size:11.5px}
 .corpsum ul{margin:8px 0 0;padding-left:18px}
 .corpsum .hint{color:var(--warn);font-weight:700}
+.corpsum details summary{cursor:pointer}
+.corpsum details summary .sub{margin-left:4px}
+.corpsum .seglist{margin-top:5px;padding:7px 10px;background:var(--bg);border-radius:8px;
+  font-size:11.5px;line-height:1.9;color:var(--sub)}
 /* 普通席セルをクリックすると座席表の詳細が開く。座席の情報がある便だけ
    button にする。中身（バッジ等）の見た目は素のセルと変わらないようにする。 */
 .seatcell{display:block;width:100%;border:none;background:none;padding:0;margin:0;
@@ -554,7 +558,7 @@ function renderCorpSummary(){
   const segs = [...bySeg].map(([seg, s]) => ({seg, ...s, rate: s.ok / s.n}))
     .filter(s => s.n >= 2).sort((a, b) => a.rate - b.rate);
   const hard = segs.filter(s => s.rate <= 0.34).slice(0, 5);
-  const easy = segs.filter(s => s.rate >= 0.9).length;
+  const easyList = segs.filter(s => s.rate >= 0.9);
 
   // 方向。羽田発と羽田着で傾向が割れることが多い
   const dep = rows.filter(x => x.o === "HND");
@@ -576,15 +580,29 @@ function renderCorpSummary(){
     lines.push(`<b>時間帯差</b>：早朝（9時前）${earlyR}％／夕方以降（17時以降）${lateR}％。`);
   }
   if (hard.length) {
-    lines.push(`<b>厳しい区間</b>：${hard.map(s => `${s.seg}（${s.ok}/${s.n}）`).join("、")}`);
+    // (0/4) が何を指すか分からないと読めないので、必ず単位を添える
+    lines.push(`<b>厳しい区間</b>（制度で取れた便数／対象便数）：`
+      + `${hard.map(s => `${s.seg}（${s.ok}/${s.n}）`).join("、")}`);
   }
-  if (easy) lines.push(`ほぼ全便取れる区間が ${easy} 区間あります。`);
+  /* 「ほぼ全便取れる区間」は数が多く、並べると長くなる。既定は畳んでおき、
+     見たい人だけ開けるようにする（<details> はJS無しで開閉できる）。 */
+  if (easyList.length) {
+    lines.push(`<details><summary>ほぼ全便取れる区間が ${easyList.length} 区間あります`
+      + `<span class="sub">（クリックで一覧）</span></summary>`
+      + `<div class="seglist">${easyList.map(s => s.seg).join("、")}</div></details>`);
+  }
+
+  /* 「空席なのに制度では出ていない」は、母数（空席ありの便）に対する割合まで
+     出さないと多いのか少ないのか判断できない。 */
+  const availN = rows.filter(x => x.eco >= 9).length;
+  const hiddenPct = availN ? Math.round(hidden / availN * 100) : 0;
 
   box.innerHTML = `
     <h3>制度枠のサマリ（${hhmm(CORP.generatedAt)}時点）</h3>
     <div class="lead">対象 ${rows.length} 便のうち <b>${ok} 便（${pct}％）</b> が予約できる状態でした。</div>
     ${hidden ? `<div class="sub"><span class="hint">うち注意</span>：`
-      + `空席あり（残席9以上）なのに制度では出ていない便が <b>${hidden} 便</b>あります。`
+      + `空席あり（残席9以上）なのに制度では出ていない便が <b>${hidden} 便</b>`
+      + `（空席ありの ${availN} 便中 <b>${hiddenPct}％</b>）あります。`
       + `空席＝制度で取れる、ではありません。</div>` : ""}
     ${lines.length ? `<ul>${lines.map(l => `<li>${l}</li>`).join("")}</ul>` : ""}
     <div class="sub" style="margin-top:8px">これは記録した瞬間の断面です。搭乗数時間前から
