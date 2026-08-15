@@ -161,10 +161,22 @@ td.fno{font-weight:700;color:var(--red)}
 .trend{margin-left:5px;font-size:10px}
 .trend.up{color:var(--ok);font-weight:700}
 .trend.down{color:var(--sub)}
-/* 制度枠（JALオンライン）の記録。既存のバッジ群と同じ見た目のトーンに揃える */
-.corpline{display:block;margin-top:3px;font-size:10.5px;white-space:nowrap}
-.corpline.ok{color:var(--ok);font-weight:700}
-.corpline.ng{color:var(--sub)}
+/* 制度枠（JALオンライン）。○×は一目で拾えることが最優先なので独立した列にする */
+.corpcol{text-align:center;width:52px}
+.corpmark{display:inline-flex;align-items:center;justify-content:center;
+  width:24px;height:24px;border-radius:50%;font-size:14px;font-weight:700;line-height:1}
+.corpmark.ok{background:var(--ok-bg);color:var(--ok)}
+.corpmark.ng{background:var(--full-bg);color:var(--full)}
+.corpmark.na{color:var(--sub);opacity:.5;font-size:12px}
+/* 制度枠のサマリ。取得時点の結論を先に出す */
+.corpsum{margin:14px 22px;padding:14px 18px;border:1px solid var(--panel-edge);border-radius:14px;
+  background:var(--panel);box-shadow:var(--card-shadow);font-size:12.5px;line-height:1.8}
+.corpsum h3{margin:0 0 8px;font-size:13px;letter-spacing:.04em}
+.corpsum .lead{font-size:15px;font-weight:700;color:var(--ink)}
+.corpsum .lead b{color:var(--ok);font-size:19px}
+.corpsum .sub{color:var(--sub);font-size:11.5px}
+.corpsum ul{margin:8px 0 0;padding-left:18px}
+.corpsum .hint{color:var(--warn);font-weight:700}
 /* 普通席セルをクリックすると座席表の詳細が開く。座席の情報がある便だけ
    button にする。中身（バッジ等）の見た目は素のセルと変わらないようにする。 */
 .seatcell{display:block;width:100%;border:none;background:none;padding:0;margin:0;
@@ -345,6 +357,7 @@ footer a{color:var(--hover)}
 <div class="runbar" id="runbar" hidden></div>
 <main>
   <div class="notice" id="notice"></div>
+  <div class="corpsum" id="corpsum" hidden></div>
   <div id="newseats"></div>
   <div id="list" class="loading">読み込み中…</div>
 </main>
@@ -504,15 +517,90 @@ async function loadCorp(){
     for (const r of payload.routes || []) {
       for (const f of r.flights || []) if (typeof f.zl === "boolean") byNo.set(f.no, f.zl);
     }
-    if (byNo.size) CORP = {date: payload.date, generatedAt: payload.generatedAt, byNo};
+    // routes も持っておく（サマリで路線別・時間帯別の傾向を出すのに要る）
+    if (byNo.size) CORP = {date: payload.date, generatedAt: payload.generatedAt, byNo, routes: payload.routes || []};
   } catch { /* 記録がまだ無い・オフライン等。出さないだけで支障はない */ }
 }
 
-function corpNote(f){
-  // JOHは当日ぶんしか記録できないので、いま表示している日と合っていないものは出さない
-  if (!CORP || CORP.date !== DATA.date || !CORP.byNo.has(f.no)) return "";
+/* 取得時点の結論を先に出すサマリ。「で、何割いけるのか」に即答することを優先し、
+   そのあとに傾向（どこが厳しいか）と、判断を誤りやすい点（空席はあるのに
+   制度では出ていない便）を添える。長文にはしない。 */
+function renderCorpSummary(){
+  const box = document.getElementById("corpsum");
+  if (!CORP || CORP.date !== DATA.date) { box.hidden = true; return; }
+
+  const rows = [];
+  for (const r of CORP.routes) {
+    for (const f of r.flights || []) {
+      if (typeof f.zl !== "boolean") continue;
+      rows.push({seg: `${r.o}→${r.d}`, o: r.o, zl: f.zl, eco: f.eco, dep: f.dep});
+    }
+  }
+  if (!rows.length) { box.hidden = true; return; }
+
+  const ok = rows.filter(x => x.zl).length;
+  const pct = Math.round(ok / rows.length * 100);
+  /* 「空席はありそうなのに制度では出ていない」便。運賃在庫が9（＝空席あり）
+     なのに制度枠が出ていないもので、いちばん誤解を生みやすいので必ず出す。 */
+  const hidden = rows.filter(x => !x.zl && x.eco >= 9).length;
+
+  // 路線別。取れる率が低い順に、厳しいところだけ名指しする
+  const bySeg = new Map();
+  for (const x of rows) {
+    const s = bySeg.get(x.seg) || {n: 0, ok: 0};
+    s.n++; if (x.zl) s.ok++;
+    bySeg.set(x.seg, s);
+  }
+  const segs = [...bySeg].map(([seg, s]) => ({seg, ...s, rate: s.ok / s.n}))
+    .filter(s => s.n >= 2).sort((a, b) => a.rate - b.rate);
+  const hard = segs.filter(s => s.rate <= 0.34).slice(0, 5);
+  const easy = segs.filter(s => s.rate >= 0.9).length;
+
+  // 方向。羽田発と羽田着で傾向が割れることが多い
+  const dep = rows.filter(x => x.o === "HND");
+  const arr = rows.filter(x => x.o !== "HND");
+  const rate = (a) => a.length ? Math.round(a.filter(x => x.zl).length / a.length * 100) : null;
+  const depR = rate(dep), arrR = rate(arr);
+
+  // 時間帯。混雑方向では早朝だけ取れることがある
+  const early = rows.filter(x => x.dep && x.dep < "09:00");
+  const late = rows.filter(x => x.dep && x.dep >= "17:00");
+  const earlyR = rate(early), lateR = rate(late);
+
+  const lines = [];
+  if (depR !== null && arrR !== null && Math.abs(depR - arrR) >= 15) {
+    lines.push(`<b>方向差が大きい</b>：羽田発 ${depR}％ に対して羽田着 ${arrR}％。`
+      + `${depR > arrR ? "戻り便" : "行き便"}が取りにくい状況です。`);
+  }
+  if (earlyR !== null && lateR !== null && Math.abs(earlyR - lateR) >= 15) {
+    lines.push(`<b>時間帯差</b>：早朝（9時前）${earlyR}％／夕方以降（17時以降）${lateR}％。`);
+  }
+  if (hard.length) {
+    lines.push(`<b>厳しい区間</b>：${hard.map(s => `${s.seg}（${s.ok}/${s.n}）`).join("、")}`);
+  }
+  if (easy) lines.push(`ほぼ全便取れる区間が ${easy} 区間あります。`);
+
+  box.innerHTML = `
+    <h3>制度枠のサマリ（${hhmm(CORP.generatedAt)}時点）</h3>
+    <div class="lead">対象 ${rows.length} 便のうち <b>${ok} 便（${pct}％）</b> が予約できる状態でした。</div>
+    ${hidden ? `<div class="sub"><span class="hint">うち注意</span>：`
+      + `空席あり（残席9以上）なのに制度では出ていない便が <b>${hidden} 便</b>あります。`
+      + `空席＝制度で取れる、ではありません。</div>` : ""}
+    ${lines.length ? `<ul>${lines.map(l => `<li>${l}</li>`).join("")}</ul>` : ""}
+    <div class="sub" style="margin-top:8px">これは記録した瞬間の断面です。搭乗数時間前から
+      徐々に解放される便があるため、その後に取れるようになることがあります。</div>`;
+  box.hidden = false;
+}
+
+/** 制度で取れるかどうかは○×の一目判断が要る情報なので、独立した列にする。
+    JOHは当日ぶんしか記録できないので、表示中の日と合わないときは何も出さない。 */
+function corpCell(f){
+  if (!CORP || CORP.date !== DATA.date) return "";
+  if (!CORP.byNo.has(f.no)) return '<span class="corpmark na" title="記録に無い便">–</span>';
   const ok = CORP.byNo.get(f.no);
-  return `<span class="corpline ${ok ? "ok" : "ng"}">制度 ${hhmm(CORP.generatedAt)}時点${ok ? "予約可" : "予約不可"}</span>`;
+  return ok
+    ? `<span class="corpmark ok" title="${hhmm(CORP.generatedAt)}時点で制度で予約できました">○</span>`
+    : `<span class="corpmark ng" title="${hhmm(CORP.generatedAt)}時点では制度で予約できませんでした">×</span>`;
 }
 
 /** 前回の収集からどう動いたか。増えたぶんだけ目立たせる。 */
@@ -545,7 +633,7 @@ function parseSeatEntry(entry){
 
 /** 普通席セルの中身。座席の一覧がある便だけ、クリックできるボタンにする。 */
 function seatCell(route, f){
-  const inner = badge(f.eco) + trendNote(f) + seatmapNote(f) + corpNote(f);
+  const inner = badge(f.eco) + trendNote(f) + seatmapNote(f);
   if (!f.sm || !f.sm.length) return inner;
   const id = SEAT_LOOKUP.push({ route, f }) - 1;
   return `<button type="button" class="seatcell" data-seat-id="${id}">${inner}</button>`;
@@ -666,6 +754,7 @@ function flightsOf(route){
 
 function render(){
   const list = document.getElementById("list");
+  renderCorpSummary(); // 制度枠のサマリ。絞り込みに関係なく全体の結論を出す
   SEAT_LOOKUP = []; // 座席表クリックの参照先。render のたびに作り直す
   const visible = DATA.routes.filter(routeMatches).sort((a, b) => {
     // 羽田側ではないほうの空港（＝相手先）の位置で北から並べる
@@ -708,12 +797,17 @@ function render(){
       html.push(`<div class="empty">${route.status === "ok" ? none : reason}</div>`);
     } else {
       html.push(`<div class="tablewrap"><table>
-        <thead><tr><th>便名</th><th>出発 → 到着</th><th>機材</th><th>普通席</th><th>クラスJ</th><th>ファースト</th><th>最安運賃</th></tr></thead><tbody>`);
+        <thead><tr><th>便名</th><th>出発 → 到着</th>${
+          /* 制度の○×は一目で拾えることが価値なので、横スクロールで隠れない
+             左寄り（便名・時刻のすぐ隣）に置く。機材や運賃より優先度が高い。 */
+          CORP && CORP.date === DATA.date ? `<th class="corpcol" title="JALオンライン（制度利用）で予約できたか。${hhmm(CORP.generatedAt)}時点の記録">制度</th>` : ""
+        }<th>機材</th><th>普通席</th><th>クラスJ</th><th>ファースト</th><th>最安運賃</th></tr></thead><tbody>`);
       for (const f of flights){
         const fare = f.fare ? "¥" + f.fare.toLocaleString("ja-JP") : "—";
         html.push(`<tr class="${f.eco > 0 ? "" : "full"}">
           <td class="fno mono">${f.no}</td>
           <td class="mono">${f.dep} → ${f.arr}</td>
+          ${CORP && CORP.date === DATA.date ? `<td class="corpcol">${corpCell(f)}</td>` : ""}
           <td>${acLabel(f.ac)}${f.op && f.op !== "JL" ? " / " + (OPNAME[f.op] || f.op) : ""}</td>
           <td>${seatCell(route, f)}</td>
           <td>${badge(f.clsj)}${cabinSeatNote(f.sj)}</td>
