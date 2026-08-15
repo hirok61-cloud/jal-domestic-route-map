@@ -295,6 +295,32 @@ td.fno{font-weight:700;color:var(--red)}
 .newseats b{color:var(--ok)}
 .newseats ul{margin:6px 0 0;padding-left:1.2em;columns:2;column-gap:24px}
 @media (max-width:700px){.newseats ul{columns:1}}
+/* 狭い画面では表をやめてカードにする。7列は入りきらず、右側（クラスJ・
+   ファースト・最安運賃）が横スクロールしないと読めなかったため。
+   HTMLは表のままでCSSだけで切り替えるので、絞り込みや座席表クリックには影響しない。 */
+@media (max-width:700px){
+  .tablewrap{overflow-x:visible}
+  .tablewrap table,.tablewrap tbody,.tablewrap tr,.tablewrap td{display:block;width:auto}
+  .tablewrap thead{display:none}
+  .tablewrap tr{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;
+    border:1px solid var(--hair);border-radius:12px;padding:10px 12px;margin:0 0 8px;
+    background:var(--panel)}
+  .tablewrap tr.full{opacity:.66}
+  .tablewrap td{border:none;padding:0}
+  /* 便名・時刻・制度は1行目にまとめる（表の並び順のまま先頭3つ） */
+  .tablewrap td.fno{flex:0 0 auto;font-size:15px}
+  .tablewrap td.time{flex:0 0 auto;font-size:13px;color:var(--sub)}
+  .tablewrap td.corpcol{flex:0 0 auto;margin-left:auto;width:auto;text-align:right}
+  /* 残りは1項目1行。左に見出し、右に中身 */
+  .tablewrap td[data-l]{flex:1 1 100%;display:flex;justify-content:space-between;
+    align-items:baseline;gap:12px;padding:5px 0 0;border-top:1px solid var(--hair);margin-top:4px}
+  .tablewrap td[data-l]::before{content:attr(data-l);flex:0 0 auto;
+    font-size:11px;color:var(--sub);letter-spacing:.06em}
+  .tablewrap td[data-l]>*{text-align:right}
+  /* 座席表の内訳は長いので折り返しは許すが、右寄せは保つ
+     （見出しと中身が離れると読みにくいため、縦積みにはしない） */
+  .seatmap{white-space:normal;text-align:right}
+}
 .empty{padding:12px 16px;font-size:12.5px;color:var(--sub)}
 .loading{padding:40px 0;text-align:center;color:var(--sub)}
 footer{padding:12px 22px 22px;color:var(--sub);font-size:11px;border-top:1px solid var(--hair);line-height:1.75;background:var(--bg)}
@@ -1058,15 +1084,18 @@ function render(){
         }<th>機材</th><th>普通席</th><th>クラスJ</th><th>ファースト</th><th>最安運賃</th></tr></thead><tbody>`);
       for (const f of flights){
         const fare = f.fare ? "¥" + f.fare.toLocaleString("ja-JP") : "—";
+        /* data-l は狭い画面（カード表示）でセルの前に出す見出し。
+           PCの表では使わない。CSSだけで切り替えるので、絞り込みや
+           座席表クリックの仕組みには影響しない。 */
         html.push(`<tr class="${f.eco > 0 ? "" : "full"}">
           <td class="fno mono">${f.no}</td>
-          <td class="mono">${f.dep} → ${f.arr}</td>
+          <td class="mono time">${f.dep} → ${f.arr}</td>
           ${CORP && CORP.date === DATA.date ? `<td class="corpcol">${corpCell(f)}</td>` : ""}
-          <td>${acLabel(f.ac)}${f.op && f.op !== "JL" ? " / " + (OPNAME[f.op] || f.op) : ""}</td>
-          <td>${seatCell(route, f)}</td>
-          <td>${badge(f.clsj)}${cabinSeatNote(f.sj)}</td>
-          <td>${badge(f.first)}${cabinSeatNote(f.sf)}</td>
-          <td class="mono">${fare}</td>
+          <td data-l="機材">${acLabel(f.ac)}${f.op && f.op !== "JL" ? " / " + (OPNAME[f.op] || f.op) : ""}</td>
+          <td data-l="普通席">${seatCell(route, f)}</td>
+          <td data-l="クラスJ">${badge(f.clsj)}${cabinSeatNote(f.sj)}</td>
+          <td data-l="ファースト">${badge(f.first)}${cabinSeatNote(f.sf)}</td>
+          <td class="mono" data-l="最安運賃">${fare}</td>
         </tr>`);
       }
       html.push(`</tbody></table></div>`);
