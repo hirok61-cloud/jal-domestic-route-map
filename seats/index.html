@@ -220,7 +220,7 @@ td.fno{font-weight:700;color:var(--red)}
    失敗の理由だけは長く（URLまで入る）、折り返さないと枠からはみ出すので別あつかい。
    URLには切れ目が無いので anywhere で強制的に折る。2026-08-16 に実際にはみ出した。 */
 .healthbar .hitem{white-space:nowrap;min-width:0}
-.healthbar .hitem.long{white-space:normal;overflow-wrap:anywhere;flex:1 1 240px}
+.healthbar .hitem.long{white-space:normal;overflow-wrap:anywhere;flex:1 0 100%}
 /* 制度枠のサマリ。取得時点の結論を先に出す */
 .corpsum{margin:14px 22px;padding:14px 18px;border:1px solid var(--panel-edge);border-radius:14px;
   background:var(--panel);box-shadow:var(--card-shadow);font-size:12.5px;line-height:1.8}
@@ -1660,7 +1660,7 @@ function renderHealth(){
   }
 
   const box = document.getElementById("healthbar");
-  const items = [];
+  const items = [];   // {html, long}。long（失敗の理由）は折り返すので行を分ける
   let anyFailed = false;
   for (const [hub, r] of latest) {
     const label = HUB_LABEL[hub] || hub;
@@ -1672,20 +1672,24 @@ function renderHealth(){
        このバーの時刻が動かず、失敗の警告も出たままになる（2026-08-16）。
        依頼より新しいデータが入っていれば、そちらが最後の成功。 */
     if (saved && !busy && (!r || new Date(saved) > new Date(r.updated_at))) {
-      items.push(`<span class="hitem">${label} <b>${whenLabel(saved)}</b> 成功</span>`);
+      items.push({html: `<span class="hitem">${label} <b>${whenLabel(saved)}</b> 成功</span>`});
     } else if (busy) {
-      items.push(`<span class="hitem">${label} 収集中…</span>`);
+      items.push({html: `<span class="hitem">${label} 収集中…</span>`});
     } else if (r.status === "done") {
-      items.push(`<span class="hitem">${label} <b>${whenLabel(r.updated_at)}</b> 成功</span>`);
+      items.push({html: `<span class="hitem">${label} <b>${whenLabel(r.updated_at)}</b> 成功</span>`});
     } else {
       anyFailed = true;
-      // 理由は長い（URLが入ることもある）。折り返せるよう long を付けて別あつかいにする
-      items.push(`<span class="hitem long">${label} <b>${whenLabel(r.updated_at)}</b> `
-        + `失敗（${r.message || "理由不明"}）</span>`);
+      // 理由は長い（URLが入ることもある）。折り返せるよう long を付けて別の行にする
+      items.push({long: true, html: `<span class="hitem long">${label} `
+        + `<b>${whenLabel(r.updated_at)}</b> 失敗（${r.message || "理由不明"}）</span>`});
     }
   }
   box.className = "healthbar " + (anyFailed ? "warn" : "ok");
-  box.innerHTML = `<span class="hdot"></span>${items.join("<span class=\"sub\">・</span>")}`;
+  /* 短い項目は「・」でつないで1行に、長い理由はそのあとに1行ずつ置く。
+     以前は区別せずに並べていたので、折り返した行の右端に「・」だけが取り残されていた。 */
+  box.innerHTML = `<span class="hdot"></span>`
+    + items.filter(x => !x.long).map(x => x.html).join(`<span class="sub">・</span>`)
+    + items.filter(x => x.long).map(x => x.html).join("");
   box.hidden = false;
 }
 
