@@ -928,10 +928,17 @@ function renderCorpReport(stats){
       `<div class="rrow"><span class="rk">${k}</span>${bar(g.n ? g.ok / g.n : 0)}`
       + `<b>${pct(g.ok, g.n)}%</b><span class="sub">${g.ok}/${g.n}</span></div>`).join("")}</div>
 
-    ${R.segRows.length ? `<h4>取りやすい区間</h4>
-      <div class="rlist">${R.segRows.slice(0, 8).map(segLine).join("")}</div>
+    ${(() => {
+      /* 上位8・下位8をそのまま出すと、対象が16区間に満たないときに
+         同じ区間が「取りやすい」と「取りにくい」の両方に出てしまう。
+         半分を超えないところで切る。 */
+      const half = Math.min(8, Math.floor(R.segRows.length / 2));
+      if (!half) return "";
+      return `<h4>取りやすい区間</h4>
+      <div class="rlist">${R.segRows.slice(0, half).map(segLine).join("")}</div>
       <h4>取りにくい区間</h4>
-      <div class="rlist">${R.segRows.slice(-8).reverse().map(segLine).join("")}</div>` : ""}
+      <div class="rlist">${R.segRows.slice(-half).reverse().map(segLine).join("")}</div>`;
+    })()}
 
     <h4>日ごとの推移${R.perDay.length > 30 ? "（新しい30日）" : ""}</h4>
     <div class="rlist">${recent.map(dayRow).join("")}</div>
