@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
 <title>空席データの更新のやり方 — JAL国内線ルートマップ</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
@@ -51,7 +52,10 @@ section{border:1px solid var(--panel-edge);background:var(--panel);border-radius
 h2{margin:0 0 8px;font-size:15px;letter-spacing:.04em;display:flex;align-items:center;gap:9px}
 .num{display:inline-flex;align-items:center;justify-content:center;flex:none;
   width:22px;height:22px;border-radius:50%;background:var(--red);color:#fff;font-size:12px;font-weight:700}
+h3{margin:16px 0 4px;font-size:13px;letter-spacing:.04em}
 p{margin:6px 0}
+ul{margin:6px 0 0;padding-left:1.25em}
+ul li{margin:5px 0}
 .muted{color:var(--sub);font-size:12.5px}
 input[type=text]{width:100%;margin-top:6px;padding:9px 13px;border-radius:10px;
   border:1px solid var(--panel-edge);background:var(--bg);color:var(--ink);font-size:13px;
@@ -93,65 +97,85 @@ footer{padding:14px 22px 26px;color:var(--sub);font-size:11px;border-top:1px sol
 <main>
 
 <section>
-  <h2>どういう仕組みか</h2>
-  <p class="muted">
-    JALの空席は<b>人が開いたブラウザの中からしか取得できません</b>。
-    サーバーからの取得はJAL側のBot対策で弾かれ、空席APIもJALの予約サイトの画面からしか呼べないためです。
-    そこで、収集はブラウザで行い、結果だけをサイトに保存する形にしています。
-  </p>
-  <p class="muted">
-    取得するのは<b>羽田発着35路線（往復70区間）</b>の空席と、
-    空席がある便の<b>座席表</b>です。運賃の在庫と座席表は別管理で、
-    運賃が「空席あり」でも座席表は埋まっていることがあるため、両方を見ています。
-  </p>
-  <div class="callout">
-    <b>1日分あたり8〜10分かかります。</b>
-    空席照会70回に加えて、座席表を1便ずつ約345回見るためです。
-    そのため時間がかかるので、<b>更新は「今日分」「明日分」を選んで実行します。</b>
-  </div>
-</section>
-
-<section>
-  <h2>方法1：サイトのボタン（PCに拡張を入れておく）</h2>
-  <p class="muted">
-    Chrome拡張をPCに入れておくと、<b>空席状況ページの更新ボタンを押すだけ</b>で済みます。
-    JALのページを開く必要はありません。<b>スマホから押したときも、このPCが代わりに取りに行きます。</b>
-  </p>
+  <h2>更新のしかたは2つあります</h2>
   <ol>
-    <li>リポジトリの <code>extension/</code> フォルダをローカルに用意する<br>
-      <span class="muted">（<code>git clone</code> 済みならそのフォルダでOK）</span></li>
-    <li>Chromeで <code>chrome://extensions</code> を開き、右上の<b>「デベロッパーモード」</b>をON</li>
-    <li><b>「パッケージ化されていない拡張機能を読み込む」</b>→ <code>extension/</code> フォルダを選ぶ</li>
-    <li>拡張のアイコンを押して、<b>合言葉</b>（下と同じもの）を貼り付ける</li>
+    <li><b>サイトの更新ボタンを押す</b>（ふだんはこちら）<br>
+      <span class="muted">PCのChromeに拡張を入れておく方法。スマホから押しても、そのPCが代わりに取りに行きます。</span></li>
+    <li><b>スマホのブックマークレットを使う</b>（PCが寝ているとき）<br>
+      <span class="muted">スマホだけで完結する方法。設定が要るのは最初の1回だけです。</span></li>
   </ol>
+  <p class="muted">どちらで取っても、保存されるデータは同じです。</p>
+</section>
+
+<section>
+  <h2>なぜ手で実行するのか</h2>
   <p class="muted">
-    使うときは、<a href="./">空席状況</a>ページで<b>搭乗日タブ（今日／明日）を選んでから</b>
-    更新ボタンを押します。ボタンには <b>「今日分を更新」「明日分を更新」</b> と対象が出るので、
-    押す前に確認できます。<b>選んだ日だけ</b>を取り直すので8〜10分で終わります。
+    JALの空席は<b>人が開いたブラウザの中からしか取得できません</b>。サーバーからの取得はJAL側のBot対策で
+    弾かれ、空席の問い合わせ先もJALの予約画面からしか呼べないためです。そこで、取得はブラウザで行い、
+    結果だけをこのサイトに保存する形にしています。
+  </p>
+  <p class="muted">
+    取得するのは<b>羽田発着35路線（往復70区間）</b>の空席と、空席がある便の<b>座席表</b>です。
+    運賃の残席と座席表は別々に管理されていて、<b>運賃が「空席あり」でも座席表は満席</b>ということが
+    普通に起きるので、両方を見ています。
   </p>
   <div class="callout">
-    <b>PCが起きている必要があります。</b> スマホから押した更新は、このPCのChromeが動いているときだけ通ります。
-    スリープ中は3分で<b>「3分待っても拡張が実行しませんでした」</b>になるので、
-    そのときは下のブックマークレットを使ってください
-    （この表示は、前の収集がまだ終わっていないときにも出ます）。
+    <b>1日分で8〜10分かかります。</b> 空席の問い合わせ70回に加えて、座席表を1便ずつ約345回見るためです。
+    JALのサーバーへは1.2秒ずつ間隔をあけて送っています。<b>続けて何度も実行しないでください。</b>
+    通信量も1日分で約35MBあるので、スマホではWi-Fiをおすすめします。
   </div>
 </section>
 
 <section>
-  <h2>方法2：スマホのブックマークレット（PCが寝ているとき）</h2>
+  <h2>方法1：サイトの更新ボタン</h2>
   <p class="muted">
-    <b>スマホだけで完結する方法</b>です。実行すると最初に
-    <b>「今日 / 明日 / 両日 / 制度枠（今日）」</b>を聞かれるので、必要なものを選びます。
-    以下の1〜3で設定します。
+    <a href="./">空席状況</a>ページのボタンを押すだけです。JALのページを開く必要はありません。
+    <b>スマホから押したときも、拡張を入れたPCが代わりに取りに行きます。</b>
   </p>
+  <h3>ボタンは3つあります</h3>
+  <ul>
+    <li><b>「今日分を更新」／「明日分を更新」</b>（赤）<br>
+      <span class="muted">搭乗日タブで選んでいる日の空席を取り直します。ボタンに対象の日が出るので、押す前に確認できます。</span></li>
+    <li><b>「制度枠を記録」</b>（紺）<br>
+      <span class="muted">JALオンライン（法人・制度利用）で予約できる便を記録します。約3分。
+      先にPCのChromeで<b>JALオンラインにログインし、企業（ＬＴ００）を選んだタブを開いたまま</b>にしておいてください（検索は不要です）。</span></li>
+    <li><b>「詳細レポート」</b>（紺）<br>
+      <span class="muted">これまでに記録した制度枠をすべて読み込んで、傾向をまとめて表示します。</span></li>
+  </ul>
   <p class="muted">
-    パソコンでは不要です（拡張が入っていれば、同じことをボタン1つでやってくれます）。
+    ボタンの下の<b>細い帯</b>に、空席・制度枠それぞれ<b>最後に取れた時刻</b>が出ます。
+    失敗していれば理由つきで赤く出るので、ちゃんと取れているかはここを見れば分かります。
+  </p>
+  <h3>拡張の入れ方（最初の1回だけ・PC）</h3>
+  <ol>
+    <li>このリポジトリの <code>extension/</code> フォルダをPCに用意する<br>
+      <span class="muted">（<code>git clone</code> 済みなら、そのフォルダでかまいません）</span></li>
+    <li>Chromeで <code>chrome://extensions</code> を開き、右上の<b>「デベロッパーモード」</b>をONにする</li>
+    <li><b>「パッケージ化されていない拡張機能を読み込む」</b>を押して <code>extension/</code> フォルダを選ぶ</li>
+    <li>拡張のアイコンを押して、<b>合言葉</b>（下の手順1と同じもの）を貼り付ける</li>
+  </ol>
+  <div class="callout">
+    <b>PCが寝ていると通りません。</b> スマホから押した更新は、拡張を入れたPCのChromeが動いているときだけ通ります。
+    始まらないときは<b>「3分待っても拡張が実行しませんでした」</b>と出るので、そのときは方法2を使ってください
+    （前の収集がまだ終わっていないときにも、同じ表示が出ます）。
+  </div>
+  <div class="callout">
+    <b>収集の中身を直したときは、<code>chrome://extensions</code> で拡張を再読み込みしてください。</b>
+    読み込み直すまで古いままのコードが動きます。
+  </div>
+</section>
+
+<section>
+  <h2>方法2：スマホのブックマークレット</h2>
+  <p class="muted">
+    PCが寝ていても<b>スマホだけで完結する方法</b>です。下の手順1〜2で登録し、手順3で使います。
+    <b>PCでは不要です</b>（拡張が入っていれば、同じことをボタン1つでやってくれます）。
   </p>
 </section>
 
 <section>
   <h2><span class="num">1</span>合言葉を入れる（最初の1回だけ）</h2>
-  <p class="muted">書き込み用の合言葉です。この端末のブラウザにだけ保存され、どこにも送信しません。</p>
+  <p class="muted">保存するときに使う合言葉です。この端末のブラウザにだけ保存され、どこにも送信しません。</p>
   <input type="text" id="key" placeholder="合言葉を貼り付け" autocomplete="off" spellcheck="false">
   <div class="hint" id="keystate">未入力です。</div>
 </section>
@@ -168,19 +192,14 @@ footer{padding:14px 22px 26px;color:var(--sub);font-size:11px;border-top:1px sol
     <ol>
       <li>下の<b>「ブックマークレットをコピー」</b>を押す</li>
       <li>Safariの<b>共有ボタン</b>（四角に↑のアイコン）→「ブックマークを追加」→ 保存<br>
-        <span class="muted">（このページをそのままブックマークして構いません）</span></li>
+        <span class="muted">（このページをそのままブックマークしてかまいません）</span></li>
       <li><b>ブックマーク一覧</b>（本のアイコン）→「編集」→ いま追加したブックマークをタップ</li>
-      <li>名前を <code>JAL空席を更新</code> に、<b>URL欄を全部消して長押し→ペースト</b>→「完了」</li>
+      <li>名前を <code>JAL空席を更新</code> に変え、<b>URL欄を全部消して、長押し→ペースト</b>→「完了」</li>
     </ol>
     <p><button class="copy" data-copy>ブックマークレットをコピー</button></p>
     <div class="callout">
-      <b>使うとき:</b> JALの空席照会の画面で、<b>ブックマーク一覧</b>（本のアイコン）を開いて
-      「JAL空席を更新」をタップします。アドレスバーに直接貼り付けても動きません。
-    </div>
-    <div class="callout">
-      <b>動かないときは:</b> 下の「動作テストをコピー」で別のブックマーク（<code>JALテスト</code>）を作り、
-      同じ手順で呼び出してください。白い枠に <code>booking.jal.co.jp</code> と出れば正常です。
-      <p style="margin-top:8px"><button class="copy" data-copy-test>動作テストをコピー</button></p>
+      <b>呼び出し方:</b> JALの画面を開いた状態で、<b>ブックマーク一覧</b>（本のアイコン）から
+      「JAL空席を更新」をタップします。<b>アドレスバーに直接貼り付けても動きません。</b>
     </div>
   </div>
 
@@ -190,25 +209,14 @@ footer{padding:14px 22px 26px;color:var(--sub);font-size:11px;border-top:1px sol
       <li>下の<b>「ブックマークレットをコピー」</b>を押す</li>
       <li>Chromeの <b>⋮</b> → ☆ でこのページをブックマークする</li>
       <li><b>⋮</b> →「ブックマーク」→ いま追加したものを長押し →「編集」</li>
-      <li>名前を <code>jalseat</code> に、<b>URL欄を全部消してペースト</b>→ 保存</li>
+      <li>名前を <code>jalseat</code> に変え、<b>URL欄を全部消してペースト</b>→ 保存</li>
     </ol>
     <p><button class="copy" data-copy>ブックマークレットをコピー</button></p>
     <div class="callout">
-      <b>使うとき:</b> JALの空席照会の画面でアドレスバーに <code>jalseat</code> と入力し、
-      出てきた<b>ブックマークの候補</b>をタップします。
+      <b>呼び出し方:</b> JALの画面を開いた状態でアドレスバーに <code>jalseat</code> と入力し、
+      出てきた<b>ブックマークの候補をタップ</b>します。
       <b>ブックマーク一覧から開くと、JALのページではなく新しいタブで動いてしまい失敗します。</b>
       （<code>javascript:</code> をアドレスバーに直接貼り付けても、Chromeが消してしまい動きません）
-    </div>
-    <div class="callout">
-      <b>動かないときは、まずこれで切り分けてください。</b>
-      下の「動作テストをコピー」で<b>もう1つ別のブックマーク</b>（名前は <code>jaltest</code>）を作り、
-      JALの画面で同じように呼び出します。
-      <ul style="margin:6px 0 0;padding-left:1.2em">
-        <li>白い枠が出て <code>booking.jal.co.jp</code> と表示 → 正常。本番も動きます</li>
-        <li>白い枠は出るが別のホスト名 → 呼び出し方が違います（アドレスバー経由にしてください）</li>
-        <li><b>何も出ない</b> → お使いのChromeがブックマークレットを実行できません</li>
-      </ul>
-      <p style="margin-top:8px"><button class="copy" data-copy-test>動作テストをコピー</button></p>
     </div>
   </div>
 </section>
@@ -218,61 +226,56 @@ footer{padding:14px 22px 26px;color:var(--sub);font-size:11px;border-top:1px sol
   <ol>
     <li><a href="https://www.jal.co.jp/ja-jp/" target="_blank" rel="noopener">JAL公式サイト</a>を開く<br>
       <span class="muted">検索は不要です。開くだけでかまいません。</span></li>
-    <li id="runstep">ブックマークバーの <b>「✈ JAL空席を更新」</b> をクリック</li>
-    <li>30秒ほど待つと空席照会の画面に切り替わるので、<b>そこでもう一度</b>同じブックマークを押す<br>
+    <li id="runstep">ブックマークバーの <b>「JAL空席を更新」</b> をクリック</li>
+    <li>30秒ほど待つと空席照会の画面に切り替わるので、<b>そこでもう一度</b>同じブックマークを呼び出す<br>
       <span class="muted">JALの空席は、この画面の上からしか取得できない決まりになっています。</span></li>
-    <li><b>「今日 / 明日 / 両日 / 制度枠（今日）」</b>を聞かれるので、更新したいものをタップする</li>
-    <li>画面の右下に進捗が出ます。<b>1日分で8〜10分</b>かかり、終わるとそのままサイトに反映されます</li>
+    <li>右下に<b>「今日 / 明日 / 両日 / 制度枠（今日）」</b>が出るので、更新したいものをタップする</li>
+    <li>そのまま進捗が出ます。<b>1日分で8〜10分</b>、終わるとサイトに反映されます</li>
   </ol>
   <div class="callout">
-    JALのサーバーには1日分あたり約415回リクエストを送るので、1.2秒ずつ間隔をあけています。
-    <b>続けて何度も実行しないでください。</b>
-    通信量も1日分で約35MBあるので、スマホではWi-Fiをおすすめします。
+    <b>収集中は、その画面を開いたままにしてください。</b>
+    ほかのアプリに切り替えたり画面が消えたりすると、ブラウザが処理を止めてしまい途中で失敗します
+    （自動で画面スリープを抑えますが、手動ロックには勝てません）。
   </div>
-  <div class="callout">
+  <div class="callout" id="corpnote">
     <b>「制度枠（今日）」はJALオンライン（法人・制度利用）専用です。</b>
-    JALオンラインにログインし、企業（ＬＴ００）を選んだ状態で押してください（検索は不要）。
-    約3分で終わり、公式の空席（今日／明日／両日）とは別のデータとして記録されます。
-    <b>公式の空席を更新したいときは、今日・明日・両日のどれかを選んでください。</b>
+    JALオンラインにログインし、企業（ＬＴ００）を選んだ状態で押してください（検索は不要）。約3分で終わります。
+    <b>ふだんの空席を更新したいときは、今日・明日・両日のどれかを選んでください。</b>
   </div>
-  <p class="muted" id="mobilerun">
-    <b>スマホの注意:</b> 収集中は<b>その画面を開いたままにしてください。</b>
-    ほかのアプリに切り替えたり画面が消えたりすると、ブラウザが処理を止めてしまい
-    途中で失敗します（自動で画面スリープを抑えますが、手動ロックには勝てません）。
-  </p>
 </section>
 
 <section>
   <h2>うまくいかないとき</h2>
-  <p class="muted">
-    <b>「この画面では実行できません」</b>と出た → JALの予約（空席照会）画面ではないところで押しています。手順3の1からやり直してください。<br>
-    <b>「収集スクリプトを読み込めませんでした」</b>と出た → 3か所の配信元すべてに届いていません。枠にどこで何が起きたかが並ぶので、その状態でWi-Fiやモバイル通信を確かめて、もう一度押してください。<br>
-    <b>「更新できませんでした（保存できませんでした…）」</b>と出た → 空席の取得はできたけれど、結果を送るところで失敗しています。下の「保存だけ失敗するとき」を参照してください。<br>
-    <b>途中で止まった</b> → 空席照会が終わった時点でいったん保存しているので、<b>座席表の途中で止まっても空席の一覧は最新になっています</b>。もう一度実行すれば座席表から取り直します。<br>
-    <b>ボタンを押しても何も出ない</b> → 合言葉を入れ直して、ブックマークを登録し直してください。
-  </p>
+  <p class="muted"><b>「この画面では実行できません」</b><br>
+    JALの予約（空席照会）の画面ではないところで押しています。上の「使うとき」の1からやり直してください。</p>
+  <p class="muted"><b>「ログイン情報が見つかりません」</b><br>
+    画面を開いた直後か、しばらく放置してJAL側のセッションが切れています。国内線を1回検索して、便が並んだ画面で押し直してください
+    （制度枠のときは、JALオンラインを開き直してください。無操作だと約1時間で切れます）。</p>
+  <p class="muted"><b>「収集スクリプトを読み込めませんでした」</b><br>
+    配信元3か所すべてに届いていません。枠にどこで何が起きたかが並ぶので、通信できる状態か確かめて、もう一度押してください。</p>
+  <p class="muted"><b>途中で止まった</b><br>
+    空席の一覧は問い合わせが終わった時点でいったん保存しているので、<b>座席表の途中で止まっても一覧は最新になっています</b>。
+    もう一度実行すれば、座席表から取り直します。</p>
+  <p class="muted"><b>呼び出しても何も出ない</b><br>
+    合言葉を入れ直して、ブックマークを登録し直してください。Androidは、ブックマーク一覧からではなく
+    <b>アドレスバーに名前を入れて候補をタップ</b>しているか確かめてください。</p>
 </section>
 
 <section>
-  <h2>保存だけ失敗するとき（2026-08-10 対策）</h2>
+  <h2>取得はできたのに、保存だけ失敗するとき</h2>
   <p class="muted">
-    機種によっては、<b>空席の取得（照会）は最後まで終わるのに、その結果を送って保存するところだけ
-    失敗する</b>ことがあります。原因は、端末に入っているセキュリティ対策アプリや広告ブロック系の
-    アプリが、「サイトの外へ情報を送る通信」を安全のために止めてしまうことです。サイトの不具合では
-    ありません。
+    端末に入れているセキュリティ対策アプリや広告ブロック系のアプリが、「サイトの外へ送る通信」を
+    止めてしまうことがあります。<b>サイトの不具合ではありません。</b>
   </p>
   <p class="muted">
-    このため保存は、<b>うまくいくまで送り方を何通りか自動で切り替えて試す</b>ようにしてあります。
-    普段のやり方がブロックされていても、別のやり方に自動で切り替えて再挑戦するので、
-    <b>多くの場合は何もしなくても最終的に保存できます。</b>
+    そのため保存は、<b>うまくいくまで送り方を自動で切り替えて何通りか試します。</b>
+    普段のやり方が止められていても、多くの場合は何もしなくても最終的に保存できます。
     いくつか試すぶん、成功／失敗が分かるまで<b>数十秒かかることがあります</b>（待っていて大丈夫です）。
   </p>
   <div class="callout">
-    <b>それでもダメだったとき:</b> その日の結果が書かれたファイル（<code>availability-日付.json</code>）が
-    自動でダウンロードされます。<b>削除せずに残しておいて、パソコン担当（依頼者）に渡してください。</b>
-    手元で当日分だけ反映できます。<br>
-    あわせて、失敗表示の<b>「内容をコピー」</b>ボタンを押して、その文面もパソコン担当に送ってください。
-    原因を切り分ける手がかりになります。
+    <b>それでもだめだったとき:</b> その回の結果（<code>availability-日付.json</code>）が自動でダウンロードされます。
+    <b>消さずに残して、PC側の担当に渡してください。</b>手元でその日ぶんだけ反映できます。
+    あわせて、失敗表示の<b>「内容をコピー」</b>を押して、その文面も送ってください。原因の切り分けに使えます。
   </div>
 </section>
 
@@ -347,15 +350,6 @@ function buildBookmarklet(key){
   );
 }
 
-/** 診断用: ブックマークレットが実行できるかどうかだけを確かめる。 */
-function buildTestBookmarklet(){
-  return bootSnippet(
-    "x.innerHTML='<b>ブックマークレットは動いています</b><br>いま '+location.hostname+' で実行されました。"
-    + "<br>ここが booking.jal.co.jp なら本番も動きます。';"
-    + "setTimeout(function(){x.remove();},15000);",
-  );
-}
-
 const $key = document.getElementById("key");
 const $state = document.getElementById("keystate");
 
@@ -378,9 +372,7 @@ function refresh(){
 
 /* --- コピー（スマホはドラッグできないのでこちらが主役） --- */
 async function copyBookmarklet(btn){
-  const text = btn.hasAttribute("data-copy-test")
-    ? buildTestBookmarklet()
-    : buildBookmarklet($key.value.trim());
+  const text = buildBookmarklet($key.value.trim());
   try {
     await navigator.clipboard.writeText(text);
   } catch {
@@ -398,8 +390,7 @@ async function copyBookmarklet(btn){
   btn.classList.add("done");
   setTimeout(() => { btn.textContent = label; btn.classList.remove("done"); }, 2500);
 }
-[...$copyBtns, ...document.querySelectorAll("[data-copy-test]")]
-  .forEach(b => b.addEventListener("click", () => copyBookmarklet(b)));
+$copyBtns.forEach(b => b.addEventListener("click", () => copyBookmarklet(b)));
 
 /* --- 端末別の手順切り替え --- */
 const $tabs = document.getElementById("platformtabs");

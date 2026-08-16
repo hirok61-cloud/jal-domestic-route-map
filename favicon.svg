@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="JAL国内線ルートマップ">
+  <!-- このサイト自身の目印。ヘッダーに出している赤丸＋飛行機のバッジと同じ形。
+       JALの鶴丸は商標なので使わない（名産の絵文字と同じ考え方。seats/index.html 参照）。 -->
+  <circle cx="16" cy="16" r="16" fill="#b7001e"/>
+  <path fill="#fff" d="M16 4.2c1.2 0 2 1.5 2 3.5v4.4l9 6.1v2.6l-9-2.6v5l3 2.2v2l-5-1.2-5 1.2v-2l3-2.2v-5l-9 2.6v-2.6l9-6.1V7.7c0-2 .8-3.5 2-3.5z"/>
+</svg>

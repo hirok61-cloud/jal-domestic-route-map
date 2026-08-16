@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
 <title>空席状況（今日・明日）— JAL国内線ルートマップ</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="JAL国内線（羽田発着）の今日・明日の普通席の残席をまとめて表示する非公式ファンサイト">
@@ -25,9 +26,13 @@
   --hover:#5ab0ff;
   --ok:#5ed58f; --ok-bg:#12291d; --warn:#ffb056; --warn-bg:#2e2113; --full:#6c7b87; --full-bg:#1a1f25;
   --shadow:0 10px 30px rgba(0,0,0,.55); --card-shadow:0 2px 10px rgba(0,0,0,.4);
-  --area-hokkaido:#161e28; --area-tohoku:#152023; --area-kanto:#1c1e22; --area-chubu:#211f19;
-  --area-kansai:#241c18; --area-chugoku:#182018; --area-shikoku:#182119; --area-kyushu:#261b16;
-  --area-okinawa:#271d14;
+  /* 暗い地の上では、明るさを少し足すだけでは色が付いて見えない。
+     地（--panel #141a21）自体が青寄りの灰なので、同じ色相の北海道・東北・関東は
+     地に溶けて消えていた（2026-08-16。北海道は地との差が2.9しかなかった）。
+     明るさを揃えたうえで色みをはっきり分け、どの地域も地から10以上離してある。 */
+  --area-hokkaido:#0f2c42; --area-tohoku:#082e30; --area-kanto:#2b2825; --area-chubu:#2e2816;
+  --area-kansai:#352618; --area-chugoku:#192d21; --area-shikoku:#242b1b; --area-kyushu:#3c2124;
+  --area-okinawa:#3b231c;
 }}
 :root[data-theme="light"]{
   --red:#b7001e; --red-deep:#8c0017; --red-soft:#fbeef0; --gold:#a98e5e;
@@ -47,9 +52,13 @@
   --hover:#5ab0ff;
   --ok:#5ed58f; --ok-bg:#12291d; --warn:#ffb056; --warn-bg:#2e2113; --full:#6c7b87; --full-bg:#1a1f25;
   --shadow:0 10px 30px rgba(0,0,0,.55); --card-shadow:0 2px 10px rgba(0,0,0,.4);
-  --area-hokkaido:#161e28; --area-tohoku:#152023; --area-kanto:#1c1e22; --area-chubu:#211f19;
-  --area-kansai:#241c18; --area-chugoku:#182018; --area-shikoku:#182119; --area-kyushu:#261b16;
-  --area-okinawa:#271d14;
+  /* 暗い地の上では、明るさを少し足すだけでは色が付いて見えない。
+     地（--panel #141a21）自体が青寄りの灰なので、同じ色相の北海道・東北・関東は
+     地に溶けて消えていた（2026-08-16。北海道は地との差が2.9しかなかった）。
+     明るさを揃えたうえで色みをはっきり分け、どの地域も地から10以上離してある。 */
+  --area-hokkaido:#0f2c42; --area-tohoku:#082e30; --area-kanto:#2b2825; --area-chubu:#2e2816;
+  --area-kansai:#352618; --area-chugoku:#192d21; --area-shikoku:#242b1b; --area-kyushu:#3c2124;
+  --area-okinawa:#3b231c;
 }
 *{box-sizing:border-box}
 html,body{margin:0}
