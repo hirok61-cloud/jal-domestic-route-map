@@ -181,9 +181,9 @@ async function runJob(job) {
       tabId = await findCorpTab();
       if (tabId == null) {
         throw new Error(
-          "JALオンラインにログインしたタブが見つかりません。Chromeで"
-          + " https://booking.jal.co.jp/jl/dom-corp/john-top を開き、"
-          + "企業（ＬＴ００）を選んでログインした状態で、もう一度実行してください。",
+          "JALオンラインにログインしたタブが見つかりません。"
+          + "サイトの「JALオンライン ↗」からログインし、企業（ＬＴ００）を選んだ状態で、"
+          + "もう一度実行してください。",
         );
       }
       await api(`?action=progress&id=${job.id}`, {

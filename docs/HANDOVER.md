@@ -112,6 +112,7 @@ JALの予約画面（人のブラウザ）
 | `GET /` | 指定日のスナップショット（`?date=`、既定は今日） |
 | `GET /?action=all` | 持っている日分まとめて。**サイトはこれを使う** |
 | `GET /?action=history&date=` | その日の推移 |
+| `GET /?action=corp-stats&hub=JOH&from=&to=` | 制度枠の日ごと要約（詳細レポート用。1回95日まで） |
 | `GET /?action=script` | 収集スクリプトの中継（CORS許可）。**いまは未使用**（`<script>` タグ読み込みに変えたため。消してはいないが、消しても動く） |
 | `POST /?action=request` | 更新依頼を積む。body の `days` で `0`=今日 / `1`=翌日 |
 | `GET /?action=status&id=` | 依頼の進捗 |

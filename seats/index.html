@@ -210,13 +210,17 @@ td.fno{font-weight:700;color:var(--red)}
    古いスナップショットが残っているだけだと外からは正常に見えてしまうため、
    依頼そのものの成否を別途出す。普段は目立たせず、失敗が続くときだけ赤くする。 */
 .healthbar{margin:14px 22px;padding:9px 14px;border-radius:10px;font-size:11.5px;
-  display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;line-height:1.65}
 .healthbar.ok{background:var(--chipbg);color:var(--sub)}
 .healthbar.warn{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn)}
-.healthbar .hdot{width:7px;height:7px;border-radius:50%;flex:none}
+.healthbar .hdot{width:7px;height:7px;border-radius:50%;flex:none;margin-top:5px}
 .healthbar.ok .hdot{background:var(--ok)}
 .healthbar.warn .hdot{background:var(--warn)}
-.healthbar .hitem{white-space:nowrap}
+/* 「空席 18:26 成功」のような短い項目は折り返さない。
+   失敗の理由だけは長く（URLまで入る）、折り返さないと枠からはみ出すので別あつかい。
+   URLには切れ目が無いので anywhere で強制的に折る。2026-08-16 に実際にはみ出した。 */
+.healthbar .hitem{white-space:nowrap;min-width:0}
+.healthbar .hitem.long{white-space:normal;overflow-wrap:anywhere;flex:1 1 240px}
 /* 制度枠のサマリ。取得時点の結論を先に出す */
 .corpsum{margin:14px 22px;padding:14px 18px;border:1px solid var(--panel-edge);border-radius:14px;
   background:var(--panel);box-shadow:var(--card-shadow);font-size:12.5px;line-height:1.8}
@@ -373,8 +377,10 @@ footer a{color:var(--hover)}
 <nav class="subtabs" aria-label="国内線コンテンツ切替">
   <a class="subtab" href="../">ルートマップ</a>
   <a class="subtab active" href="./" aria-current="page">空席状況</a>
-  <a class="subtab ext" href="https://booking.jal.co.jp/jl/dom-corp/john-top" target="_blank" rel="noopener"
-     title="JALオンライン（要ログイン）で予約する">JALオンライン<span class="extmark" aria-hidden="true">↗</span></a>
+  <!-- JOHNのトップを直接開いても、たいていセッションが切れていてログイン画面に飛ばされる。
+       最初からログイン画面へ送る（2026-08-16、本人の指定）。 -->
+  <a class="subtab ext" href="https://jallogin.jal.co.jp/contents/login?AUTH_TYPE=AUTH_THREEKEY_LOW&amp;SITE_ID=co&amp;AUTHENTICATED=http%3A%2F%2Fjallogin.jal.co.jp%2Fsso%2FInternalAuthoriEndpoint%2F%3Facr_values%3D3%26design%3DJH001N%26redirect_uri%3Dhttps%253A%252F%252Fbooking.jal.co.jp%252Fjl%252Fcorp-john%252Flogin%252Fmember-login-user-after-process%26lang%3Dja%26client_name%3DJOHN%26client_id%3DJJOH1ykgso&amp;MESSAGE_AUTH=GRKJQ7kyN2o0WarR2f9Oyw%3D%3D" target="_blank" rel="noopener"
+     title="JALオンラインにログインする">JALオンライン<span class="extmark" aria-hidden="true">↗</span></a>
 </nav>
 <div class="filterbar">
   <div class="field">
@@ -648,124 +654,300 @@ async function loadCorp(){
 }
 
 /* ================= 詳細レポート（中長期の傾向） =================
-   目的は「明日この便を狙えるか」を過去の実績から判断できるようにすること。
+   目的は「この便を狙えるか」を過去の実績から判断できるようにすること。
    サマリ（当日の断面）とは別物で、こちらは日をまたいだ集計。
 
-   **Edge Function の落とし穴**: `GET /?hub=JOH&date=X` は X のデータが無いと
-   **黙って最新のスナップショットを返す**（実測で確認）。素直に過去30日ぶん
-   投げると同じ日のデータが30個返り、「毎日同じ傾向」に見える嘘のレポートになる。
-   受け取った payload.date が要求した日と一致するものだけを採用すること。 */
-const REPORT_DAYS = 60;
+   **生のスナップショットは取りに行かない。** 1日ぶんで100KB近くあり、1年ぶんを
+   端末に落とすと数十MBになる。Edge Function の `?action=corp-stats` に日ごとの
+   要約（1日200バイト程度）を作らせ、それだけを受け取って組み立てる。
 
-async function fetchCorpHistory(onProgress){
+   **期間を60日から400日（保持期間いっぱい）に広げた。**（2026-08-16）
+   平日と土日の差なら数週間で見えるが、**お盆・GW・年末年始と閑散期の差は、
+   その時期をまたがないと比べようがない**。60日では隣の季節すら入らない。
+
+   以前は日付を1つずつ指定してスナップショットを丸ごと取っていた。記録の無い日には
+   Edge Function が黙って最新のスナップショットを返すため、要求した日と一致するかを
+   毎回確かめる必要もあった（`?action=corp-stats` は実在する行だけを見るので起きない）。 */
+const REPORT_DAYS = 400;   // 制度枠（hub=JOH）の保持期間に合わせる
+const STATS_CHUNK = 90;    // 1回の問い合わせで見る日数（Edge Function側の上限は95日）
+
+const DAY_MS = 86400000;
+const jstDay = (t) => new Date(t + 9 * 3600000).toISOString().slice(0, 10);
+const dowOf = (date) => {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+};
+
+/* 日本の祝日。表で持つと毎年書き足しが要るので、規則から出す。
+   ハッピーマンデー・春分／秋分（1980〜2099の近似式）・振替休日・国民の休日まで見る。
+   ここまでやるのは「土日祝」と「平日」を分けて比べたいため。祝日を平日に混ぜると、
+   いちばん混む日が平日側に入って両方の傾向がぼやける。 */
+const holidayCache = new Map();
+function holidaysOf(year){
+  if (holidayCache.has(year)) return holidayCache.get(year);
+  const set = new Set();
+  const key = (m, d) => `${year}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  const dow1 = (m) => new Date(Date.UTC(year, m - 1, 1)).getUTCDay();
+  const nthMonday = (m, nth) => 1 + ((8 - dow1(m)) % 7) + (nth - 1) * 7;
+  const equinox = (base) =>
+    Math.floor(base + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+  const iso = (t) => new Date(t).toISOString().slice(0, 10);
+
+  // 日付が決まっているもの
+  for (const [m, d] of [[1, 1], [2, 11], [2, 23], [4, 29], [5, 3], [5, 4], [5, 5],
+    [8, 11], [11, 3], [11, 23]]) set.add(key(m, d));
+  set.add(key(1, nthMonday(1, 2)));    // 成人の日
+  set.add(key(7, nthMonday(7, 3)));    // 海の日
+  set.add(key(9, nthMonday(9, 3)));    // 敬老の日
+  set.add(key(10, nthMonday(10, 2)));  // スポーツの日
+  set.add(key(3, equinox(20.8431)));   // 春分の日
+  set.add(key(9, equinox(23.2488)));   // 秋分の日
+
+  // 振替休日: 日曜と重なったら、次の（祝日でない）日にずらす
+  for (const day of [...set]) {
+    const [y, m, d] = day.split("-").map(Number);
+    if (new Date(Date.UTC(y, m - 1, d)).getUTCDay() !== 0) continue;
+    let t = Date.UTC(y, m - 1, d + 1);
+    while (set.has(iso(t))) t += DAY_MS;
+    set.add(iso(t));
+  }
+  // 国民の休日: 祝日に挟まれた平日（2026年の9/22など）
+  for (const day of [...set]) {
+    const t = Date.parse(day + "T00:00:00Z");
+    const mid = iso(t + DAY_MS);
+    if (!set.has(mid) && set.has(iso(t + 2 * DAY_MS))
+      && new Date(t + DAY_MS).getUTCDay() !== 0) set.add(mid);
+  }
+  holidayCache.set(year, set);
+  return set;
+}
+const isHoliday = (date) => holidaysOf(Number(date.slice(0, 4))).has(date);
+const isOffDay = (date) => [0, 6].includes(dowOf(date)) || isHoliday(date);
+
+/* 時期の区分。JALの運賃カレンダーそのものではなく、混み方の大づかみな分類。
+   **区切りを変えると過去ぶんの集計も変わる**ので、動かしたらレポートも読み直すこと。 */
+function seasonOf(date){
+  const md = date.slice(5);
+  const between = (a, b) => md >= a && md <= b;
+  if (md >= "12-28" || md <= "01-05") return "繁忙期";        // 年末年始
+  if (between("04-27", "05-06")) return "繁忙期";             // GW
+  if (between("08-08", "08-17")) return "繁忙期";             // お盆
+  if (between("03-20", "04-07")) return "準繁忙";             // 春休み
+  if (between("07-20", "08-31")) return "準繁忙";             // 夏休み（お盆を除く）
+  if (between("12-20", "12-27")) return "準繁忙";             // 年末前
+  if (between("01-06", "02-29")) return "閑散期";
+  if (between("06-01", "06-30")) return "閑散期";
+  if (between("12-01", "12-19")) return "閑散期";
+  return "通常";
+}
+const SEASON_ORDER = ["繁忙期", "準繁忙", "通常", "閑散期"];
+const SEASON_NOTE = {
+  "繁忙期": "年末年始・GW・お盆",
+  "準繁忙": "春休み・夏休み・年末前",
+  "通常": "上のどれにも当たらない日",
+  "閑散期": "1月中旬〜2月・6月・12月前半",
+};
+
+/* 記録した時刻の区分。**同じ時間帯どうしで比べないと誤読になる。**
+   制度枠は搭乗当日に向けて解放されていくので、朝に記録した日と夜に記録した日を
+   並べると、曜日や時期の差ではなく「記録が何時だったか」の差を見てしまう。 */
+const REC_SLOTS = ["深夜(〜6時)", "朝(6〜11時)", "昼(11〜16時)", "夕方以降(16時〜)"];
+const recSlot = (at) => {
+  const h = new Date(at).getHours();
+  return h < 6 ? 0 : h < 11 ? 1 : h < 16 ? 2 : 3;
+};
+
+const HOUR_LABELS = ["早朝〜朝(〜9時)", "昼(9〜14時)", "夕方(14〜18時)", "夜(18時〜)"];
+
+/** 制度枠の日ごと要約を、保持期間ぶんまとめて取る（期間を区切って何度か呼ぶ）。 */
+async function fetchCorpStats(onProgress){
+  const now = Date.now();
+  const ranges = [];
+  for (let back = REPORT_DAYS - 1; back >= 0; back -= STATS_CHUNK) {
+    ranges.push([jstDay(now - back * DAY_MS),
+      jstDay(now - Math.max(back - STATS_CHUNK + 1, 0) * DAY_MS)]);
+  }
   const days = [];
-  const wanted = [];
-  for (let i = 0; i < REPORT_DAYS; i++) {
-    const d = new Date(Date.now() + 9 * 3600000 - i * 86400000);
-    wanted.push(d.toISOString().slice(0, 10));
-  }
-  // 一気に投げず小分けにする（Edge Function と回線に優しく、進捗も出せる）
-  for (let i = 0; i < wanted.length; i += 6) {
-    const chunk = wanted.slice(i, i + 6);
-    const got = await Promise.all(chunk.map(async date => {
-      try {
-        const res = await fetch(`${REMOTE}?hub=JOH&date=${date}`, {cache: "no-store"});
-        if (!res.ok) return null;
-        const p = await res.json();
-        // ★ 要求した日と違うものが返ってきたら捨てる（上記の落とし穴）
-        return p && p.date === date && Array.isArray(p.routes) ? p : null;
-      } catch { return null; }
-    }));
-    days.push(...got.filter(Boolean));
-    onProgress(days.length, Math.min(i + 6, wanted.length));
-  }
-  return days.sort((a, b) => a.date.localeCompare(b.date));
-}
-
-function buildReport(days){
-  const perDay = [];
-  const seg = new Map();   // 区間ごとの通算
-  const hour = new Map();  // 出発時間帯ごとの通算
-  const dow = new Map();   // 曜日ごとの通算
-  let total = 0, ok = 0, availOnly = 0, avail = 0;
-
-  for (const p of days) {
-    let dTotal = 0, dOk = 0;
-    for (const r of p.routes || []) {
-      for (const f of r.flights || []) {
-        if (typeof f.zl !== "boolean") continue;
-        total++; dTotal++;
-        if (f.zl) { ok++; dOk++; }
-        if (f.eco >= 9) { avail++; if (!f.zl) availOnly++; }
-
-        const k = `${r.o}→${r.d}`;
-        const s = seg.get(k) || {n: 0, ok: 0};
-        s.n++; if (f.zl) s.ok++; seg.set(k, s);
-
-        if (f.dep) {
-          const h = Number(f.dep.slice(0, 2));
-          const b = h < 9 ? "早朝〜朝(〜9時)" : h < 14 ? "昼(9〜14時)"
-            : h < 18 ? "夕方(14〜18時)" : "夜(18時〜)";
-          const hb = hour.get(b) || {n: 0, ok: 0};
-          hb.n++; if (f.zl) hb.ok++; hour.set(b, hb);
-        }
-      }
+  const seg = new Map();
+  for (let i = 0; i < ranges.length; i++) {
+    const [from, to] = ranges[i];
+    const res = await fetch(`${REMOTE}?action=corp-stats&hub=JOH&from=${from}&to=${to}`,
+      {cache: "no-store"});
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const body = await res.json();
+    // 口が古いと別の形（スナップショットそのもの）が返る。黙って誤集計しない
+    if (!body || !Array.isArray(body.days)) {
+      throw new Error("集計の口が応じません（?action=corp-stats）");
     }
-    const wd = "日月火水木金土"[new Date(p.date + "T00:00:00+09:00").getDay()];
-    const w = dow.get(wd) || {n: 0, ok: 0};
-    w.n += dTotal; w.ok += dOk; dow.set(wd, w);
-    perDay.push({date: p.date, wd, n: dTotal, ok: dOk,
-      rate: dTotal ? dOk / dTotal : 0, at: p.generatedAt});
+    days.push(...body.days);
+    for (const [k, v] of Object.entries(body.seg || {})) {
+      const cur = seg.get(k) || [0, 0, 0, 0];
+      for (let n = 0; n < 4; n++) cur[n] += v[n] || 0;
+      seg.set(k, cur);
+    }
+    onProgress(days.length, i + 1, ranges.length);
   }
-  return {perDay, seg, hour, dow, total, ok, availOnly, avail};
+  days.sort((a, b) => a.date.localeCompare(b.date));
+  return {days, seg};
 }
 
-function renderCorpReport(days){
+function buildReport({days, seg}){
+  const perDay = days.map(d => ({
+    ...d,
+    wd: "日月火水木金土"[dowOf(d.date)],
+    off: isOffDay(d.date),
+    holiday: isHoliday(d.date),
+    season: seasonOf(d.date),
+    rec: recSlot(d.at),
+    rate: d.n ? d.ok / d.n : 0,
+  }));
+
+  /* 日ごとの数字を足し合わせる。日数も持っておく（何日ぶんの話なのかを必ず添えるため。
+     1日だけの数字を「傾向」として出すと、まず誤読される）。 */
+  const group = (keyFn, rows = perDay) => {
+    const m = new Map();
+    for (const r of rows) {
+      const k = keyFn(r);
+      if (k == null) continue;
+      const g = m.get(k) || {n: 0, ok: 0, days: 0, avail: 0, availOnly: 0, recs: new Set()};
+      g.n += r.n; g.ok += r.ok; g.avail += r.avail; g.availOnly += r.availOnly;
+      g.days++; g.recs.add(r.rec);
+      m.set(k, g);
+    }
+    return m;
+  };
+
+  const hour = new Map();
+  for (const r of perDay) {
+    for (let i = 0; i < 4; i++) {
+      if (!r.hour?.[i]) continue;
+      const g = hour.get(HOUR_LABELS[i]) || {n: 0, ok: 0, days: 0, recs: new Set()};
+      g.n += r.hour[i]; g.ok += r.hourOk[i]; g.days++;
+      hour.set(HOUR_LABELS[i], g);
+    }
+  }
+
+  const segRows = [...seg].map(([k, [n, ok, wn, wok]]) => ({
+    k, n, ok, rate: n ? ok / n : 0,
+    offN: wn, offRate: wn ? wok / wn : null,
+    wdN: n - wn, wdRate: (n - wn) ? (ok - wok) / (n - wn) : null,
+  })).filter(x => x.n >= 3).sort((a, b) => b.rate - a.rate);
+
+  return {
+    perDay,
+    total: perDay.reduce((n, d) => n + d.n, 0),
+    ok: perDay.reduce((n, d) => n + d.ok, 0),
+    avail: perDay.reduce((n, d) => n + d.avail, 0),
+    availOnly: perDay.reduce((n, d) => n + d.availOnly, 0),
+    byOff: group(r => r.off ? "土日祝" : "平日"),
+    bySeason: group(r => r.season),
+    byMonth: group(r => r.date.slice(0, 7)),
+    byRec: group(r => REC_SLOTS[r.rec]),
+    hour, segRows,
+  };
+}
+
+function renderCorpReport(stats){
   const box = document.getElementById("corpreport");
-  if (!days.length) {
+  const R = buildReport(stats);
+  if (!R.perDay.length) {
     box.innerHTML = `<h3>詳細レポート</h3><div class="sub">記録がまだありません。`
       + `「制度枠を記録」を実行すると、その日ぶんが蓄積されます。</div>`;
     box.hidden = false;
     return;
   }
-  const R = buildReport(days);
   const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
-  const rows = (m, min) => [...m].map(([k, v]) => ({k, ...v, rate: v.ok / v.n}))
-    .filter(x => x.n >= min).sort((a, b) => b.rate - a.rate);
-
-  const segs = rows(R.seg, 3);
-  const best = segs.slice(0, 8);
-  const worst = segs.slice(-8).reverse();
   const bar = (r) => `<span class="bar"><i style="width:${Math.round(r * 100)}%"></i></span>`;
   const line = (x) => `<div class="rrow"><span class="rk">${x.k}</span>${bar(x.rate)}`
     + `<b>${Math.round(x.rate * 100)}%</b><span class="sub">${x.ok}/${x.n}</span></div>`;
 
+  /* 区分ごとの比較。**必ず「何日ぶんか」を添える。** 記録した時刻がバラつくと
+     区分の差ではなく記録時刻の差を見てしまうので、そのときは注意書きを出す。 */
+  const compare = (m, order, note = {}) => {
+    const keys = order ? order.filter(k => m.has(k)) : [...m.keys()];
+    if (keys.length < 2) {
+      const only = keys.length ? `いまは「${keys[0]}」の記録しかありません` : "記録がありません";
+      return `<div class="sub">${only}。比べるには別の区分の記録が要ります。</div>`;
+    }
+    const slots = new Set();
+    for (const k of keys) for (const r of m.get(k).recs) slots.add(r);
+    const rows = keys.map(k => {
+      const g = m.get(k);
+      return `<div class="rrow"><span class="rk">${k}${note[k] ? "" : ""}</span>`
+        + bar(g.n ? g.ok / g.n : 0)
+        + `<b>${pct(g.ok, g.n)}%</b>`
+        + `<span class="sub">${g.ok}/${g.n}・${g.days}日</span></div>`
+        + (note[k] ? `<div class="sub" style="margin:-2px 0 3px 104px">${note[k]}</div>` : "");
+    }).join("");
+    const thin = keys.filter(k => m.get(k).days < 3);
+    return rows
+      + (thin.length ? `<div class="sub">${thin.join("・")}は記録が3日未満です。`
+        + `まだ傾向とは言えません。</div>` : "")
+      + (slots.size > 1 ? `<div class="sub">記録した時刻がそろっていません`
+        + `（${[...slots].sort().map(i => REC_SLOTS[i]).join("・")}）。`
+        + `制度枠は当日に向けて解放されるので、この差には記録時刻のちがいも混じります。</div>` : "");
+  };
+
+  const span = `${R.perDay[0].date} 〜 ${R.perDay[R.perDay.length - 1].date}`;
+  const recent = R.perDay.slice(-30).reverse();
+  const dayRow = (d) => `<div class="rrow"><span class="rk">${d.date.slice(5)}(${d.wd})`
+    + `${d.holiday ? "祝" : ""}</span>${bar(d.rate)}<b>${Math.round(d.rate * 100)}%</b>`
+    + `<span class="sub">${d.ok}/${d.n} ${hhmm(d.at)}時点</span></div>`;
+
+  const segLine = (x) => `<div class="rrow"><span class="rk">${x.k}</span>${bar(x.rate)}`
+    + `<b>${Math.round(x.rate * 100)}%</b><span class="sub">${x.ok}/${x.n}`
+    + (x.offRate !== null && x.wdRate !== null
+      ? `・平日${Math.round(x.wdRate * 100)}% / 土日祝${Math.round(x.offRate * 100)}%` : "")
+    + `</span></div>`;
+
   box.innerHTML = `
-    <h3>詳細レポート（${R.perDay.length}日分・のべ ${R.total} 便）</h3>
+    <h3>詳細レポート（記録 ${R.perDay.length}日分・のべ ${R.total} 便）</h3>
     <div class="lead">通算で <b>${pct(R.ok, R.total)}％</b> の便が制度で予約できる状態でした。</div>
-    <div class="sub">空席あり（残席9以上）だったのに制度では出ていない便は、
+    <div class="sub">対象は ${span}（過去${REPORT_DAYS}日のうち、記録が残っている日）。
+      空席あり（残席9以上）だったのに制度では出ていない便は、
       のべ ${R.availOnly} 便（空席ありの ${R.avail} 便中 ${pct(R.availOnly, R.avail)}％）。</div>
 
-    <h4>日ごとの推移</h4>
-    <div class="rlist">${R.perDay.map(d =>
-      `<div class="rrow"><span class="rk">${d.date.slice(5)}(${d.wd})</span>${bar(d.rate)}`
-      + `<b>${Math.round(d.rate * 100)}%</b><span class="sub">${d.ok}/${d.n} ${hhmm(d.at)}時点</span></div>`
-    ).join("")}</div>
+    <h4>平日と土日祝</h4>
+    <div class="rlist">${compare(R.byOff, ["平日", "土日祝"])}</div>
 
-    <h4>取りやすい区間</h4>
-    <div class="rlist">${best.map(line).join("")}</div>
-    <h4>取りにくい区間</h4>
-    <div class="rlist">${worst.map(line).join("")}</div>
+    <h4>時期</h4>
+    <div class="rlist">${compare(R.bySeason, SEASON_ORDER, SEASON_NOTE)}</div>
+    ${SEASON_ORDER.filter(k => !R.bySeason.has(k)).length
+      ? `<div class="sub">まだ記録が無い時期: `
+        + `${SEASON_ORDER.filter(k => !R.bySeason.has(k)).join("・")}。`
+        + `その時期に「制度枠を記録」を実行すると比べられるようになります。</div>` : ""}
 
-    <h4>時間帯</h4>
-    <div class="rlist">${rows(R.hour, 1).map(line).join("")}</div>
-    ${R.perDay.length >= 7 ? `<h4>曜日</h4>
-      <div class="rlist">${rows(R.dow, 1).map(line).join("")}</div>` : ""}
+    ${R.byMonth.size >= 2 ? `<h4>月ごと</h4>
+      <div class="rlist">${[...R.byMonth].sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([k, g]) => `<div class="rrow"><span class="rk">${k}</span>`
+          + bar(g.n ? g.ok / g.n : 0) + `<b>${pct(g.ok, g.n)}%</b>`
+          + `<span class="sub">${g.ok}/${g.n}・${g.days}日</span></div>`).join("")}</div>` : ""}
+
+    <h4>出発時間帯</h4>
+    <div class="rlist">${[...R.hour].map(([k, g]) =>
+      `<div class="rrow"><span class="rk">${k}</span>${bar(g.n ? g.ok / g.n : 0)}`
+      + `<b>${pct(g.ok, g.n)}%</b><span class="sub">${g.ok}/${g.n}</span></div>`).join("")}</div>
+
+    ${R.segRows.length ? `<h4>取りやすい区間</h4>
+      <div class="rlist">${R.segRows.slice(0, 8).map(segLine).join("")}</div>
+      <h4>取りにくい区間</h4>
+      <div class="rlist">${R.segRows.slice(-8).reverse().map(segLine).join("")}</div>` : ""}
+
+    <h4>日ごとの推移${R.perDay.length > 30 ? "（新しい30日）" : ""}</h4>
+    <div class="rlist">${recent.map(dayRow).join("")}</div>
+    ${R.perDay.length > 30 ? `<details><summary class="sub">残り ${R.perDay.length - 30}日分を見る</summary>
+      <div class="rlist">${R.perDay.slice(0, -30).reverse().map(dayRow).join("")}</div></details>` : ""}
+
+    <h4>記録した時刻</h4>
+    <div class="rlist">${[...R.byRec].sort((a, b) => REC_SLOTS.indexOf(a[0]) - REC_SLOTS.indexOf(b[0]))
+      .map(([k, g]) => `<div class="rrow"><span class="rk">${k}</span>${bar(g.n ? g.ok / g.n : 0)}`
+        + `<b>${pct(g.ok, g.n)}%</b><span class="sub">${g.days}日</span></div>`).join("")}</div>
 
     <div class="sub" style="margin-top:10px">
-      各日は<b>その日に記録した時刻の断面</b>です（記録した時刻がバラつくと日ごとの比較は
-      ぶれます）。同じ日に複数回記録した場合、残るのは最後の1回だけです。
-      ${R.perDay.length < 5 ? "<br><b>まだ日数が少ないため、傾向としては参考程度に見てください。</b>" : ""}
+      各日は<b>その日に記録した時刻の断面</b>です。同じ日に複数回記録した場合、
+      集計に入るのは最後の1回だけです。夜に記録した日は残りの便が少なく、
+      のべ便数もその日だけ小さくなります。
+      ${R.perDay.length < 5 ? "<br><b>まだ記録が少ないため、傾向としては参考程度に見てください。</b>" : ""}
     </div>`;
   box.hidden = false;
 }
@@ -1417,12 +1599,12 @@ $reportbtn.addEventListener("click", async () => {
   box.hidden = false;
   box.innerHTML = `<h3>詳細レポート</h3><div class="sub">記録を読み込んでいます…</div>`;
   try {
-    const days = await fetchCorpHistory((found, done) => {
+    const stats = await fetchCorpStats((found, done, total) => {
       box.innerHTML = `<h3>詳細レポート</h3>`
-        + `<div class="sub">記録を読み込んでいます… ${done}/${REPORT_DAYS}日を確認`
+        + `<div class="sub">過去${REPORT_DAYS}日を読み込んでいます… ${done}/${total}`
         + `（見つかった記録 ${found}日分）</div>`;
     });
-    renderCorpReport(days);
+    renderCorpReport(stats);
     box.scrollIntoView({behavior: "smooth", block: "start"});
   } catch (e) {
     box.innerHTML = `<h3>詳細レポート</h3><div class="sub">読み込めませんでした（${e.message}）。</div>`;
@@ -1490,7 +1672,8 @@ function renderHealth(){
       items.push(`<span class="hitem">${label} <b>${whenLabel(r.updated_at)}</b> 成功</span>`);
     } else {
       anyFailed = true;
-      items.push(`<span class="hitem">${label} <b>${whenLabel(r.updated_at)}</b> `
+      // 理由は長い（URLが入ることもある）。折り返せるよう long を付けて別あつかいにする
+      items.push(`<span class="hitem long">${label} <b>${whenLabel(r.updated_at)}</b> `
         + `失敗（${r.message || "理由不明"}）</span>`);
     }
   }

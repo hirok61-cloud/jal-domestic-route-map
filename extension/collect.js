@@ -1,6 +1,6 @@
 /* 生成物。編集しないこと。もとは tools/collect-core.js と collect-extension.js。
    直したら npm run build:bookmarklet && npm run test:collect && npm run purge:cdn */
-var __JAL_SEATS_BUILD__ = "2026-08-15 23:50Z";
+var __JAL_SEATS_BUILD__ = "2026-08-16 13:04Z";
 (() => {
   // tools/collect-core.js
   var ENDPOINT = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats";
