@@ -1427,43 +1427,83 @@ $reportbtn.addEventListener("click", async () => {
 // loadAvailability() より先に終わることもあるので、DATA がまだ無ければ何もしない
 // （そちらの初回 render() が、この時点までに入っていた CORP を拾って描く）
 /* 収集の健康状態。バッジ表示ではなく、押したときだけ見に行く点検表と同じ
-   考え方（docs/JAL_ONLINE_CORP.md）。ハブごとに「直近の依頼が成功したか」
+   考え方（docs/JAL_ONLINE_CORP.md）。ハブごとに「最後に取れたのはいつか」
    だけを見る。件数が少ないので凝った集計はしない。 */
 const HUB_LABEL = {HND: "空席", JOH: "制度枠"};
+let HEALTH = null; // ?action=recent の結果（依頼ごとの成否）
+
+/* 表示中の日の時刻ではなく、実際に保存されているデータの時刻。
+   ハブごとに「いちばん新しい保存」を返す。 */
+function lastSavedAt(hub){
+  if (hub === "HND") {
+    const ats = Object.values(DAYS).map(p => p && p.generatedAt).filter(Boolean).sort();
+    return ats.length ? ats[ats.length - 1] : null;
+  }
+  if (hub === "JOH") return CORP ? CORP.generatedAt : null;
+  return null;
+}
+
+// 今日なら時刻だけ、前の日なら日付も付ける（古いまま止まっていると分かるように）
+function whenLabel(iso){
+  const d = new Date(iso);
+  const sameDay = new Date(iso).toDateString() === new Date().toDateString();
+  return sameDay ? hhmm(iso) : `${d.getMonth() + 1}/${d.getDate()} ${hhmm(iso)}`;
+}
+
+function renderHealth(){
+  if (!HEALTH || !HEALTH.length) return;
+
+  // ハブごとに最新の1件だけを見る（一覧は要らない。健康状態の一目判断だけが目的）
+  const latest = new Map();
+  for (const r of HEALTH) if (!latest.has(r.hub)) latest.set(r.hub, r);
+  // 依頼が1件も残っていなくても、データがあるハブは出す（スマホからだけ更新した場合）
+  for (const hub of Object.keys(HUB_LABEL)) {
+    if (!latest.has(hub) && lastSavedAt(hub)) latest.set(hub, null);
+  }
+
+  const box = document.getElementById("healthbar");
+  const items = [];
+  let anyFailed = false;
+  for (const [hub, r] of latest) {
+    const label = HUB_LABEL[hub] || hub;
+    const saved = lastSavedAt(hub);
+    const busy = r && r.status !== "done" && r.status !== "failed";
+
+    /* **スマホのブックマークレットは依頼を通さず、その場で直接保存する。**
+       依頼（?action=recent）だけを見ていると、スマホから更新しても
+       このバーの時刻が動かず、失敗の警告も出たままになる（2026-08-16）。
+       依頼より新しいデータが入っていれば、そちらが最後の成功。 */
+    if (saved && !busy && (!r || new Date(saved) > new Date(r.updated_at))) {
+      items.push(`<span class="hitem">${label} <b>${whenLabel(saved)}</b> 成功</span>`);
+    } else if (busy) {
+      items.push(`<span class="hitem">${label} 収集中…</span>`);
+    } else if (r.status === "done") {
+      items.push(`<span class="hitem">${label} <b>${whenLabel(r.updated_at)}</b> 成功</span>`);
+    } else {
+      anyFailed = true;
+      items.push(`<span class="hitem">${label} <b>${whenLabel(r.updated_at)}</b> `
+        + `失敗（${r.message || "理由不明"}）</span>`);
+    }
+  }
+  box.className = "healthbar " + (anyFailed ? "warn" : "ok");
+  box.innerHTML = `<span class="hdot"></span>${items.join("<span class=\"sub\">・</span>")}`;
+  box.hidden = false;
+}
+
 async function loadHealth(){
   try {
     const res = await fetch(`${REMOTE}?action=recent&n=10`, {cache: "no-store"});
     if (!res.ok) return;
     const {requests} = await res.json();
-    if (!Array.isArray(requests) || !requests.length) return;
-
-    // ハブごとに最新の1件だけを見る（一覧は要らない。健康状態の一目判断だけが目的）
-    const latest = new Map();
-    for (const r of requests) if (!latest.has(r.hub)) latest.set(r.hub, r);
-
-    const box = document.getElementById("healthbar");
-    const items = [];
-    let anyFailed = false;
-    for (const [hub, r] of latest) {
-      const label = HUB_LABEL[hub] || hub;
-      const at = hhmm(r.updated_at);
-      if (r.status === "done") {
-        items.push(`<span class="hitem">${label} <b>${at}</b> 成功</span>`);
-      } else if (r.status === "failed") {
-        anyFailed = true;
-        items.push(`<span class="hitem">${label} <b>${at}</b> 失敗（${r.message || "理由不明"}）</span>`);
-      } else {
-        items.push(`<span class="hitem">${label} 収集中…</span>`);
-      }
-    }
-    box.className = "healthbar " + (anyFailed ? "warn" : "ok");
-    box.innerHTML = `<span class="hdot"></span>${items.join("<span class=\"sub\">・</span>")}`;
-    box.hidden = false;
+    if (Array.isArray(requests)) HEALTH = requests;
   } catch { /* 出せなくても本体の表示には影響しない */ }
+  renderHealth();
 }
 loadHealth();
 
-loadCorp().then(() => { if (CORP && DATA) render(); });
+/* 空席・制度枠のデータが後から届いたら、健康状態も出し直す
+   （依頼より新しい保存があるかは、データが揃って初めて分かるため）。 */
+loadCorp().then(() => { if (CORP && DATA) render(); renderHealth(); });
 
 loadAvailability()
   .then(days => {
@@ -1475,6 +1515,7 @@ loadAvailability()
     renderSummary();
     renderNewSeats();
     render();
+    renderHealth(); // 依頼より新しい保存があれば、そちらを最後の成功として出し直す
     setBusy(false); // 更新ボタンのラベルを選択中の日に合わせる
     bindSeg("dirseg", "dir");
     bindSeg("seatseg", "seats");
