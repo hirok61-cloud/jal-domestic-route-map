@@ -656,16 +656,27 @@ async function loadCorp(){
    サマリ（当日の断面）とは別物で、こちらは日をまたいだ集計。
 
    **生のスナップショットは取りに行かない。** 1日ぶんで100KB近くあり、1年ぶんを
-   端末に落とすと数十MBになる。Edge Function の `?action=corp-stats` に日ごとの
-   要約（1日200バイト程度）を作らせ、それだけを受け取って組み立てる。
+   端末に落とすと数十MBになる。Edge Function の `?action=corp-stats` に集計だけを
+   作らせ、それだけを受け取って組み立てる。
 
    **期間を60日から400日（保持期間いっぱい）に広げた。**（2026-08-16）
-   平日と土日の差なら数週間で見えるが、**お盆・GW・年末年始と閑散期の差は、
-   その時期をまたがないと比べようがない**。60日では隣の季節すら入らない。
+   平日と土日の差なら数週間で見えるが、お盆・GW・年末年始と閑散期の差は、
+   その時期をまたがないと比べようがない。60日では隣の季節すら入らない。
 
-   以前は日付を1つずつ指定してスナップショットを丸ごと取っていた。記録の無い日には
-   Edge Function が黙って最新のスナップショットを返すため、要求した日と一致するかを
-   毎回確かめる必要もあった（`?action=corp-stats` は実在する行だけを見るので起きない）。 */
+   **1日に複数回（朝/昼/晩）記録しても、以前は最後の1回しか集計に入らなかった。**
+   （2026-08-18に発覚。「1日3回、朝昼晩に記録する運用にしたい」と聞いて確認したところ、
+   `?action=corp-stats` の取得元 jal_seat_snapshots は (hub, flight_date) で上書きする
+   テーブルで、同じ日の2回目以降は1回目を消して上書きしていた。朝と昼の記録が
+   トリガ経由で jal_corp_log には残っていたので、データ自体は失われていなかったが、
+   レポートからは見えていなかった。）
+   取得元を jal_corp_log（(flight_date, captured_at) が主キーで、同じ日の複数回が
+   そのまま残る）に切り替えた。**ただし全部の区分で全記録を使うと、1日3回記録した日が
+   1回だけの日の3倍の重みを持ってしまい、「その区間/時期が取りやすい」ではなく
+   「よく記録した日がたまたま取れていた」に化ける。** そのため:
+     - 平日/土日祝・時期・月ごと・区間・出発時間帯 → **その日の最後の記録だけ**を使う
+       （日ごとに重みをそろえるため。Edge Function 側で集計済み）
+     - 記録した時刻（朝/昼/晩） → **すべての記録**を使う（比べたいのはまさにここ）
+   日ごとの推移では、複数回記録した日はその内訳も添える。 */
 const REPORT_DAYS = 400;   // 制度枠（hub=JOH）の保持期間に合わせる
 const STATS_CHUNK = 90;    // 1回の問い合わせで見る日数（Edge Function側の上限は95日）
 
@@ -746,9 +757,8 @@ const SEASON_NOTE = {
   "閑散期": "1月中旬〜2月・6月・12月前半",
 };
 
-/* 記録した時刻の区分。**同じ時間帯どうしで比べないと誤読になる。**
-   制度枠は搭乗当日に向けて解放されていくので、朝に記録した日と夜に記録した日を
-   並べると、曜日や時期の差ではなく「記録が何時だったか」の差を見てしまう。 */
+/* 記録した時刻の区分。1日の中で解放が進むにつれて枠が増えていくので、
+   「朝・昼・晩でどう変わるか」はここで見る（他の区分は日ごとの代表1件で見るのと対照的）。 */
 const REC_SLOTS = ["深夜(〜6時)", "朝(6〜11時)", "昼(11〜16時)", "夕方以降(16時〜)"];
 const recSlot = (at) => {
   const h = new Date(at).getHours();
@@ -757,7 +767,8 @@ const recSlot = (at) => {
 
 const HOUR_LABELS = ["早朝〜朝(〜9時)", "昼(9〜14時)", "夕方(14〜18時)", "夜(18時〜)"];
 
-/** 制度枠の日ごと要約を、保持期間ぶんまとめて取る（期間を区切って何度か呼ぶ）。 */
+/** 制度枠の記録を、保持期間ぶんまとめて取る（期間を区切って何度か呼ぶ）。
+    1回の記録＝1件として返る（1日に複数回あれば複数件）。 */
 async function fetchCorpStats(onProgress){
   const now = Date.now();
   const ranges = [];
@@ -765,7 +776,7 @@ async function fetchCorpStats(onProgress){
     ranges.push([jstDay(now - back * DAY_MS),
       jstDay(now - Math.max(back - STATS_CHUNK + 1, 0) * DAY_MS)]);
   }
-  const days = [];
+  const captures = [];
   const seg = new Map();
   for (let i = 0; i < ranges.length; i++) {
     const [from, to] = ranges[i];
@@ -773,32 +784,45 @@ async function fetchCorpStats(onProgress){
       {cache: "no-store"});
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const body = await res.json();
-    // 口が古いと別の形（スナップショットそのもの）が返る。黙って誤集計しない
-    if (!body || !Array.isArray(body.days)) {
+    // 口が古いと別の形が返る。黙って誤集計しない
+    if (!body || !Array.isArray(body.captures)) {
       throw new Error("集計の口が応じません（?action=corp-stats）");
     }
-    days.push(...body.days);
+    captures.push(...body.captures);
     for (const [k, v] of Object.entries(body.seg || {})) {
       const cur = seg.get(k) || [0, 0, 0, 0];
       for (let n = 0; n < 4; n++) cur[n] += v[n] || 0;
       seg.set(k, cur);
     }
-    onProgress(days.length, i + 1, ranges.length);
+    onProgress(new Set(captures.map(c => c.date)).size, i + 1, ranges.length);
   }
-  days.sort((a, b) => a.date.localeCompare(b.date));
-  return {days, seg};
+  captures.sort((a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at));
+  return {captures, seg};
 }
 
-function buildReport({days, seg}){
-  const perDay = days.map(d => ({
-    ...d,
-    wd: "日月火水木金土"[dowOf(d.date)],
-    off: isOffDay(d.date),
-    holiday: isHoliday(d.date),
-    season: seasonOf(d.date),
-    rec: recSlot(d.at),
-    rate: d.n ? d.ok / d.n : 0,
-  }));
+function buildReport({captures, seg}){
+  // 同じ日の記録をまとめる。曜日/時期/月/区間/出発時間帯の比較は、
+  // その日の最後の記録（＝いちばん解放が進んだ状態）だけを使う。
+  const byDate = new Map();
+  for (const c of captures) {
+    const list = byDate.get(c.date) || [];
+    list.push(c);
+    byDate.set(c.date, list);
+  }
+  const perDay = [...byDate.entries()].map(([date, list]) => {
+    list.sort((a, b) => a.at.localeCompare(b.at));
+    const latest = list[list.length - 1];
+    return {
+      ...latest,
+      wd: "日月火水木金土"[dowOf(date)],
+      off: isOffDay(date),
+      holiday: isHoliday(date),
+      season: seasonOf(date),
+      rate: latest.n ? latest.ok / latest.n : 0,
+      captures: list,          // この日ぶん全部（朝→夕方の推移を出すため）
+      capturesCount: list.length,
+    };
+  }).sort((a, b) => a.date.localeCompare(b.date));
 
   /* 日ごとの数字を足し合わせる。日数も持っておく（何日ぶんの話なのかを必ず添えるため。
      1日だけの数字を「傾向」として出すと、まず誤読される）。 */
@@ -809,7 +833,7 @@ function buildReport({days, seg}){
       if (k == null) continue;
       const g = m.get(k) || {n: 0, ok: 0, days: 0, avail: 0, availOnly: 0, recs: new Set()};
       g.n += r.n; g.ok += r.ok; g.avail += r.avail; g.availOnly += r.availOnly;
-      g.days++; g.recs.add(r.rec);
+      g.days++; g.recs.add(recSlot(r.at));
       m.set(k, g);
     }
     return m;
@@ -819,7 +843,7 @@ function buildReport({days, seg}){
   for (const r of perDay) {
     for (let i = 0; i < 4; i++) {
       if (!r.hour?.[i]) continue;
-      const g = hour.get(HOUR_LABELS[i]) || {n: 0, ok: 0, days: 0, recs: new Set()};
+      const g = hour.get(HOUR_LABELS[i]) || {n: 0, ok: 0, days: 0};
       g.n += r.hour[i]; g.ok += r.hourOk[i]; g.days++;
       hour.set(HOUR_LABELS[i], g);
     }
@@ -831,17 +855,27 @@ function buildReport({days, seg}){
     wdN: n - wn, wdRate: (n - wn) ? (ok - wok) / (n - wn) : null,
   })).filter(x => x.n >= 3).sort((a, b) => b.rate - a.rate);
 
+  /* 記録した時刻。**ここだけは全記録をそのまま使う。** 1日3回でも減らさない。
+     同じ日の朝・昼・晩を比べるのが目的そのものなので、代表1件に絞ると材料が消える。 */
+  const byRec = new Map();
+  for (const c of captures) {
+    const k = REC_SLOTS[recSlot(c.at)];
+    const g = byRec.get(k) || {n: 0, ok: 0, caps: 0, dates: new Set()};
+    g.n += c.n; g.ok += c.ok; g.caps++; g.dates.add(c.date);
+    byRec.set(k, g);
+  }
+
   return {
     perDay,
     total: perDay.reduce((n, d) => n + d.n, 0),
     ok: perDay.reduce((n, d) => n + d.ok, 0),
     avail: perDay.reduce((n, d) => n + d.avail, 0),
     availOnly: perDay.reduce((n, d) => n + d.availOnly, 0),
+    totalCaptures: captures.length,
     byOff: group(r => r.off ? "土日祝" : "平日"),
     bySeason: group(r => r.season),
     byMonth: group(r => r.date.slice(0, 7)),
-    byRec: group(r => REC_SLOTS[r.rec]),
-    hour, segRows,
+    hour, segRows, byRec,
   };
 }
 
@@ -856,8 +890,6 @@ function renderCorpReport(stats){
   }
   const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
   const bar = (r) => `<span class="bar"><i style="width:${Math.round(r * 100)}%"></i></span>`;
-  const line = (x) => `<div class="rrow"><span class="rk">${x.k}</span>${bar(x.rate)}`
-    + `<b>${Math.round(x.rate * 100)}%</b><span class="sub">${x.ok}/${x.n}</span></div>`;
 
   /* 区分ごとの比較。**必ず「何日ぶんか」を添える。** 記録した時刻がバラつくと
      区分の差ではなく記録時刻の差を見てしまうので、そのときは注意書きを出す。 */
@@ -871,7 +903,7 @@ function renderCorpReport(stats){
     for (const k of keys) for (const r of m.get(k).recs) slots.add(r);
     const rows = keys.map(k => {
       const g = m.get(k);
-      return `<div class="rrow"><span class="rk">${k}${note[k] ? "" : ""}</span>`
+      return `<div class="rrow"><span class="rk">${k}</span>`
         + bar(g.n ? g.ok / g.n : 0)
         + `<b>${pct(g.ok, g.n)}%</b>`
         + `<span class="sub">${g.ok}/${g.n}・${g.days}日</span></div>`
@@ -888,9 +920,16 @@ function renderCorpReport(stats){
 
   const span = `${R.perDay[0].date} 〜 ${R.perDay[R.perDay.length - 1].date}`;
   const recent = R.perDay.slice(-30).reverse();
-  const dayRow = (d) => `<div class="rrow"><span class="rk">${d.date.slice(5)}(${d.wd})`
-    + `${d.holiday ? "祝" : ""}</span>${bar(d.rate)}<b>${Math.round(d.rate * 100)}%</b>`
-    + `<span class="sub">${d.ok}/${d.n} ${hhmm(d.at)}時点</span></div>`;
+  /* 複数回記録した日は、その日の推移（何時に何%だったか）も1行添える。 */
+  const dayRow = (d) => {
+    const main = `<div class="rrow"><span class="rk">${d.date.slice(5)}(${d.wd})`
+      + `${d.holiday ? "祝" : ""}</span>${bar(d.rate)}<b>${Math.round(d.rate * 100)}%</b>`
+      + `<span class="sub">${d.ok}/${d.n} ${hhmm(d.at)}時点`
+      + (d.capturesCount > 1 ? `・この日${d.capturesCount}回記録` : "") + `</span></div>`;
+    if (d.capturesCount <= 1) return main;
+    const trail = d.captures.map(c => `${hhmm(c.at)} ${pct(c.ok, c.n)}%`).join("　→　");
+    return main + `<div class="sub" style="margin:-2px 0 4px 104px">${trail}</div>`;
+  };
 
   const segLine = (x) => `<div class="rrow"><span class="rk">${x.k}</span>${bar(x.rate)}`
     + `<b>${Math.round(x.rate * 100)}%</b><span class="sub">${x.ok}/${x.n}`
@@ -899,9 +938,11 @@ function renderCorpReport(stats){
     + `</span></div>`;
 
   box.innerHTML = `
-    <h3>詳細レポート（記録 ${R.perDay.length}日分・のべ ${R.total} 便）</h3>
+    <h3>詳細レポート（記録 ${R.perDay.length}日分${R.totalCaptures > R.perDay.length
+      ? `・のべ${R.totalCaptures}回` : ""}）</h3>
     <div class="lead">通算で <b>${pct(R.ok, R.total)}％</b> の便が制度で予約できる状態でした。</div>
-    <div class="sub">対象は ${span}（過去${REPORT_DAYS}日のうち、記録が残っている日）。
+    <div class="sub">対象は ${span}（過去${REPORT_DAYS}日のうち、記録が残っている日。
+      各日は最後の記録・のべ ${R.total} 便）。
       空席あり（残席9以上）だったのに制度では出ていない便は、
       のべ ${R.availOnly} 便（空席ありの ${R.avail} 便中 ${pct(R.availOnly, R.avail)}％）。</div>
 
@@ -943,15 +984,21 @@ function renderCorpReport(stats){
     ${R.perDay.length > 30 ? `<details><summary class="sub">残り ${R.perDay.length - 30}日分を見る</summary>
       <div class="rlist">${R.perDay.slice(0, -30).reverse().map(dayRow).join("")}</div></details>` : ""}
 
-    <h4>記録した時刻</h4>
+    <h4>記録した時刻（朝・昼・晩の比較）</h4>
+    <div class="sub" style="margin-bottom:5px">ここだけは<b>すべての記録</b>を使います
+      （1日に複数回記録した日も減らしません）。ほかの区分は、記録回数の多い日に
+      引っ張られないよう、その日の最後の記録だけを使っています。</div>
     <div class="rlist">${[...R.byRec].sort((a, b) => REC_SLOTS.indexOf(a[0]) - REC_SLOTS.indexOf(b[0]))
       .map(([k, g]) => `<div class="rrow"><span class="rk">${k}</span>${bar(g.n ? g.ok / g.n : 0)}`
-        + `<b>${pct(g.ok, g.n)}%</b><span class="sub">${g.days}日</span></div>`).join("")}</div>
+        + `<b>${pct(g.ok, g.n)}%</b><span class="sub">${g.ok}/${g.n}・${g.dates.size}日`
+        + `${g.caps > g.dates.size ? `(${g.caps}回)` : ""}</span></div>`).join("")}</div>
+    ${[...R.byRec].filter(([, g]) => g.dates.size < 3).length
+      ? `<div class="sub">記録が3日未満の時間帯は、まだ傾向とは言えません。</div>` : ""}
 
     <div class="sub" style="margin-top:10px">
-      各日は<b>その日に記録した時刻の断面</b>です。同じ日に複数回記録した場合、
-      集計に入るのは最後の1回だけです。夜に記録した日は残りの便が少なく、
-      のべ便数もその日だけ小さくなります。
+      1日に複数回記録した場合、上の区分（平日/土日祝・時期・月ごと・区間・出発時間帯）は
+      <b>その日の最後の記録</b>だけを使います。「記録した時刻」の比較だけは全記録を使うので、
+      同じ日の朝・昼・晩の伸びはそこで見てください。
       ${R.perDay.length < 5 ? "<br><b>まだ記録が少ないため、傾向としては参考程度に見てください。</b>" : ""}
     </div>`;
   box.hidden = false;

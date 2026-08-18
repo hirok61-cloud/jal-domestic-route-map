@@ -6,7 +6,8 @@
 //   POST ?action=request           → 更新依頼を積む（スマホなど収集できない端末用）
 //   GET  ?action=recent&n=8        → 直近の依頼をまとめて（成否の一覧表示用）
 //   GET  ?action=corp-stats&hub=JOH&from=&to=
-//                                  → 制度枠の日ごと要約（詳細レポート用。最大95日）
+//                                  → 制度枠の記録ごとの要約（詳細レポート用。最大95日。
+//                                    同じ日の複数回もそのまま返す）
 //   GET  ?action=status&id=123     → 依頼の進捗
 //
 // 収集側（x-update-key 必須。MacのChrome拡張とブックマークレットが使う）
@@ -216,13 +217,16 @@ Deno.serve(async (req: Request) => {
   }
 
   /* --------------------------- 制度枠の集計だけを返す（詳細レポート用・公開） */
-  /* 生のスナップショットは1日あたり最大100KB近くある。過去1年ぶんを端末に
-     落とすと数十MBになるので、**日ごとの要約だけ**をここで作って返す
-     （1日あたり200バイト程度）。期間は呼ぶ側が区切る。
+  /* データ元は jal_seat_snapshots ではなく jal_corp_log（トリガで自動収集）。
+     **理由:** snapshots は (hub, flight_date) で upsert するため、同じ日に
+     複数回「制度枠を記録」しても**最後の1回しか残らない**。1日3回（朝・昼・晩）
+     記録しても、朝と昼の記録はレポートから見えなくなっていた（2026-08-18に発覚。
+     本人が「1日3回、朝昼晩に記録する運用にしたい」と言ってから気づいた）。
+     jal_corp_log は (flight_date, captured_at) が主キーなので、同じ日の
+     複数回がそのまま残っている。ここではそれを読む。
 
-     以前サイトは「日付を1つずつ指定して丸ごと取る」やり方をしていたが、
-     記録の無い日には**黙って最新のスナップショットが返る**（下の GET 参照）ため
-     取りこぼしと誤集計の元でもあった。ここでは実在する行だけを見るので起きない。 */
+     生の flights 配列は返さず、集計だけを返す（1件あたり数百バイト程度）。
+     期間は呼ぶ側が区切る。 */
   if (req.method === "GET" && action === "corp-stats") {
     const to = url.searchParams.get("to") ?? todayJST();
     const from = url.searchParams.get("from") ?? to;
@@ -233,13 +237,13 @@ Deno.serve(async (req: Request) => {
     if (!(span >= 0 && span <= 95)) return json({ error: "期間は0〜95日にしてください" }, 400);
 
     const rows = await db(
-      `${SNAPSHOTS}?hub=eq.${encodeURIComponent(hub)}` +
-      `&flight_date=gte.${from}&flight_date=lte.${to}` +
-      `&order=flight_date.asc&select=flight_date,generated_at,payload`,
+      `jal_corp_log?flight_date=gte.${from}&flight_date=lte.${to}` +
+      `&order=flight_date.asc,captured_at.asc&select=flight_date,captured_at,flights`,
     ).then((r) => r.json()).catch(() => null);
     if (!Array.isArray(rows)) return json({ error: "読み取りに失敗しました" }, 502);
 
-    /* 出発時間帯は4つに丸める。サイト側と同じ区切りにすること。 */
+    /* 出発時間帯は4つに丸める。サイト側と同じ区切りにすること。
+       jal_corp_log の1便は {s:区間, n:便名, z:制度で取れたか, e:公式残席, d:出発時刻}。 */
     const slot = (dep: unknown) => {
       const h = Number(String(dep ?? "").slice(0, 2));
       return !Number.isFinite(h) ? -1 : h < 9 ? 0 : h < 14 ? 1 : h < 18 ? 2 : 3;
@@ -250,36 +254,44 @@ Deno.serve(async (req: Request) => {
       return w === 0 || w === 6;
     };
 
-    const days: unknown[] = [];
-    /* 区間ごとの通算。[のべ便数, 制度で取れた便数, うち土日ぶん, 土日で取れた便数]。
-       祝日は日付だけでは判別できないのでサイト側で見る（ここは土日のみ）。 */
-    const seg: Record<string, number[]> = {};
+    /* **1回の記録＝1件**として返す（1日に複数回あれば複数件）。
+       時間帯（朝/昼/晩）どうしを比べたいのはまさにここなので、
+       日ごとにまとめてしまうと比べる材料が消える。 */
+    const captures: unknown[] = [];
     for (const row of rows) {
-      const p = row.payload ?? {};
-      const we = isWeekend(row.flight_date);
-      const day = {
-        date: row.flight_date,
-        at: p.generatedAt ?? row.generated_at,
-        n: 0, ok: 0, avail: 0, availOnly: 0,
-        hour: [0, 0, 0, 0], hourOk: [0, 0, 0, 0],
-      };
-      for (const r of p.routes ?? []) {
-        const key = `${r.o}→${r.d}`;
-        for (const f of r.flights ?? []) {
-          if (typeof f.zl !== "boolean") continue;   // 制度枠を見ていない便は数えない
-          day.n++;
-          if (f.zl) day.ok++;
-          if (f.eco >= 9) { day.avail++; if (!f.zl) day.availOnly++; }
-          const s = seg[key] ?? (seg[key] = [0, 0, 0, 0]);
-          s[0]++; if (f.zl) s[1]++;
-          if (we) { s[2]++; if (f.zl) s[3]++; }
-          const i = slot(f.dep);
-          if (i >= 0) { day.hour[i]++; if (f.zl) day.hourOk[i]++; }
-        }
+      let n = 0, ok = 0, avail = 0, availOnly = 0;
+      const hour = [0, 0, 0, 0];
+      const hourOk = [0, 0, 0, 0];
+      for (const f of row.flights ?? []) {
+        n++;
+        if (f.z) ok++;
+        if (f.e >= 9) { avail++; if (!f.z) availOnly++; }
+        const i = slot(f.d);
+        if (i >= 0) { hour[i]++; if (f.z) hourOk[i]++; }
       }
-      days.push(day);
+      captures.push({ date: row.flight_date, at: row.captured_at, n, ok, avail, availOnly, hour, hourOk });
     }
-    return json({ hub, from, to, days, seg });
+
+    /* 区間ごとの通算（取りやすい/取りにくい区間）は、**その日の最後の記録だけ**を使う。
+       全記録を使うと、1日3回記録した日が1回だけの日の3倍の重みを持ってしまい、
+       「その区間が取りやすい」のではなく「よく記録した日がたまたま取れていた」に
+       化ける。日ごとの偏りを避けるため、代表は1日1件に絞る。 */
+    const latestByDate = new Map<string, { flight_date: string; captured_at: string; flights: any[] }>();
+    for (const row of rows) {
+      const cur = latestByDate.get(row.flight_date);
+      if (!cur || row.captured_at > cur.captured_at) latestByDate.set(row.flight_date, row);
+    }
+    const seg: Record<string, number[]> = {};
+    for (const row of latestByDate.values()) {
+      const we = isWeekend(row.flight_date);
+      for (const f of row.flights ?? []) {
+        const s = seg[f.s] ?? (seg[f.s] = [0, 0, 0, 0]);
+        s[0]++; if (f.z) s[1]++;
+        if (we) { s[2]++; if (f.z) s[3]++; }
+      }
+    }
+
+    return json({ hub: "JOH", from, to, captures, seg });
   }
 
   /* ------------------------------------------- 収集スクリプトを渡す（公開） */
