@@ -173,9 +173,6 @@ main{padding:18px 22px 40px;max-width:1180px;margin:0 auto}
 .route-head.area-okinawa{background:var(--area-okinawa)}
 .route-head h2 .arrow{color:var(--red);margin:0 7px}
 .route-head .meta{font-size:11.5px;color:var(--sub);font-variant-numeric:tabular-nums}
-.route-head .jal{margin-left:auto;font-size:11.5px;font-weight:700;color:var(--red);text-decoration:none;
-  border:1px solid color-mix(in srgb,var(--red) 40%,transparent);border-radius:999px;padding:4px 12px;transition:all .15s}
-.route-head .jal:hover{background:var(--red);color:#fff}
 .tablewrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:12.5px}
 th,td{padding:7px 12px;text-align:left;border-bottom:1px solid var(--hair);white-space:nowrap}
@@ -1466,7 +1463,6 @@ function render(){
         <h2>${apLabel(route.o)}<span class="arrow">→</span>${apLabel(route.d)}<span
           class="apicon" aria-hidden="true">${AP_ICON[route.o === "HND" ? route.d : route.o] || ""}</span></h2>
         <span class="meta">${meta}</span>${wxLine}
-        <a class="jal" href="https://www.jal.co.jp/ja-jp/" target="_blank" rel="noopener">JAL公式で照会</a>
       </div>`);
 
     if (!flights.length){
