@@ -222,6 +222,9 @@ td.fno{font-weight:700;color:var(--red)}
    一覧の上にまとめて出す形（2026-08-23に試した案）はやめ、便が並ぶ場所に直接置く。 */
 .wxtag{font-size:11px;color:var(--sub);white-space:nowrap;margin-left:8px}
 .wxtag .arrow{margin:0 2px;opacity:.6}
+/* 風は雨より飛行機への影響が出やすいので、強めのときだけ色で目立たせる
+   （目安25km/h〜。docs/HANDOVER.md参照）。 */
+.wxwind.strong{color:var(--warn);font-weight:700}
 /* 制度枠のサマリ。取得時点の結論を先に出す */
 .corpsum{margin:14px 22px;padding:14px 18px;border:1px solid var(--panel-edge);border-radius:14px;
   background:var(--panel);box-shadow:var(--card-shadow);font-size:12.5px;line-height:1.8}
@@ -523,7 +526,12 @@ const WX_NOW_ICON = {0:"☀️",1:"🌤️",2:"⛅",3:"☁️",45:"🌫️",48:"
   85:"🌨️",86:"❄️",95:"⛈️",96:"⛈️",99:"⛈️"};
 const wxNowIcon = (code) => WX_NOW_ICON[code] || "";
 
-let WXNOW = null; // { [airport]: { [date]: {code,tmax,tmin,pop} } }
+let WXNOW = null; // { [airport]: { [date]: {code,tmax,tmin,pop,wind,gust}} }
+
+/* 風が強いと目立たせる閾値(km/h)。飛行機は雨より横風の影響を受けやすいため、
+   降水確率と同じ扱いで数字を出すだけでなく、強いときは色でも分かるようにする。
+   目安: 25km/h(=約13kt)からクロスウィンド制限にかかる機材が出始める。 */
+const WX_WIND_STRONG = 25;
 
 /** 羽田＋35空港の当日・翌日予報を1回のリクエストでまとめて取る。
     失敗しても投げない。天気が無くても一覧の表示自体には影響しない。 */
@@ -534,7 +542,8 @@ async function loadWeatherNow(){
     const lon = codes.map(c => AIRPORT_LL[c][0]).join(",");
     const res = await fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-      `&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max` +
+      `&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max,` +
+      `windspeed_10m_max,windgusts_10m_max` +
       `&forecast_days=2&timezone=Asia%2FTokyo`,
       {cache: "no-store"},
     );
@@ -552,6 +561,8 @@ async function loadWeatherNow(){
           tmax: d.temperature_2m_max?.[j],
           tmin: d.temperature_2m_min?.[j],
           pop: d.precipitation_probability_max?.[j],
+          wind: d.windspeed_10m_max?.[j],
+          gust: d.windgusts_10m_max?.[j],
         };
       });
       wx[code] = byDate;
@@ -566,7 +577,13 @@ function wxTag(code){
   const rec = WXNOW?.[code]?.[DATA?.date];
   if (!rec || rec.code == null) return "";
   const pop = rec.pop != null ? `☔${rec.pop}%` : "";
-  return `${wxNowIcon(rec.code)}${Math.round(rec.tmax)}/${Math.round(rec.tmin)}℃${pop ? " " + pop : ""}`;
+  const strong = rec.wind != null && rec.wind >= WX_WIND_STRONG;
+  const wind = rec.wind != null
+    ? `<span class="${strong ? "wxwind strong" : "wxwind"}">🌬️${Math.round(rec.wind)}km/h`
+      + `${rec.gust != null ? `(瞬間${Math.round(rec.gust)})` : ""}</span>`
+    : "";
+  return `${wxNowIcon(rec.code)}${Math.round(rec.tmax)}/${Math.round(rec.tmin)}℃`
+    + `${pop ? " " + pop : ""}${wind ? " " + wind : ""}`;
 }
 
 /* 地域ごとの淡い色。路線見出しの背景に使う。
@@ -998,6 +1015,9 @@ function buildReport({captures, seg}, wx = new Map()){
     // 天気は分かる日だけが対象になる（Open-Meteoの取得に失敗した日は null のまま除外）
     byWeather: group(r => r.wx ? wxCat(r.wx.code) : null),
     byRain: group(r => !r.wx ? null : (r.wx.precip >= 1 ? "雨あり(1mm以上)" : "雨なし")),
+    // 飛行機は雨より横風の影響を受けやすいので、雨と並べて風の強さでも比べる
+    byWind: group(r => (!r.wx || r.wx.wind == null) ? null
+      : (r.wx.wind >= WX_WIND_STRONG ? `強風(${WX_WIND_STRONG}km/h以上)` : "平常")),
     wxDays: perDay.filter(r => r.wx).length,
     hour, segRows, byRec,
   };
@@ -1090,6 +1110,8 @@ function renderCorpReport(stats, wx){
     ${R.wxDays ? `<h4>天気（羽田・その日の実況）</h4>
     <div class="rlist">${compare(R.byWeather)}</div>
     <div class="rlist" style="margin-top:6px">${compare(R.byRain, ["雨なし", "雨あり(1mm以上)"])}</div>
+    <div class="sub" style="margin:6px 0 3px">飛行機は雨より横風の影響を受けやすいため、風の強さでも比べます。</div>
+    <div class="rlist">${compare(R.byWind, ["平常", `強風(${WX_WIND_STRONG}km/h以上)`])}</div>
     <div class="sub">天気が分かるのは ${R.wxDays}/${R.perDay.length}日
       （Open-Meteoの過去実況。相手空港ではなく羽田の天気で見ています）。</div>` : ""}
 
