@@ -221,14 +221,10 @@ td.fno{font-weight:700;color:var(--red)}
    URLには切れ目が無いので anywhere で強制的に折る。2026-08-16 に実際にはみ出した。 */
 .healthbar .hitem{white-space:nowrap;min-width:0}
 .healthbar .hitem.long{white-space:normal;overflow-wrap:anywhere;flex:1 0 100%}
-/* 各地の天気。空席とは別枠の参考情報として、一覧の上に小さく出す。
-   Open-Meteoの予報API（当日・翌日）を直接叩いて表示するだけで、絞り込みには使わない。 */
-.wxstrip{margin:14px 22px 0;padding:9px 14px;border-radius:10px;font-size:11.5px;
-  display:flex;align-items:baseline;gap:10px;background:var(--chipbg);color:var(--sub)}
-.wxstrip .wxlabel{flex:none;font-weight:700;color:var(--ink)}
-.wxchips{display:flex;flex-wrap:wrap;gap:4px 12px;row-gap:4px}
-.wxchip{white-space:nowrap}
-.wxchip b{color:var(--ink);font-weight:600}
+/* 路線見出しに添える天気（当日・翌日の予報）。区間の実際の空港ごとに出すので、
+   一覧の上にまとめて出す形（2026-08-23に試した案）はやめ、便が並ぶ場所に直接置く。 */
+.wxtag{font-size:11px;color:var(--sub);white-space:nowrap;margin-left:8px}
+.wxtag .arrow{margin:0 2px;opacity:.6}
 /* 制度枠のサマリ。取得時点の結論を先に出す */
 .corpsum{margin:14px 22px;padding:14px 18px;border:1px solid var(--panel-edge);border-radius:14px;
   background:var(--panel);box-shadow:var(--card-shadow);font-size:12.5px;line-height:1.8}
@@ -452,10 +448,6 @@ footer a{color:var(--hover)}
 </div>
 <div class="runbar" id="runbar" hidden></div>
 <main>
-  <div class="wxstrip" id="wxstrip" hidden>
-    <span class="wxlabel">各地の天気</span>
-    <div class="wxchips" id="wxchips"></div>
-  </div>
   <div class="healthbar" id="healthbar" hidden></div>
   <div class="notice" id="notice"></div>
   <div class="corpsum" id="corpsum" hidden></div>
@@ -571,22 +563,13 @@ async function loadWeatherNow(){
   } catch { /* 出せなくても本体の表示には影響しない */ }
 }
 
-/** 選択中の搭乗日の、各地の天気を一覧で出す。空席の絞り込みとは独立。 */
-function renderWeatherNow(){
-  const box = document.getElementById("wxstrip");
-  if (!WXNOW || !DATA) { box.hidden = true; return; }
-  const date = DATA.date;
-  const codes = ["HND", ...GEO_ORDER];
-  const chips = codes.map(code => {
-    const rec = WXNOW[code]?.[date];
-    if (!rec || rec.code == null) return "";
-    const pop = rec.pop != null ? `☔${rec.pop}%` : "";
-    return `<span class="wxchip">${wxNowIcon(rec.code)}${AP[code] || code}` +
-      ` <b>${Math.round(rec.tmax)}</b>/${Math.round(rec.tmin)}℃${pop ? " " + pop : ""}</span>`;
-  }).filter(Boolean);
-  if (!chips.length) { box.hidden = true; return; }
-  document.getElementById("wxchips").innerHTML = chips.join("");
-  box.hidden = false;
+/** ある空港・選択中の搭乗日の予報を、路線見出しに添える短いタグにする。
+    データが無ければ空文字（見出しの見た目は変わらない）。 */
+function wxTag(code){
+  const rec = WXNOW?.[code]?.[DATA?.date];
+  if (!rec || rec.code == null) return "";
+  const pop = rec.pop != null ? `☔${rec.pop}%` : "";
+  return `${wxNowIcon(rec.code)}${Math.round(rec.tmax)}/${Math.round(rec.tmin)}℃${pop ? " " + pop : ""}`;
 }
 
 /* 地域ごとの淡い色。路線見出しの背景に使う。
@@ -1473,11 +1456,16 @@ function render(){
       ? `${isToday ? "残り" : ""}${total}便中 ${open}便に普通席の空席`
       : "";
 
+    // 出発・到着それぞれの空港の予報。片方しか分からない日もあるので個別に出す
+    const wxO = wxTag(route.o), wxD = wxTag(route.d);
+    const wxLine = (wxO || wxD)
+      ? `<span class="wxtag">${wxO}${wxO && wxD ? '<span class="arrow">→</span>' : ""}${wxD}</span>`
+      : "";
     html.push(`<section class="route">
       <div class="route-head area-${AREA_OF[route.o === "HND" ? route.d : route.o] || "kanto"}">
         <h2>${apLabel(route.o)}<span class="arrow">→</span>${apLabel(route.d)}<span
           class="apicon" aria-hidden="true">${AP_ICON[route.o === "HND" ? route.d : route.o] || ""}</span></h2>
-        <span class="meta">${meta}</span>
+        <span class="meta">${meta}</span>${wxLine}
         <a class="jal" href="https://www.jal.co.jp/ja-jp/" target="_blank" rel="noopener">JAL公式で照会</a>
       </div>`);
 
@@ -1916,7 +1904,9 @@ loadHealth();
    （依頼より新しい保存があるかは、データが揃って初めて分かるため）。 */
 loadCorp().then(() => { if (CORP && DATA) render(); renderHealth(); });
 
-loadWeatherNow().then(renderWeatherNow); // 空席と独立。無くても本体の表示には影響しない
+// 路線見出しの天気タグは render() の中で WXNOW を直接参照する。
+// 空席より後に届くことが多いので、届いたら一覧を出し直す。
+loadWeatherNow().then(() => { if (DATA) render(); });
 
 loadAvailability()
   .then(days => {
@@ -1928,7 +1918,6 @@ loadAvailability()
     renderSummary();
     renderNewSeats();
     render();
-    renderWeatherNow();
     renderHealth(); // 依頼より新しい保存があれば、そちらを最後の成功として出し直す
     setBusy(false); // 更新ボタンのラベルを選択中の日に合わせる
     bindSeg("dirseg", "dir");
@@ -1941,7 +1930,6 @@ loadAvailability()
       renderSummary();
       renderNewSeats();
       render();
-      renderWeatherNow();
       setBusy(false);  // ボタンのラベルを選択中の日に合わせ直す
     });
     let timer;
