@@ -8,6 +8,9 @@
 //   GET  ?action=corp-stats&hub=JOH&from=&to=
 //                                  → 制度枠の記録ごとの要約（詳細レポート用。最大95日。
 //                                    同じ日の複数回もそのまま返す）
+//   GET  ?action=weather&airports=HND,CTS&from=&to=
+//                                  → 空港ごとの日次天気（詳細レポート用。過去の確定日のみ。
+//                                    Open-Meteoから取ってこのテーブルにキャッシュする）
 //   GET  ?action=status&id=123     → 依頼の進捗
 //
 // 収集側（x-update-key 必須。MacのChrome拡張とブックマークレットが使う）
@@ -30,7 +33,23 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SNAPSHOTS = "jal_seat_snapshots";
 const HISTORY = "jal_seat_history";
 const REQUESTS = "jal_seat_requests";
+const WEATHER = "jal_weather_daily";
 const MAX_BODY = 2_000_000;
+
+/* 天気を出す対象＝公式35路線の相手空港＋羽田（tools/collect-core.js の SPOKES と
+   index.html の AP から緯度経度だけを写した）。ここに無いコードは無視する。
+   任意の緯度経度をこの口から問い合わせさせないための許可リストも兼ねる。 */
+const AIRPORT_LL: Record<string, [number, number]> = { // [lon, lat]
+  HND: [139.78, 35.55], CTS: [141.68, 42.78], HKD: [140.82, 41.77], AKJ: [142.45, 43.67],
+  KUH: [144.2, 43.04], OBO: [143.22, 42.73], MMB: [144.16, 43.88], AOJ: [140.69, 40.73],
+  MSJ: [141.37, 40.7], AXT: [140.22, 39.61], GAJ: [140.37, 38.41], KMQ: [136.41, 36.39],
+  NGO: [136.81, 34.86], ITM: [135.44, 34.79], KIX: [135.24, 34.43], SHM: [135.36, 33.66],
+  IZO: [132.89, 35.41], OKJ: [133.86, 34.76], HIJ: [132.92, 34.44], UBJ: [131.28, 33.93],
+  TAK: [134.02, 34.21], TKS: [134.61, 34.13], KCZ: [133.67, 33.55], MYJ: [132.7, 33.83],
+  FUK: [130.45, 33.59], KKJ: [131.03, 33.85], OIT: [131.74, 33.48], NGS: [129.91, 32.92],
+  KMJ: [130.86, 32.84], KMI: [131.45, 31.88], KOJ: [130.72, 31.8], ASJ: [129.71, 28.43],
+  OKA: [127.65, 26.2], UEO: [126.71, 26.36], MMY: [125.29, 24.78], ISG: [124.25, 24.4],
+};
 
 const CORS = {
   "access-control-allow-origin": "*",
@@ -292,6 +311,89 @@ Deno.serve(async (req: Request) => {
     }
 
     return json({ hub: "JOH", from, to, captures, seg });
+  }
+
+  /* ------------------------------------- 空港ごとの日次天気（公開・過去日のみ） */
+  /* Open-Meteo（APIキー不要・CORS開放・実測で access-control-allow-origin: * を確認済み）
+     から取る。過去の確定日はここでキャッシュし、同じ日を何度問い合わせても
+     Open-Meteoへは1回しか行かない。**当日・翌日はここでは扱わない**（値が
+     解放に向けて動き続け、キャッシュすると古い値を返し続けることになるため）。
+     /seats/ の「今の天気」はサイトが直接 Open-Meteo の予報APIを叩く
+     （そちらはCORSが開いているサイト自身の通信で、この口を経由する理由が無い）。 */
+  if (req.method === "GET" && action === "weather") {
+    const codes = (url.searchParams.get("airports") ?? "").split(",")
+      .map((s) => s.trim().toUpperCase()).filter((s) => AIRPORT_LL[s]);
+    const uniq = [...new Set(codes)];
+    if (!uniq.length) return json({ error: "airports が不正です" }, 400);
+
+    const to = url.searchParams.get("to") ?? todayJST();
+    const from = url.searchParams.get("from") ?? to;
+    const ymd = /^\d{4}-\d{2}-\d{2}$/;
+    if (!ymd.test(from) || !ymd.test(to) || from > to) return json({ error: "from / to が不正です" }, 400);
+
+    // 当日は解放中でまだ確定していないので、前日までに切り詰める
+    const yesterday = new Date(Date.now() + 9 * 3_600_000 - 86_400_000).toISOString().slice(0, 10);
+    const pastTo = to < yesterday ? to : yesterday;
+    if (from > pastTo) return json({ from, to, airports: {} });
+    const days = (Date.parse(pastTo) - Date.parse(from)) / 86_400_000 + 1;
+    if (days > 370) return json({ error: "期間は370日までにしてください" }, 400);
+
+    const cached = await db(
+      `${WEATHER}?airport=in.(${uniq.join(",")})&date=gte.${from}&date=lte.${pastTo}` +
+      `&order=date.asc&select=airport,date,code,precip,wind,snow,tmax,tmin`,
+    ).then((r) => r.json()).catch(() => null);
+    const byAirport = new Map<string, Record<string, unknown>[]>();
+    if (Array.isArray(cached)) {
+      for (const row of cached) {
+        const { airport, ...rest } = row;
+        if (!byAirport.has(airport)) byAirport.set(airport, []);
+        byAirport.get(airport)!.push(rest);
+      }
+    }
+    // 期間ぶんの日数が揃っていない空港だけ、Open-Meteoへ取りに行く
+    const missing = uniq.filter((ap) => (byAirport.get(ap)?.length ?? 0) < days);
+
+    if (missing.length) {
+      const lat = missing.map((ap) => AIRPORT_LL[ap][1]).join(",");
+      const lon = missing.map((ap) => AIRPORT_LL[ap][0]).join(",");
+      const wx = await fetch(
+        `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}` +
+        `&start_date=${from}&end_date=${pastTo}` +
+        `&daily=precipitation_sum,windspeed_10m_max,weathercode,snowfall_sum,temperature_2m_max,temperature_2m_min` +
+        `&timezone=Asia%2FTokyo`,
+      ).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      // 地点が1つだけだと配列にならず単体オブジェクトで返るので揃える
+      const list = missing.length === 1 ? [wx] : wx;
+      if (Array.isArray(list)) {
+        const toSave: Record<string, unknown>[] = [];
+        missing.forEach((ap, i) => {
+          const d = list[i]?.daily;
+          if (!d?.time) return; // その空港ぶんだけ失敗。他の空港には影響させない
+          const rows = d.time.map((date: string, j: number) => ({
+            airport: ap, date,
+            code: d.weathercode?.[j] ?? null,
+            precip: d.precipitation_sum?.[j] ?? null,
+            wind: d.windspeed_10m_max?.[j] ?? null,
+            snow: d.snowfall_sum?.[j] ?? null,
+            tmax: d.temperature_2m_max?.[j] ?? null,
+            tmin: d.temperature_2m_min?.[j] ?? null,
+          }));
+          toSave.push(...rows);
+          byAirport.set(ap, rows.map(({ airport: _a, ...rest }) => rest));
+        });
+        if (toSave.length) {
+          await db(`${WEATHER}?on_conflict=airport,date`, {
+            method: "POST",
+            headers: { prefer: "resolution=merge-duplicates,return=minimal" },
+            body: JSON.stringify(toSave),
+          }).catch(() => {});
+        }
+      }
+    }
+
+    const airports: Record<string, unknown[]> = {};
+    for (const ap of uniq) airports[ap] = byAirport.get(ap) ?? [];
+    return json({ from, to: pastTo, airports });
   }
 
   /* ------------------------------------------- 収集スクリプトを渡す（公開） */
