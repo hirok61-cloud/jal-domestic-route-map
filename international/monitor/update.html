@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<title>HND⇔GMP 収集ブックマークレット</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{
+  color-scheme: light dark;
+  --red:#b7001e; --red-deep:#8c0017; --gold:#a98e5e;
+  --bg:#faf9f7; --ink:#1b1e24; --sub:#6b7480; --panel:#ffffff; --panel-edge:#e2e0da; --hair:#eceae5; --chipbg:#f4f2ee;
+  --hover:#0d55a0; --ok:#0e7c2f;
+  --card-shadow:0 2px 10px rgba(30,20,20,.06);
+}
+@media (prefers-color-scheme: dark){:root{
+  --red:#ff4256; --red-deep:#c2182e; --gold:#d7bc85;
+  --bg:#0e1216; --ink:#eceff3; --sub:#95a1ad; --panel:#141a21; --panel-edge:#27303a; --hair:#20272f; --chipbg:#1b222b;
+  --hover:#5ab0ff; --ok:#63e58c;
+  --card-shadow:0 2px 10px rgba(0,0,0,.4);
+}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);
+  font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP",-apple-system,sans-serif;
+  font-size:15px;line-height:1.7;-webkit-text-size-adjust:100%;padding:0 0 60px}
+.brandline{height:4px;background:linear-gradient(90deg,var(--red-deep),var(--red) 30%,var(--red) 70%,var(--red-deep))}
+header{display:flex;align-items:center;gap:12px;padding:16px 18px 12px;border-bottom:1px solid var(--hair);
+  background:linear-gradient(180deg,var(--panel),var(--bg))}
+.crest{width:40px;height:40px;border-radius:50%;flex:none;
+  background:radial-gradient(circle at 34% 30%, var(--red) 0%, var(--red-deep) 90%);
+  display:flex;align-items:center;justify-content:center}
+.crest span{color:#fff;font-size:19px;transform:rotate(-45deg) translate(1px,1px)}
+.eyebrow{font-size:9px;letter-spacing:.3em;color:var(--red);font-weight:700}
+h1{font-family:"Hiragino Mincho ProN","Yu Mincho",serif;font-size:19px;font-weight:600;letter-spacing:.05em;margin:0}
+main{max-width:680px;margin:0 auto;padding:18px}
+a.back{color:var(--red);text-decoration:none;font-size:13px}
+.card{background:var(--panel);border:1px solid var(--panel-edge);border-radius:14px;padding:16px 18px;margin:14px 0;box-shadow:var(--card-shadow)}
+.sec{font-size:11px;color:var(--sub);letter-spacing:.2em;font-weight:700;margin:6px 0 10px;display:flex;align-items:center;gap:8px}
+.sec::before{content:"";width:14px;height:3px;background:var(--red);border-radius:2px}
+label{display:block;font-size:12px;color:var(--sub);margin-bottom:4px}
+input[type=password],input[type=text]{width:100%;padding:10px 12px;border:1px solid var(--panel-edge);border-radius:10px;
+  font-size:15px;background:var(--bg);color:var(--ink)}
+button{border:none;border-radius:999px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer;
+  background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff;margin-top:10px}
+button.sub{background:var(--chipbg);color:var(--ink);border:1px solid var(--panel-edge)}
+.bmwrap{margin-top:14px;display:none}
+.bmlink{display:inline-block;background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff;
+  text-decoration:none;padding:12px 20px;border-radius:12px;font-weight:700;font-size:15px}
+.bmcode{margin-top:10px;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--sub);
+  background:var(--chipbg);border-radius:10px;padding:10px;word-break:break-all;max-height:120px;overflow:auto}
+ol{padding-left:1.3em;margin:8px 0} ol li{margin:7px 0}
+.note{font-size:13px;color:var(--sub);border-left:3px solid var(--red);background:var(--chipbg);
+  border-radius:0 10px 10px 0;padding:9px 13px;margin:12px 0}
+.big{font-size:16px;font-weight:700}
+kbd{font-family:ui-monospace,Menlo,monospace;background:var(--chipbg);border:1px solid var(--panel-edge);
+  border-radius:5px;padding:1px 6px;font-size:13px}
+.ok{color:var(--ok);font-weight:700}
+.tabs{display:flex;gap:0;margin:6px 0 0}
+.tab{flex:1;text-align:center;padding:9px;font-size:13px;font-weight:700;border:1px solid var(--panel-edge);
+  background:var(--panel);cursor:pointer;color:var(--sub)}
+.tab:first-child{border-radius:10px 0 0 10px} .tab:last-child{border-radius:0 10px 10px 0;border-left:none}
+.tab.on{background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff;border-color:var(--red)}
+.panel{display:none} .panel.on{display:block}
+</style>
+</head>
+<body>
+<div class="brandline"></div>
+<header>
+  <div class="crest" aria-hidden="true"><span>✈</span></div>
+  <div>
+    <div class="eyebrow">SEAT MONITOR — MOBILE UPDATER</div>
+    <h1>HND⇔GMP 収集ブックマークレット</h1>
+  </div>
+</header>
+<main>
+  <a class="back" href="./">← 空席モニターに戻る</a>
+
+  <div class="card">
+    <div class="sec">① 合言葉を入れてブックマークレットを作る</div>
+    <label for="key">保存用の合言葉（JAL空席の更新と同じもの）</label>
+    <input type="password" id="key" placeholder="合言葉" autocomplete="off">
+    <button id="gen">ブックマークレットを作成</button>
+    <div class="bmwrap" id="bmwrap">
+      <p class="big ok">できました ✓</p>
+      <p style="font-size:13px;color:var(--sub);margin:.2em 0">PCなら下のボタンをブックマークバーにドラッグ。iPhoneは下の「iPhoneでの入れ方」を見てください。</p>
+      <a class="bmlink" id="bmlink" href="#">✈ HND-GMP収集</a>
+      <div class="bmcode" id="bmcode"></div>
+      <button class="sub" id="copy">ブックマークレットをコピー</button>
+    </div>
+    <div class="note">合言葉はこのブックマークレットの中に埋め込まれます（あなたの端末内だけ）。サーバや他人には渡りません。</div>
+  </div>
+
+  <div class="card">
+    <div class="sec">② 使い方</div>
+    <div class="tabs">
+      <div class="tab on" data-p="ios">iPhone / Safari</div>
+      <div class="tab" data-p="pc">PC</div>
+    </div>
+    <div class="panel on" id="p-ios">
+      <p class="big">入れ方（初回だけ・1〜2分）</p>
+      <ol>
+        <li>上の <kbd>コピー</kbd> でブックマークレットをコピー</li>
+        <li>Safariでこのページを<kbd>ブックマークに追加</kbd>（共有 → ブックマークを追加）</li>
+        <li>ブックマーク一覧 → いま追加したものを<kbd>編集</kbd></li>
+        <li>タイトルを「<b>HND-GMP収集</b>」に、下のURL欄を<b>全部消して</b>コピーした内容を<kbd>ペースト</kbd>して保存</li>
+      </ol>
+      <p class="big">毎回の更新（約5分）</p>
+      <ol>
+        <li>Safariで <a href="https://www.myidtravel.com/myidtravel/rui/main" target="_blank" rel="noopener">myIDTravel</a> を開いて<b>ログイン</b></li>
+        <li>アドレスバーに「HND-GMP収集」と入力するか、ブックマークから<b>「HND-GMP収集」をタップ</b></li>
+        <li>画面上部の赤いバーで進捗（○/60）が進みます。<span class="ok">緑になれば保存完了</span></li>
+        <li>その間ページを閉じたり他アプリに切り替えたりしないでください（Safariは前面のまま）</li>
+      </ol>
+      <div class="note">セッションが切れていると「ログインしてください」と出ます。ログインし直してもう一度タップすればOKです。</div>
+    </div>
+    <div class="panel" id="p-pc">
+      <ol>
+        <li>上の「✈ HND-GMP収集」ボタンをブックマークバーにドラッグ（またはコピーして新規ブックマークのURLに貼付）</li>
+        <li><a href="https://www.myidtravel.com/myidtravel/rui/main" target="_blank" rel="noopener">myIDTravel</a> を開いてログイン</li>
+        <li>ブックマークバーの「HND-GMP収集」をクリック → 画面上部のバーで進捗、緑で完了</li>
+      </ol>
+      <div class="note">PCで常時使うなら、拡張機能版（毎日自動収集）の方が便利です。詳しくはデスクトップの HND-GMP-monitor/README を参照。</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec">③ 保存されると</div>
+    <p style="font-size:14px">保存に成功すると <a href="./">空席モニター</a> の「収集回数」が増え、最新データに切り替わります（数秒〜十数秒）。手動でもiPhoneでも同じ場所に貯まります。</p>
+  </div>
+</main>
+
+<script>
+const EF = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/hnd-gmp-monitor";
+
+// ── 自己完結ブックマークレット本体（__KEY__ を差し替えて使う）──
+function bookmarkletSource(key) {
+  const KEY = JSON.stringify(key);
+  const EFQ = JSON.stringify(EF);
+  return "(function(){"
+    + "if(window.__hgRun){alert('収集はすでに実行中です');return;}window.__hgRun=1;"
+    + "var KEY=" + KEY + ",EF=" + EFQ + ";"
+    + "var csrf=localStorage.getItem('csrf'),tid=sessionStorage.getItem('tabId');"
+    + "if(!csrf||!tid){alert('myIDTravelにログインしてから実行してください');window.__hgRun=0;return;}"
+    + "var bar=document.createElement('div');bar.style.cssText='position:fixed;left:0;right:0;top:0;z-index:2147483647;background:#b7001e;color:#fff;font:600 14px/1.5 -apple-system,sans-serif;padding:10px 12px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';bar.textContent='HND-GMP収集を開始…';document.body.appendChild(bar);var set=function(t){bar.textContent=t;};"
+    + "function sc(al,dt,o,d){return fetch('/myidtravel/json/booking/flightschedule',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({csrf:csrf,tabId:tid,travelStatus:1,airline:al,routings:[{origin:o,destination:d,date:dt,compartment:'Y',time:'00:00'}],nonStop:true,directAction:null,filterCodesharedFlights:null,travelType:'ONE_WAY',sevenDaySearchRequested:false,translations:[]})}).then(function(r){return r.json();}).then(function(j){var fl=((j.routings&&j.routings[0]&&j.routings[0].flights)||[]).map(function(f){return f.segments[0];}).filter(function(s){return s.from.code===o&&s.to.code===d;});return fl.map(function(s){return{fn:s.flightNumber,al:(s.operatingAirline||{}).code,ac:s.aircraft,df:s.departure,af:s.arrival,dep:s.departureTime,chance:s.chance,seats:(s.jseats||[]).map(function(x){return{c:x.bookingClass,q:parseInt(x.quantity,10),x:x.closed};})};});});}"
+    + "function ld(fls,o,d){if(!fls.length)return Promise.resolve({});return fetch('/myidtravel/json/flightLoad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({csrf:csrf,tabId:tid,flights:fls.map(function(f){return{airline:f.al,flightNumber:f.fn.replace(/^[A-Z]{2}/,''),departureDateTime:f.df.replace(/\\+.*$/,':00.000Z'),arrivalDateTime:f.af.replace(/\\+.*$/,':00.000Z'),origin:o,destination:d,stopQuantity:0};}),skipCache:true})}).then(function(r){return r.json();}).then(function(j){var o2={};(j.segments||[]).forEach(function(s){var k=s.airline+s.flightNumber.replace(/^0+/,'');o2[k]={};(s.flightLoadEntries||[]).forEach(function(e){o2[k][e.compartmentKey]=e.standby;});});return o2;});}"
+    + "function cv(f,ld){var k=f.al+f.fn.replace(/^[A-Z]{2}0*/,'');var y=f.seats.filter(function(s){return s.c==='Y';})[0];return{fn:f.fn,al:f.al,dep:f.dep,ac:f.ac,chance:f.chance,Y:y?y.q:null,cls:f.seats.map(function(s){return s.c+s.q+(s.x?'x':'');}).join(' '),sb:ld[k]||{}};}"
+    + "var snap={ts:new Date().toISOString(),days:{}},t=new Date(),q=[];"
+    + "for(var i=0;i<30;i++){var dd=new Date(t.getFullYear(),t.getMonth(),t.getDate()+i);var ds=dd.getFullYear()+'-'+('0'+(dd.getMonth()+1)).slice(-2)+'-'+('0'+dd.getDate()).slice(-2);snap.days[ds]={};q.push([ds,'HND','GMP']);q.push([ds,'GMP','HND']);}"
+    + "var done=0,total=q.length;"
+    + "function step(){if(!q.length)return fin();var it=q.shift(),dt=it[0],o=it[1],d=it[2],rt=o+'-'+d;Promise.all([sc('JL',dt,o,d),sc('NH',dt,o,d),sc('OZ',dt,o,d),sc('KE',dt,o,d)]).then(function(r){var all=r[0].concat(r[1],r[2],r[3]);return ld(r[0],o,d).catch(function(){return{};}).then(function(L){snap.days[dt][rt]=all.map(function(f){return cv(f,L);});});}).catch(function(){snap.days[dt][rt]=[];}).then(function(){done++;set('収集中… '+done+'/'+total+'  '+dt+' '+rt);setTimeout(step,300);});}"
+    + "function fin(){set('保存中…');var fm=document.createElement('form');fm.method='POST';fm.action=EF;fm.target='hgsink';fm.style.display='none';var mk=function(n,v){var i=document.createElement('input');i.type='hidden';i.name=n;i.value=v;fm.appendChild(i);};mk('key',KEY);mk('payload',JSON.stringify(snap));var ifr=document.createElement('iframe');ifr.name='hgsink';ifr.style.display='none';document.body.appendChild(ifr);document.body.appendChild(fm);var f2=false;window.addEventListener('message',function(ev){if(ev.data&&ev.data.__hndgmp){f2=true;if(ev.data.ok){set('✓ 保存完了 '+ev.data.days+'日分。タップで閉じる');bar.style.background='#0e7c2f';}else{set('✗ 保存失敗: '+(ev.data.error||'')+'  タップで閉じる');}bar.onclick=function(){bar.remove();window.__hgRun=0;};}});fm.submit();setTimeout(function(){if(!f2){set('送信しました。数十秒後にモニターを確認。タップで閉じる');bar.onclick=function(){bar.remove();window.__hgRun=0;};}},20000);}"
+    + "step();"
+    + "})();";
+}
+
+const $ = (id) => document.getElementById(id);
+let lastBM = "";
+
+$("gen").addEventListener("click", () => {
+  const key = $("key").value.trim();
+  if (!key) { alert("合言葉を入れてください"); return; }
+  lastBM = "javascript:" + encodeURIComponent(bookmarkletSource(key));
+  $("bmlink").setAttribute("href", lastBM);
+  $("bmcode").textContent = lastBM;
+  $("bmwrap").style.display = "block";
+  try { localStorage.setItem("hndgmpKeySaved", "1"); } catch (e) {}
+});
+
+$("copy").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(lastBM); $("copy").textContent = "コピーしました ✓"; setTimeout(() => $("copy").textContent = "ブックマークレットをコピー", 1600); }
+  catch (e) {
+    const r = document.createRange(); r.selectNodeContents($("bmcode"));
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    try { document.execCommand("copy"); $("copy").textContent = "コピーしました ✓"; } catch (e2) { alert("コード欄を長押しして手動でコピーしてください"); }
+  }
+});
+
+$("bmlink").addEventListener("click", (e) => e.preventDefault());
+
+document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => {
+  document.querySelectorAll(".tab").forEach((x) => x.classList.remove("on"));
+  document.querySelectorAll(".panel").forEach((x) => x.classList.remove("on"));
+  t.classList.add("on"); $("p-" + t.dataset.p).classList.add("on");
+}));
+</script>
+</body>
+</html>

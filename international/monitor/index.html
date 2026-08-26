@@ -116,6 +116,10 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
 .lg{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--sub);flex:none}
 .lg .dot{width:17px;height:17px;border-radius:5px;flex:none;border:1px solid var(--hair);
   display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;line-height:1}
+.updbtn{margin-left:auto;flex:none;text-decoration:none;font-size:12px;font-weight:700;color:var(--red);
+  border:1px solid var(--panel-edge);background:var(--panel);border-radius:999px;padding:5px 13px;
+  box-shadow:var(--card-shadow);white-space:nowrap;transition:all .15s}
+.updbtn:hover{border-color:var(--red);transform:translateY(-1px)}
 /* ---------- 本文 ---------- */
 main{max-width:1240px;margin:0 auto;padding:20px 22px 60px}
 .sec{margin:30px 0 12px;font-size:10.5px;color:var(--sub);letter-spacing:.22em;font-weight:700;
@@ -244,6 +248,7 @@ footer{border-top:1px solid var(--hair);color:var(--sub);font-size:11px;
   <span class="lg"><span class="dot" style="background:var(--ok-bg);color:var(--ok)">○</span>乗れる可能性 高</span>
   <span class="lg"><span class="dot" style="background:var(--warn-bg);color:var(--warn)">△</span>注意</span>
   <span class="lg"><span class="dot" style="background:var(--bad-bg);color:var(--bad)">×</span>厳しい</span>
+  <a href="./update.html" class="updbtn" title="iPhone/PCから手動で更新するためのブックマークレットを作成">📲 スマホで更新</a>
 </div>
 
 <main>
