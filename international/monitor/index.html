@@ -144,6 +144,10 @@ main{max-width:1240px;margin:0 auto;padding:20px 22px 60px}
 .card{background:var(--panel);border:1px solid var(--panel-edge);border-radius:14px;
   padding:14px 16px;box-shadow:var(--card-shadow)}
 .tablewrap{overflow-x:auto}
+/* ①ヒートマップ: ヘッダ行(便名)と日付列を固定し、縦横スクロール中も便名が常に見えるように */
+.heatwrap{overflow:auto;max-height:72vh;border-radius:12px}
+.heat thead th{position:sticky;top:0;z-index:2;background:var(--panel);box-shadow:inset 0 -2px 0 var(--red)}
+.heat thead th.corner{left:0;z-index:3}
 table{border-collapse:collapse;font-size:12px}
 th{font-size:9.5px;color:var(--sub);text-align:center;font-weight:600;letter-spacing:.04em;
   padding:4px 6px;border-bottom:2px solid var(--red);white-space:nowrap}
@@ -187,11 +191,24 @@ td.dt .wd.sat{color:var(--hover)} td.dt .wd.sun{color:var(--red)}
 .cday.j0 .sym{color:var(--ok)} .cday.j1 .sym{color:var(--warn)} .cday.j2 .sym{color:var(--bad)}
 .cday .bf{font-size:9.5px;color:var(--sub);line-height:1.35;text-align:center;white-space:nowrap}
 .cday .bf b{color:var(--ink);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-weight:700}
+.cday .cd .wd{margin-left:4px;font-weight:600}
 /* 推移 */
 select{font-size:12.5px;padding:5px 10px;border-radius:999px;border:1px solid var(--panel-edge);
   background:var(--panel);color:var(--ink);font-family:inherit;box-shadow:var(--card-shadow)}
 #trendwrap table td{padding:0}
 #trendwrap td.dt{font-size:11px}
+#trendwrap .fnl{font-weight:700}
+#trendwrap .tdep{color:var(--sub);font-weight:600;margin-left:5px;font-size:10.5px}
+#trendwrap th.snap{padding:3px 8px;line-height:1.2}
+#trendwrap th.snap .sd{display:block;font-size:9px;letter-spacing:.02em}
+#trendwrap th.snap .sh{display:block;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
+#trendwrap th.snap-today{color:var(--ink)}
+#trendwrap th.snap-today .sh{color:var(--red)}
+#trendwrap th.snap-past{color:var(--sub)}
+#trendwrap th.snap-past .sh{font-weight:600}
+#trendwrap .cell.nochange{display:block;text-align:left;color:var(--sub);font-weight:600;
+  padding:5px 12px;white-space:nowrap;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.trendmore{color:var(--sub);font-size:11px;margin:0 0 7px;letter-spacing:.02em}
 .loading{color:var(--sub);padding:40px;text-align:center;font-size:13px}
 footer{border-top:1px solid var(--hair);color:var(--sub);font-size:11px;
   padding:14px 22px 26px;text-align:center;letter-spacing:.04em}
@@ -206,6 +223,23 @@ footer{border-top:1px solid var(--hair);color:var(--sub);font-size:11px;
   .opbar{padding:8px 14px}
   main{padding:14px 14px 50px}
   .bp-ap b{font-size:23px}
+}
+/* ③判定カレンダー: スマホは7列グリッドをやめ、日付を縦に積むカード型リストに切替 */
+@media (max-width:560px){
+  .calwrap{overflow:visible}
+  .cal{display:flex;flex-direction:column;gap:7px;min-width:0}
+  .calhead{display:none}
+  .cday.blank{display:none}
+  .cday{display:grid;grid-template-columns:58px 46px 1fr;
+    grid-template-areas:"d s a" "d s b";
+    align-items:center;gap:1px 12px;min-height:0;padding:10px 13px 11px;text-align:left}
+  .cday .cd{grid-area:d;display:flex;flex-direction:column;align-items:flex-start;
+    align-self:center;font-size:13px;line-height:1.25}
+  .cday .cd .wd{margin-left:0;margin-top:1px;font-size:11px}
+  .cday .sym{grid-area:s;font-size:32px;line-height:1;text-align:center;align-self:center}
+  .cday .bf{white-space:normal;text-align:left;line-height:1.4}
+  .cday .bf:nth-child(3){grid-area:a;align-self:end;font-size:11.5px}
+  .cday .bf:nth-child(4){grid-area:b;align-self:start;font-size:11px}
 }
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -307,7 +341,7 @@ function render(){
     </div></div>`;
 
   // ① ヒートマップ
-  h += `<div class="sec">① 日別 空席ヒートマップ(最新収集)</div><div class="card"><div class="tablewrap"><table><thead><tr><th style="text-align:left">日付</th>`;
+  h += `<div class="sec">① 日別 空席ヒートマップ(最新収集)</div><div class="card"><div class="heatwrap"><table class="heat"><thead><tr><th class="corner" style="text-align:left">日付</th>`;
   for (const f of cols) h += `<th><span class="opdot" style="--oc:${AL[f.al].c}"></span><span class="fno">${f.fn}</span>${f.dep}</th>`;
   h += `</tr></thead><tbody>`;
   for (const d of ds){
@@ -352,7 +386,7 @@ function render(){
     const wd = cur.getDay();
     const tip = `${jd(iso)} ベスト: ${top.f.fn} ${top.f.dep}発 / Y${top.f.Y ?? "?"} / chance ${top.f.chance}${sb} ／ 見込み高の便: ${nOk}便`;
     h += `<div class="cday j${top.j}" title="${tip.replace(/"/g,"&quot;")}">
-      <span class="cd" style="${wd===0?"color:var(--red)":wd===6?"color:var(--hover)":""}">${iso.slice(5).replace("-","/")}</span>
+      <span class="cd" style="${wd===0?"color:var(--red)":wd===6?"color:var(--hover)":""}">${iso.slice(5).replace("-","/")}<span class="wd">${WDS[wd]}</span></span>
       <span class="sym">${sym}</span>
       <span class="bf"><b>${top.f.fn}</b> ${top.f.dep}</span>
       <span class="bf">Y${top.f.Y ?? "?"}${sb}${nOk > 1 ? `・○${nOk}便` : ""}</span>
@@ -365,7 +399,7 @@ function render(){
   h += `<div class="sec">④ 収集履歴での変化(スナップショット比較)</div><div class="card">
     <select id="trendsel">${ds.map(d => `<option value="${d}">${jd(d)} の推移</option>`).join("")}</select>
     <div id="trendwrap" style="margin-top:10px"></div>
-    <div class="hint">収集を重ねるごとに列が増えます。SBが伸びていく便は締切前に混む便、直前まで少ない便が狙い目。</div></div>`;
+    <div class="hint">右の列ほど新しい収集(最新6回まで)。表示期間ずっと動かなかった便は淡色で「変化なし」に集約し、Yやスタンバイが動いた便だけ推移を並べて強調します。当日の収集は濃く、過去日の収集は控えめに表示。SBが伸びる便は締切前に混む便、直前まで少ない便が狙い目。</div></div>`;
 
   document.getElementById("app").className = "";
   document.getElementById("app").innerHTML = h;
@@ -410,25 +444,63 @@ function sbChart(ds, jlCols){
 
 function renderTrend(){
   const d = document.getElementById("trendsel").value;
-  const snaps = DATA.snapshots;
-  const fns = [];
-  for (const s of snaps) for (const f of ((s.days[d]||{})[dir]||[])) if (alOn[f.al] && !fns.includes(f.fn)) fns.push(f.fn);
-  fns.sort((a,b) => {
-    const dep = fn => { for (const s of snaps){ const f = ((s.days[d]||{})[dir]||[]).find(x=>x.fn===fn); if (f) return f.dep; } return "99"; };
-    return dep(a) < dep(b) ? -1 : 1;
-  });
-  let h = `<div class="tablewrap"><table><thead><tr><th style="text-align:left">便</th>`;
-  for (const s of snaps) h += `<th>${new Date(s.ts).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}</th>`;
+  const allSnaps = DATA.snapshots;
+  // この対象日+方向を実際に収集しているスナップショットだけを対象にする
+  const relevant = allSnaps.filter(s => ((s.days[d]||{})[dir]||[]).length);
+  const MAXCOL = 6;                                   // 表示する収集回は最新6回まで
+  const hidden = Math.max(0, relevant.length - MAXCOL);
+  const shown = relevant.slice(-MAXCOL);              // 最新の最大6回(古い→新しいの昇順)
+
+  if (!shown.length){
+    document.getElementById("trendwrap").innerHTML = `<div class="hint">この日の収集データはまだありません。</div>`;
+    return;
+  }
+
+  // 便メタ(出発時刻・航空会社)を集め、出発順に並べる(表示中のスナップから)
+  const meta = new Map();
+  for (const s of shown) for (const f of ((s.days[d]||{})[dir]||[]))
+    if (alOn[f.al] && !meta.has(f.fn)) meta.set(f.fn, {dep:f.dep, al:f.al});
+  const fns = [...meta.keys()].sort((a,b) => meta.get(a).dep < meta.get(b).dep ? -1 : 1);
+
+  // 当日(実日付)の収集を強調するための判定
+  const dayKey = dt => dt.getFullYear() + "-" + (dt.getMonth()+1) + "-" + dt.getDate();
+  const todayKey = dayKey(new Date());
+
+  // 便の状態シグネチャ(Y・判定・SBが全て同じなら「変化なし」)
+  const sig = f => f ? (f.Y + "|" + judge(f) + "|" + (f.sb && f.sb.Y !== undefined ? f.sb.Y : "")) : null;
+
+  const older = hidden > 0
+    ? `<div class="trendmore">← 古い収集 ほか${hidden}回は省略(最新${shown.length}回を表示)</div>`
+    : "";
+
+  let h = older + `<div class="tablewrap"><table><thead><tr><th style="text-align:left">便</th>`;
+  for (const s of shown){
+    const dt = new Date(s.ts);
+    const cls = dayKey(dt) === todayKey ? "snap-today" : "snap-past";
+    const md = (dt.getMonth()+1) + "/" + dt.getDate();
+    const hm = String(dt.getHours()).padStart(2,"0") + ":" + String(dt.getMinutes()).padStart(2,"0");
+    h += `<th class="snap ${cls}"><span class="sd">${md}</span><span class="sh">${hm}</span></th>`;
+  }
   h += `</tr></thead><tbody>`;
+
   for (const fn of fns){
-    let al = fn.slice(0,2);
-    h += `<tr><td class="dt"><span class="opdot" style="--oc:${(AL[al]||{}).c||"#888"}"></span>${fn}</td>`;
-    for (const s of snaps){
-      const f = ((s.days[d]||{})[dir]||[]).find(x => x.fn === fn);
-      if (!f){ h += `<td><span class="cell">–</span></td>`; continue; }
-      const j = judge(f);
-      const sb = f.sb && f.sb.Y !== undefined ? `<span class="sb ${f.sb.Y >= 10 ? "hot" : ""}">SB ${f.sb.Y}</span>` : `<span class="sb">&nbsp;</span>`;
-      h += `<td><span class="cell j${j}"><span class="y">Y${f.Y ?? "?"}</span>${sb}</span></td>`;
+    const al = meta.get(fn).al;
+    h += `<tr><td class="dt"><span class="opdot" style="--oc:${(AL[al]||{}).c||"#888"}"></span><span class="fnl">${fn}</span><span class="tdep">${meta.get(fn).dep}</span></td>`;
+    const states = shown.map(s => ((s.days[d]||{})[dir]||[]).find(x => x.fn === fn) || null);
+    const allPresent = states.every(Boolean);
+    const same = allPresent && states.every(f => sig(f) === sig(states[0]));
+    if (shown.length >= 2 && same){
+      // 表示期間中ずっと変化なし → 1セルに集約して淡色表示
+      const f = states[0];
+      const sbtxt = f.sb && f.sb.Y !== undefined ? ` ・ SB${f.sb.Y}` : "";
+      h += `<td colspan="${shown.length}"><span class="cell nochange">Y${f.Y ?? "?"}${sbtxt}　変化なし</span></td>`;
+    } else {
+      for (const f of states){
+        if (!f){ h += `<td><span class="cell">–</span></td>`; continue; }
+        const j = judge(f);
+        const sb = f.sb && f.sb.Y !== undefined ? `<span class="sb ${f.sb.Y >= 10 ? "hot" : ""}">SB ${f.sb.Y}</span>` : `<span class="sb">&nbsp;</span>`;
+        h += `<td><span class="cell j${j}"><span class="y">Y${f.Y ?? "?"}</span>${sb}</span></td>`;
+      }
     }
     h += `</tr>`;
   }
