@@ -206,8 +206,17 @@ select{font-size:12.5px;padding:5px 10px;border-radius:999px;border:1px solid va
 #trendwrap th.snap-today .sh{color:var(--red)}
 #trendwrap th.snap-past{color:var(--sub)}
 #trendwrap th.snap-past .sh{font-weight:600}
-#trendwrap .cell.nochange{display:block;text-align:left;color:var(--sub);font-weight:600;
-  padding:5px 12px;white-space:nowrap;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+/* ④のセルは角丸チップに統一(変化なし便も同じ見た目のチップ+ピルで揃える) */
+#trendwrap td{border-bottom:1px solid var(--hair)}
+#trendwrap .cell{border-radius:8px;min-width:56px;margin:3px 2px;padding:4px 7px 3px}
+#trendwrap .cell.chg{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--ink) 26%,transparent)}
+#trendwrap .d-up{color:var(--bad);font-size:8px;margin-left:1px;vertical-align:1px}
+#trendwrap .d-dn{color:var(--ok);font-size:8px;margin-left:1px;vertical-align:1px}
+#trendwrap td.ncwrap{padding:0 4px}
+#trendwrap .ncin{display:inline-flex;align-items:center;gap:8px}
+#trendwrap .cell.nc{opacity:.45;margin-right:0}
+.ncpill{font-size:9.5px;color:var(--sub);border:1px solid var(--panel-edge);background:var(--chipbg);
+  border-radius:999px;padding:1px 9px;font-weight:700;letter-spacing:.04em;white-space:nowrap}
 .trendmore{color:var(--sub);font-size:11px;margin:0 0 7px;letter-spacing:.02em}
 .loading{color:var(--sub);padding:40px;text-align:center;font-size:13px}
 footer{border-top:1px solid var(--hair);color:var(--sub);font-size:11px;
@@ -224,22 +233,19 @@ footer{border-top:1px solid var(--hair);color:var(--sub);font-size:11px;
   main{padding:14px 14px 50px}
   .bp-ap b{font-size:23px}
 }
-/* ③判定カレンダー: スマホは7列グリッドをやめ、日付を縦に積むカード型リストに切替 */
+/* ③判定カレンダー: スマホもPCと同じ7列カレンダーのまま、1画面に収まる縮小版にする */
 @media (max-width:560px){
+  .card{padding:10px 9px}
   .calwrap{overflow:visible}
-  .cal{display:flex;flex-direction:column;gap:7px;min-width:0}
-  .calhead{display:none}
-  .cday.blank{display:none}
-  .cday{display:grid;grid-template-columns:58px 46px 1fr;
-    grid-template-areas:"d s a" "d s b";
-    align-items:center;gap:1px 12px;min-height:0;padding:10px 13px 11px;text-align:left}
-  .cday .cd{grid-area:d;display:flex;flex-direction:column;align-items:flex-start;
-    align-self:center;font-size:13px;line-height:1.25}
-  .cday .cd .wd{margin-left:0;margin-top:1px;font-size:11px}
-  .cday .sym{grid-area:s;font-size:32px;line-height:1;text-align:center;align-self:center}
-  .cday .bf{white-space:normal;text-align:left;line-height:1.4}
-  .cday .bf:nth-child(3){grid-area:a;align-self:end;font-size:11.5px}
-  .cday .bf:nth-child(4){grid-area:b;align-self:start;font-size:11px}
+  .cal{min-width:0;gap:3px;grid-template-columns:repeat(7,minmax(0,1fr))}
+  .calhead{font-size:10px;padding:1px 0}
+  .cday{min-height:56px;padding:3px 2px 4px;border-radius:8px;box-shadow:none;gap:1px}
+  .cday .cd{font-size:9px;align-self:center;letter-spacing:-.02em}
+  .cday .cd .wd{display:none}          /* 曜日はヘッダ行にあるので個別マスでは省略 */
+  .cday .sym{font-size:17px;line-height:1.1}
+  .cday .bf{font-size:8px;letter-spacing:-.01em}
+  .cday .fno{display:none}             /* 便名は省略し出発時刻のみ(タップ余地なしのため) */
+  .cday .nok{display:none}
 }
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -386,10 +392,10 @@ function render(){
     const wd = cur.getDay();
     const tip = `${jd(iso)} ベスト: ${top.f.fn} ${top.f.dep}発 / Y${top.f.Y ?? "?"} / chance ${top.f.chance}${sb} ／ 見込み高の便: ${nOk}便`;
     h += `<div class="cday j${top.j}" title="${tip.replace(/"/g,"&quot;")}">
-      <span class="cd" style="${wd===0?"color:var(--red)":wd===6?"color:var(--hover)":""}">${iso.slice(5).replace("-","/")}<span class="wd">${WDS[wd]}</span></span>
+      <span class="cd" style="${wd===0?"color:var(--red)":wd===6?"color:var(--hover)":""}">${+iso.slice(5,7)}/${+iso.slice(8)}<span class="wd">${WDS[wd]}</span></span>
       <span class="sym">${sym}</span>
-      <span class="bf"><b>${top.f.fn}</b> ${top.f.dep}</span>
-      <span class="bf">Y${top.f.Y ?? "?"}${sb}${nOk > 1 ? `・○${nOk}便` : ""}</span>
+      <span class="bf"><b class="fno">${top.f.fn}</b> ${top.f.dep}</span>
+      <span class="bf"><span class="yv">Y${top.f.Y ?? "?"}${sb}</span><span class="nok">${nOk > 1 ? `・○${nOk}便` : ""}</span></span>
     </div>`;
   }
   h += `</div></div>
@@ -399,7 +405,7 @@ function render(){
   h += `<div class="sec">④ 収集履歴での変化(スナップショット比較)</div><div class="card">
     <select id="trendsel">${ds.map(d => `<option value="${d}">${jd(d)} の推移</option>`).join("")}</select>
     <div id="trendwrap" style="margin-top:10px"></div>
-    <div class="hint">右の列ほど新しい収集(最新6回まで)。表示期間ずっと動かなかった便は淡色で「変化なし」に集約し、Yやスタンバイが動いた便だけ推移を並べて強調します。当日の収集は濃く、過去日の収集は控えめに表示。SBが伸びる便は締切前に混む便、直前まで少ない便が狙い目。</div></div>`;
+    <div class="hint">右の列ほど新しい収集(最新6回まで・当日の収集時刻は赤)。動かなかった便は淡いチップ1つ+「変化なし」に集約。動いた便は全列を並べ、<b>枠付きのマス=前回の収集から変化</b>、SBの<span style="color:var(--bad)">▲=スタンバイ増(混んできた)</span>／<span style="color:var(--ok)">▼=減(空いてきた)</span>。SBが伸びる便は締切前に混む便、直前まで少ない便が狙い目。</div></div>`;
 
   document.getElementById("app").className = "";
   document.getElementById("app").innerHTML = h;
@@ -490,16 +496,26 @@ function renderTrend(){
     const allPresent = states.every(Boolean);
     const same = allPresent && states.every(f => sig(f) === sig(states[0]));
     if (shown.length >= 2 && same){
-      // 表示期間中ずっと変化なし → 1セルに集約して淡色表示
+      // 表示期間中ずっと変化なし → 他と同じ見た目のチップ1つ+「変化なし」ピルに集約
       const f = states[0];
-      const sbtxt = f.sb && f.sb.Y !== undefined ? ` ・ SB${f.sb.Y}` : "";
-      h += `<td colspan="${shown.length}"><span class="cell nochange">Y${f.Y ?? "?"}${sbtxt}　変化なし</span></td>`;
+      const j = judge(f);
+      const sb = f.sb && f.sb.Y !== undefined ? `<span class="sb ${f.sb.Y >= 10 ? "hot" : ""}">SB ${f.sb.Y}</span>` : `<span class="sb">&nbsp;</span>`;
+      h += `<td colspan="${shown.length}" class="ncwrap"><span class="ncin"><span class="cell j${j} nc"><span class="y">Y${f.Y ?? "?"}</span>${sb}</span><span class="ncpill">変化なし</span></span></td>`;
     } else {
+      let prev = null;
       for (const f of states){
         if (!f){ h += `<td><span class="cell">–</span></td>`; continue; }
         const j = judge(f);
-        const sb = f.sb && f.sb.Y !== undefined ? `<span class="sb ${f.sb.Y >= 10 ? "hot" : ""}">SB ${f.sb.Y}</span>` : `<span class="sb">&nbsp;</span>`;
-        h += `<td><span class="cell j${j}"><span class="y">Y${f.Y ?? "?"}</span>${sb}</span></td>`;
+        const changed = prev && sig(f) !== sig(prev);   // 前回の収集から動いたセルをリングで強調
+        let sb = `<span class="sb">&nbsp;</span>`;
+        if (f.sb && f.sb.Y !== undefined){
+          let arrow = "";
+          if (prev && prev.sb && prev.sb.Y !== undefined && f.sb.Y !== prev.sb.Y)
+            arrow = f.sb.Y > prev.sb.Y ? `<span class="d-up">▲</span>` : `<span class="d-dn">▼</span>`;
+          sb = `<span class="sb ${f.sb.Y >= 10 ? "hot" : ""}">SB ${f.sb.Y}${arrow}</span>`;
+        }
+        h += `<td><span class="cell j${j}${changed ? " chg" : ""}"><span class="y">Y${f.Y ?? "?"}</span>${sb}</span></td>`;
+        prev = f;
       }
     }
     h += `</tr>`;
