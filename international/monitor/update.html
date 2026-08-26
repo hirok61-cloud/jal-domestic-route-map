@@ -56,6 +56,7 @@ ol{padding-left:1.3em;margin:8px 0} ol li{margin:7px 0}
 kbd{font-family:ui-monospace,Menlo,monospace;background:var(--chipbg);border:1px solid var(--panel-edge);
   border-radius:5px;padding:1px 6px;font-size:13px}
 .ok{color:var(--ok);font-weight:700}
+.rq{color:var(--red)}
 .tabs{display:flex;gap:0;margin:6px 0 0}
 .tab{flex:1;text-align:center;padding:9px;font-size:13px;font-weight:700;border:1px solid var(--panel-edge);
   background:var(--panel);cursor:pointer;color:var(--sub)}
@@ -108,17 +109,19 @@ kbd{font-family:ui-monospace,Menlo,monospace;background:var(--chipbg);border:1px
       <p class="big">毎回の更新（約5分）</p>
       <ol>
         <li>Safariで <a href="https://www.myidtravel.com/myidtravel/rui/main" target="_blank" rel="noopener">myIDTravel</a> を開いて<b>ログイン</b></li>
-        <li>アドレスバーに「HND-GMP収集」と入力するか、ブックマークから<b>「HND-GMP収集」をタップ</b></li>
+        <li><b class="rq">先に HND → GMP を1回「検索」してください</b>（出発 HND・到着 GMP を入れて Find Flights）。<br>myIDTravelは検索を1回しないとデータ取得を拒否します（この一手間が必須です）</li>
+        <li>検索結果が出たら、そのままブックマークから<b>「HND-GMP収集」をタップ</b></li>
         <li>画面上部の赤いバーで進捗（○/60）が進みます。<span class="ok">緑になれば保存完了</span></li>
         <li>その間ページを閉じたり他アプリに切り替えたりしないでください（Safariは前面のまま）</li>
       </ol>
-      <div class="note">セッションが切れていると「ログインしてください」と出ます。ログインし直してもう一度タップすればOKです。</div>
+      <div class="note"><b>「先に検索」を忘れると</b>「セッションが未準備」と赤く出て止まります。myIDTravelで一度検索してから、もう一度タップしてください。<br>ログインが切れているときは「ログインしてください」と出ます。</div>
     </div>
     <div class="panel" id="p-pc">
       <ol>
         <li>上の「✈ HND-GMP収集」ボタンをブックマークバーにドラッグ（またはコピーして新規ブックマークのURLに貼付）</li>
         <li><a href="https://www.myidtravel.com/myidtravel/rui/main" target="_blank" rel="noopener">myIDTravel</a> を開いてログイン</li>
-        <li>ブックマークバーの「HND-GMP収集」をクリック → 画面上部のバーで進捗、緑で完了</li>
+        <li><b class="rq">先に HND → GMP を1回検索</b>（検索しないとmyIDTravelがデータ取得を拒否します）</li>
+        <li>検索結果のまま「HND-GMP収集」をクリック → 画面上部のバーで進捗、緑で完了</li>
       </ol>
       <div class="note">PCで常時使うなら、拡張機能版（毎日自動収集）の方が便利です。詳しくはデスクトップの HND-GMP-monitor/README を参照。</div>
     </div>
@@ -134,6 +137,8 @@ kbd{font-family:ui-monospace,Menlo,monospace;background:var(--chipbg);border:1px
 const EF = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/hnd-gmp-monitor";
 
 // ── 自己完結ブックマークレット本体（__KEY__ を差し替えて使う）──
+// myIDTravelは「まっさらなセッションにいきなりAPI」を弾く(Session state is invalid)。
+// そこで収集前に prime() で1本試し、ダメなら「先に検索して」と案内して空回りを防ぐ。
 function bookmarkletSource(key) {
   const KEY = JSON.stringify(key);
   const EFQ = JSON.stringify(EF);
@@ -142,16 +147,24 @@ function bookmarkletSource(key) {
     + "var KEY=" + KEY + ",EF=" + EFQ + ";"
     + "var csrf=localStorage.getItem('csrf'),tid=sessionStorage.getItem('tabId');"
     + "if(!csrf||!tid){alert('myIDTravelにログインしてから実行してください');window.__hgRun=0;return;}"
-    + "var bar=document.createElement('div');bar.style.cssText='position:fixed;left:0;right:0;top:0;z-index:2147483647;background:#b7001e;color:#fff;font:600 14px/1.5 -apple-system,sans-serif;padding:10px 12px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';bar.textContent='HND-GMP収集を開始…';document.body.appendChild(bar);var set=function(t){bar.textContent=t;};"
-    + "function sc(al,dt,o,d){return fetch('/myidtravel/json/booking/flightschedule',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({csrf:csrf,tabId:tid,travelStatus:1,airline:al,routings:[{origin:o,destination:d,date:dt,compartment:'Y',time:'00:00'}],nonStop:true,directAction:null,filterCodesharedFlights:null,travelType:'ONE_WAY',sevenDaySearchRequested:false,translations:[]})}).then(function(r){return r.json();}).then(function(j){var fl=((j.routings&&j.routings[0]&&j.routings[0].flights)||[]).map(function(f){return f.segments[0];}).filter(function(s){return s.from.code===o&&s.to.code===d;});return fl.map(function(s){return{fn:s.flightNumber,al:(s.operatingAirline||{}).code,ac:s.aircraft,df:s.departure,af:s.arrival,dep:s.departureTime,chance:s.chance,seats:(s.jseats||[]).map(function(x){return{c:x.bookingClass,q:parseInt(x.quantity,10),x:x.closed};})};});});}"
-    + "function ld(fls,o,d){if(!fls.length)return Promise.resolve({});return fetch('/myidtravel/json/flightLoad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({csrf:csrf,tabId:tid,flights:fls.map(function(f){return{airline:f.al,flightNumber:f.fn.replace(/^[A-Z]{2}/,''),departureDateTime:f.df.replace(/\\+.*$/,':00.000Z'),arrivalDateTime:f.af.replace(/\\+.*$/,':00.000Z'),origin:o,destination:d,stopQuantity:0};}),skipCache:true})}).then(function(r){return r.json();}).then(function(j){var o2={};(j.segments||[]).forEach(function(s){var k=s.airline+s.flightNumber.replace(/^0+/,'');o2[k]={};(s.flightLoadEntries||[]).forEach(function(e){o2[k][e.compartmentKey]=e.standby;});});return o2;});}"
-    + "function cv(f,ld){var k=f.al+f.fn.replace(/^[A-Z]{2}0*/,'');var y=f.seats.filter(function(s){return s.c==='Y';})[0];return{fn:f.fn,al:f.al,dep:f.dep,ac:f.ac,chance:f.chance,Y:y?y.q:null,cls:f.seats.map(function(s){return s.c+s.q+(s.x?'x':'');}).join(' '),sb:ld[k]||{}};}"
-    + "var snap={ts:new Date().toISOString(),days:{}},t=new Date(),q=[];"
+    + "var bar=document.createElement('div');bar.style.cssText='position:fixed;left:0;right:0;top:0;z-index:2147483647;background:#b7001e;color:#fff;font:600 14px/1.5 -apple-system,sans-serif;padding:10px 12px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';bar.textContent='HND-GMP収集を準備中…';document.body.appendChild(bar);"
+    + "var set=function(t,c){bar.textContent=t;if(c)bar.style.background=c;};var cls=function(){bar.remove();window.__hgRun=0;};var stop=function(t){set(t,'#b7001e');bar.onclick=cls;window.__hgRun=0;};"
+    + "function raw(al,dt,o,d){return fetch('/myidtravel/json/booking/flightschedule',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({csrf:csrf,tabId:tid,travelStatus:1,airline:al,routings:[{origin:o,destination:d,date:dt,compartment:'Y',time:'00:00'}],nonStop:true,directAction:null,filterCodesharedFlights:null,travelType:'ONE_WAY',sevenDaySearchRequested:false,translations:[]})}).then(function(r){return r.json();});}"
+    + "function bad(j){return !j||j.success===false||!(j.routings&&j.routings.length);}"
+    + "function parse(j,o,d){var fl=((j&&j.routings&&j.routings[0]&&j.routings[0].flights)||[]).map(function(f){return f.segments[0];}).filter(function(s){return s.from.code===o&&s.to.code===d;});return fl.map(function(s){return{fn:s.flightNumber,al:(s.operatingAirline||{}).code,ac:s.aircraft,df:s.departure,af:s.arrival,dep:s.departureTime,chance:s.chance,seats:(s.jseats||[]).map(function(x){return{c:x.bookingClass,q:parseInt(x.quantity,10),x:x.closed};})};});}"
+    + "function ld(fls,o,d){if(!fls.length)return Promise.resolve({});return fetch('/myidtravel/json/flightLoad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({csrf:csrf,tabId:tid,flights:fls.map(function(f){return{airline:f.al,flightNumber:f.fn.replace(/^[A-Z]{2}/,''),departureDateTime:f.df.replace(/\\+.*$/,':00.000Z'),arrivalDateTime:f.af.replace(/\\+.*$/,':00.000Z'),origin:o,destination:d,stopQuantity:0};}),skipCache:true})}).then(function(r){return r.json();}).then(function(j){var o2={};(j.segments||[]).forEach(function(s){var k=s.airline+s.flightNumber.replace(/^0+/,'');o2[k]={};(s.flightLoadEntries||[]).forEach(function(e){o2[k][e.compartmentKey]=e.standby;});});return o2;}).catch(function(){return{};});}"
+    + "function cv(f,L){var k=f.al+f.fn.replace(/^[A-Z]{2}0*/,'');var y=f.seats.filter(function(s){return s.c==='Y';})[0];return{fn:f.fn,al:f.al,dep:f.dep,ac:f.ac,chance:f.chance,Y:y?y.q:null,cls:f.seats.map(function(s){return s.c+s.q+(s.x?'x':'');}).join(' '),sb:L[k]||{}};}"
+    + "var t=new Date();var f0=new Date(t.getFullYear(),t.getMonth(),t.getDate()+1);var pd=f0.getFullYear()+'-'+('0'+(f0.getMonth()+1)).slice(-2)+'-'+('0'+f0.getDate()).slice(-2);"
+    + "function prime(n){set('セッション確認中…'+(n<3?' ('+(4-n)+'回目)':''));return raw('JL',pd,'HND','GMP').then(function(j){if(!bad(j))return true;if(n<=1)return false;return new Promise(function(r){setTimeout(r,1400);}).then(function(){return prime(n-1);});}).catch(function(){if(n<=1)return false;return new Promise(function(r){setTimeout(r,1400);}).then(function(){return prime(n-1);});});}"
+    + "prime(3).then(function(ready){"
+    + "if(!ready){stop('✗ まず myIDTravel で HND→GMP を1回検索してから、もう一度タップしてください（セッションが未準備）。タップで閉じる');return;}"
+    + "var snap={ts:new Date().toISOString(),days:{}},q=[];"
     + "for(var i=0;i<30;i++){var dd=new Date(t.getFullYear(),t.getMonth(),t.getDate()+i);var ds=dd.getFullYear()+'-'+('0'+(dd.getMonth()+1)).slice(-2)+'-'+('0'+dd.getDate()).slice(-2);snap.days[ds]={};q.push([ds,'HND','GMP']);q.push([ds,'GMP','HND']);}"
-    + "var done=0,total=q.length;"
-    + "function step(){if(!q.length)return fin();var it=q.shift(),dt=it[0],o=it[1],d=it[2],rt=o+'-'+d;Promise.all([sc('JL',dt,o,d),sc('NH',dt,o,d),sc('OZ',dt,o,d),sc('KE',dt,o,d)]).then(function(r){var all=r[0].concat(r[1],r[2],r[3]);return ld(r[0],o,d).catch(function(){return{};}).then(function(L){snap.days[dt][rt]=all.map(function(f){return cv(f,L);});});}).catch(function(){snap.days[dt][rt]=[];}).then(function(){done++;set('収集中… '+done+'/'+total+'  '+dt+' '+rt);setTimeout(step,300);});}"
-    + "function fin(){set('保存中…');var fm=document.createElement('form');fm.method='POST';fm.action=EF;fm.target='hgsink';fm.style.display='none';var mk=function(n,v){var i=document.createElement('input');i.type='hidden';i.name=n;i.value=v;fm.appendChild(i);};mk('key',KEY);mk('payload',JSON.stringify(snap));var ifr=document.createElement('iframe');ifr.name='hgsink';ifr.style.display='none';document.body.appendChild(ifr);document.body.appendChild(fm);var f2=false;window.addEventListener('message',function(ev){if(ev.data&&ev.data.__hndgmp){f2=true;if(ev.data.ok){set('✓ 保存完了 '+ev.data.days+'日分。タップで閉じる');bar.style.background='#0e7c2f';}else{set('✗ 保存失敗: '+(ev.data.error||'')+'  タップで閉じる');}bar.onclick=function(){bar.remove();window.__hgRun=0;};}});fm.submit();setTimeout(function(){if(!f2){set('送信しました。数十秒後にモニターを確認。タップで閉じる');bar.onclick=function(){bar.remove();window.__hgRun=0;};}},20000);}"
+    + "var done=0,total=q.length,okc=0;"
+    + "function step(){if(!q.length)return fin();var it=q.shift(),dt=it[0],o=it[1],d=it[2],rt=o+'-'+d;Promise.all([raw('JL',dt,o,d),raw('NH',dt,o,d),raw('OZ',dt,o,d),raw('KE',dt,o,d)]).then(function(r){var all=[].concat(parse(r[0],o,d),parse(r[1],o,d),parse(r[2],o,d),parse(r[3],o,d));return ld(all.filter(function(f){return f.al==='JL';}),o,d).then(function(L){snap.days[dt][rt]=all.map(function(f){return cv(f,L);});if(all.length)okc++;});}).catch(function(){snap.days[dt][rt]=[];}).then(function(){done++;set('収集中… '+done+'/'+total+'  '+dt+' '+rt);setTimeout(step,300);});}"
+    + "function fin(){if(okc===0){stop('✗ 収集できませんでした。myIDTravel で HND→GMP を検索してから、もう一度タップしてください。タップで閉じる');return;}set('保存中… ('+okc+'区間)');var fm=document.createElement('form');fm.method='POST';fm.action=EF;fm.target='hgsink';fm.style.display='none';var mk=function(n,v){var i=document.createElement('input');i.type='hidden';i.name=n;i.value=v;fm.appendChild(i);};mk('key',KEY);mk('payload',JSON.stringify(snap));var ifr=document.createElement('iframe');ifr.name='hgsink';ifr.style.display='none';document.body.appendChild(ifr);document.body.appendChild(fm);var f2=false;window.addEventListener('message',function(ev){if(ev.data&&ev.data.__hndgmp){f2=true;if(ev.data.ok){set('✓ 保存完了 '+ev.data.days+'日分／'+(ev.data.flights||'')+'便。タップで閉じる','#0e7c2f');}else{set('✗ 保存失敗: '+(ev.data.error||'')+'  タップで閉じる','#b7001e');}bar.onclick=cls;}});fm.submit();setTimeout(function(){if(!f2){set('送信しました。数十秒後にモニターを確認。タップで閉じる');bar.onclick=cls;}},20000);}"
     + "step();"
+    + "});"
     + "})();";
 }
 
