@@ -232,6 +232,8 @@ details.judgedef .jd{margin-top:9px;font-size:12px;color:var(--sub);line-height:
 details.judgedef .jd b{color:var(--ink)}
 details.judgedef .jd .row{display:flex;gap:8px;align-items:baseline}
 details.judgedef .jd .row .pill{flex:none;min-width:3.4em;text-align:center}
+.stalebar{background:var(--bad-bg);color:var(--bad);font-weight:700;font-size:12.5px;
+  padding:8px 22px;border-bottom:1px solid var(--hair);letter-spacing:.02em}
 .loading{color:var(--sub);padding:40px;text-align:center;font-size:13px}
 footer{border-top:1px solid var(--hair);color:var(--sub);font-size:11px;
   padding:14px 22px 26px;text-align:center;letter-spacing:.04em}
@@ -304,6 +306,7 @@ footer{border-top:1px solid var(--hair);color:var(--sub);font-size:11px;
   <span class="lg"><span class="dot" style="background:var(--bad-bg);color:var(--bad)">×</span>厳しい</span>
   <a href="./update.html" class="updbtn" title="iPhone/PCから手動で更新するためのブックマークレットを作成">📲 スマホで更新</a>
 </div>
+<div id="stalewarn" class="stalebar" style="display:none" role="status"></div>
 
 <main>
   <div id="app" class="loading">データを読み込んでいます…</div>
@@ -593,8 +596,19 @@ Promise.allSettled([
   const j = {latest, snapshots};
   DATA = j;
   const ts = new Date(j.latest.ts);
+  // 今日の収集回数(A3)とデータ鮮度の警告(A2)
+  const dk = (dt) => dt.getFullYear() + "-" + dt.getMonth() + "-" + dt.getDate();
+  const todaySnaps = j.snapshots.filter(s => dk(new Date(s.ts)) === dk(new Date()))
+    .map(s => { const t = new Date(s.ts); return String(t.getHours()).padStart(2,"0") + ":" + String(t.getMinutes()).padStart(2,"0"); });
+  const todayTxt = todaySnaps.length ? `今日の収集 ${todaySnaps.length}回(${todaySnaps.join("・")})` : "今日の収集 まだなし";
   document.getElementById("dateline").textContent =
-    `最終収集: ${ts.toLocaleString("ja-JP",{year:"numeric",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})} ※非公式・参考データ`;
+    `最終収集: ${ts.toLocaleString("ja-JP",{year:"numeric",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})} ／ ${todayTxt} ※非公式・参考データ`;
+  const ageH = (Date.now() - ts.getTime()) / 36e5;
+  if (ageH >= 15) {
+    const w = document.getElementById("stalewarn");
+    w.textContent = `⚠ データが古い可能性があります: 最終収集から約${Math.round(ageH)}時間経過。拡張の自動収集が止まっていないか確認するか、スマホ/PCから収集してください。`;
+    w.style.display = "block";
+  }
   document.getElementById("st-snap").textContent = j.snapshots.length;
   document.getElementById("st-days").textContent = Object.keys(j.latest.days).length;
   const d0 = Object.keys(j.latest.days).sort().find(d => (j.latest.days[d]["HND-GMP"]||[]).length);
