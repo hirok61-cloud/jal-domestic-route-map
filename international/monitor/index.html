@@ -218,6 +218,20 @@ select{font-size:12.5px;padding:5px 10px;border-radius:999px;border:1px solid va
 .ncpill{font-size:9.5px;color:var(--sub);border:1px solid var(--panel-edge);background:var(--chipbg);
   border-radius:999px;padding:1px 9px;font-weight:700;letter-spacing:.04em;white-space:nowrap}
 .trendmore{color:var(--sub);font-size:11px;margin:0 0 7px;letter-spacing:.02em}
+/* 判定基準の折りたたみ説明(タップで開く) */
+details.judgedef{margin-top:9px}
+details.judgedef summary{cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+  color:var(--red);font-size:12px;font-weight:700;letter-spacing:.03em;list-style:none;
+  border:1px solid var(--panel-edge);background:var(--panel);border-radius:999px;padding:4px 13px;
+  box-shadow:var(--card-shadow);user-select:none}
+details.judgedef summary::-webkit-details-marker{display:none}
+details.judgedef summary::before{content:"▸";font-size:10px;transition:transform .15s}
+details.judgedef[open] summary::before{transform:rotate(90deg)}
+details.judgedef .jd{margin-top:9px;font-size:12px;color:var(--sub);line-height:2;
+  background:var(--chipbg);border-radius:10px;padding:10px 13px}
+details.judgedef .jd b{color:var(--ink)}
+details.judgedef .jd .row{display:flex;gap:8px;align-items:baseline}
+details.judgedef .jd .row .pill{flex:none;min-width:3.4em;text-align:center}
 .loading{color:var(--sub);padding:40px;text-align:center;font-size:13px}
 footer{border-top:1px solid var(--hair);color:var(--sub);font-size:11px;
   padding:14px 22px 26px;text-align:center;letter-spacing:.04em}
@@ -305,7 +319,13 @@ const AL = {JL:{name:"JAL", c:"var(--c-JAL)"}, NH:{name:"ANA", c:"var(--c-NH)"},
 const WD = "日月火水木金土";
 let DATA = null;
 let dir = "HND-GMP";
-const alOn = {JL:true, NH:true, OZ:true, KE:true};
+// 航空会社フィルタ: NHはデフォルトOFF(気になる時にタップでON)。変更は端末に記憶する
+const alOn = {JL:true, NH:false, OZ:true, KE:true};
+try {
+  const saved = JSON.parse(localStorage.getItem("hndgmpAlOn") || "null");
+  if (saved && typeof saved === "object") for (const k of Object.keys(alOn)) if (typeof saved[k] === "boolean") alOn[k] = saved[k];
+} catch (e) {}
+function saveAlOn(){ try { localStorage.setItem("hndgmpAlOn", JSON.stringify(alOn)); } catch (e) {} }
 
 function judge(f){
   const sb = f.sb && f.sb.Y !== undefined ? f.sb.Y : null;
@@ -364,7 +384,14 @@ function render(){
     h += `</tr>`;
   }
   h += `</tbody></table></div>
-  <div class="hint">Yの数字=エコノミーの販売可能席(9=9席以上・それ以上は表示されない) ／ SB=スタンバイ登録人数(JAL便のみ取得可能・自分より先に並ぶ人数の目安) ／ セルにマウスを乗せると予約クラス別の詳細</div></div>`;
+  <div class="hint">Yの数字=エコノミーの販売可能席(9=9席以上・それ以上は表示されない) ／ SB=スタンバイ登録人数(JAL便のみ取得可能・自分より先に並ぶ人数の目安) ／ セルにマウスを乗せると予約クラス別の詳細</div>
+  <details class="judgedef"><summary>色(判定)の基準</summary><div class="jd">
+    判定材料は3つ: <b>Y</b>=エコノミー販売可能席(9=9席以上で頭打ち) ／ <b>chance</b>=myIDTravel自身の搭乗見込み(HIGH/MID/LOW) ／ <b>SB</b>=スタンバイ人数(JAL便のみ)。上の条件から順に当てはめます。
+    <div class="row"><span class="pill bad">厳しい</span><span>chanceが<b>LOW</b>、または残席<b>2席以下</b></span></div>
+    <div class="row"><span class="pill warn">注意</span><span>chanceが<b>MID</b>／残席<b>3〜4席</b>／スタンバイ<b>10人以上</b>／残席データなし</span></div>
+    <div class="row"><span class="pill ok">高</span><span>chanceが<b>HIGH</b> かつ 残席<b>5席以上</b> かつ スタンバイ<b>10人未満</b></span></div>
+    ※ ①のセル色・③の○△×・④のチップ色は、すべてこの同じ基準です。
+  </div></details></div>`;
 
   // ② JAL便 SB チャート
   const jlCols = cols.filter(c => c.al === "JL");
@@ -532,7 +559,7 @@ function buildPills(){
     b.className = "ally-pill" + (alOn[code] ? "" : " off");
     b.style.setProperty("--oc", a.c);
     b.innerHTML = `<span class="sw"></span><span class="nm">${code}</span><span class="ct">${a.name}</span>`;
-    b.addEventListener("click", () => { alOn[code] = !alOn[code]; buildPills(); render(); });
+    b.addEventListener("click", () => { alOn[code] = !alOn[code]; saveAlOn(); buildPills(); render(); });
     box.appendChild(b);
   }
 }
