@@ -340,6 +340,7 @@ footer{border-top:1px solid var(--hair);color:var(--sub);font-size:11px;
   <a class="subtab" href="../">ルートマップ</a>
   <a class="subtab" href="../zed/">資料</a>
   <a class="subtab active" href="./" aria-current="page">空席モニター</a>
+  <a class="subtab ext" href="https://www.myidtravel.com/myidtravel/rui/login" target="_blank" rel="noopener" title="myIDTravelのログインページを新しいタブで開く">myIDTravel ↗</a>
 </nav>
 
 <div class="opbar">
@@ -887,8 +888,10 @@ Promise.allSettled([
   renderHealth(j);
   document.getElementById("st-snap").textContent = j.snapshots.length;
   document.getElementById("st-days").textContent = Object.keys(j.latest.days).length;
-  const d0 = Object.keys(j.latest.days).sort().find(d => (j.latest.days[d]["HND-GMP"]||[]).length);
-  document.getElementById("st-fl").textContent = d0 ? (j.latest.days[d0]["HND-GMP"].length + (j.latest.days[d0]["GMP-HND"]||[]).length) : "–";
+  // 便/日: 当日は出発済み便が抜けるので、全日の中で最大の便数を「1日の便数」として出す
+  const flMax = Math.max(0, ...Object.values(j.latest.days).map(r =>
+    ((r["HND-GMP"]||[]).length + (r["GMP-HND"]||[]).length)));
+  document.getElementById("st-fl").textContent = flMax || "–";
   buildPills();
   render();
 }).catch(e => {
