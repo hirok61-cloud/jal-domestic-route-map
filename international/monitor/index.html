@@ -166,6 +166,11 @@ td.dt .wd.sat{color:var(--hover)} td.dt .wd.sun{color:var(--red)}
 .cell.j2{background:var(--bad-bg)} .cell.j2 .y{color:var(--bad)}
 .cell .sb{color:var(--sub)} .cell .sb.hot{color:var(--bad);font-weight:700}
 .opdot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:baseline;background:var(--oc,#888)}
+/* エアラインバッジ: ブランドカラー地に白抜き2レターコード。便名の前に置いて一目で会社が分かるように */
+.ab{display:inline-block;background:var(--oc,#888);color:#fff;font-size:9px;font-weight:800;
+  border-radius:5px;padding:1px 5px;line-height:1.5;letter-spacing:.04em;vertical-align:1px;
+  font-family:ui-monospace,"SF Mono",Menlo,monospace;
+  box-shadow:0 1px 3px color-mix(in srgb,var(--oc,#888) 40%,transparent)}
 /* SBチャート */
 .chart{display:block}
 .chart text{font-family:ui-monospace,"SF Mono",Menlo,monospace}
@@ -340,6 +345,7 @@ footer{border-top:1px solid var(--hair);color:var(--sub);font-size:11px;
   .cday .sym{font-size:17px;line-height:1.1}
   .cday .bf{font-size:8px;letter-spacing:-.01em}
   .cday .fno{display:none}             /* 便名は省略し出発時刻のみ(タップ余地なしのため) */
+  .cday .ab{font-size:6.5px;padding:0 3px;border-radius:3px;vertical-align:0;box-shadow:none}
   .cday .nok{display:none}
 }
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
@@ -399,6 +405,7 @@ footer{border-top:1px solid var(--hair);color:var(--sub);font-size:11px;
 <script>
 "use strict";
 const AL = {JL:{name:"JAL", c:"var(--c-JAL)"}, NH:{name:"ANA", c:"var(--c-NH)"}, OZ:{name:"アシアナ", c:"var(--c-OZ)"}, KE:{name:"大韓航空", c:"var(--c-KE)"}};
+const alBadge = code => `<span class="ab" style="--oc:${(AL[code]||{}).c||"#888"}">${code}</span>`;
 const WD = "日月火水木金土";
 
 // 収集の健康状態バー(国内線の空席機能と同じ考え方): 「● 収集 07:38 成功」のような一目表示。
@@ -435,19 +442,23 @@ try {
 } catch (e) {}
 function saveAlOn(){ try { localStorage.setItem("hndgmpAlOn", JSON.stringify(alOn)); } catch (e) {} }
 
-// ③時間帯フィルタ: 方向ごとに「全便/午前/午後」を記憶する
-// (HND→GMPは朝便・GMP→HNDは夕方便に乗る、のような使い分けを想定。境界は12:00)
+// ③時間帯フィルタ: 方向ごとに「全便/午前/午後/夕方」を記憶する
+// (HND→GMPは朝便・GMP→HNDは夕方便に乗る、のような使い分けを想定。境界は12:00と17:00)
+const TODS = {am: ["午前", "〜12時", t => t < "12:00"],
+              pm: ["午後", "12〜17時", t => t >= "12:00" && t < "17:00"],
+              eve: ["夕方", "17時〜", t => t >= "17:00"]};
 const tod = {"HND-GMP": "all", "GMP-HND": "all"};
 try {
   const savedTod = JSON.parse(localStorage.getItem("hndgmpTod") || "null");
   if (savedTod && typeof savedTod === "object")
-    for (const k of Object.keys(tod)) if (["all","am","pm"].includes(savedTod[k])) tod[k] = savedTod[k];
+    for (const k of Object.keys(tod)) if (savedTod[k] === "all" || TODS[savedTod[k]]) tod[k] = savedTod[k];
 } catch (e) {}
 function saveTod(){ try { localStorage.setItem("hndgmpTod", JSON.stringify(tod)); } catch (e) {} }
-function inTod(f){ const m = tod[dir]; return m === "all" || (m === "am" ? f.dep < "12:00" : f.dep >= "12:00"); }
-const todLabel = () => tod[dir] === "am" ? "午前便" : tod[dir] === "pm" ? "午後便" : "";
+function inTod(f){ const m = tod[dir]; return m === "all" || TODS[m][2](f.dep); }
+const todLabel = () => TODS[tod[dir]] ? TODS[tod[dir]][0] + "便" : "";
 
-// 日韓の祝日(2026-08〜2027-01)。カレンダー/ヒートマップに小バッジ表示
+// 日韓の祝日(2026-08〜2027-12)。カレンダー/ヒートマップに小バッジ表示
+// ※旧暦連動(ソルラル・釈迦誕生日・秋夕)は毎年変わるので年1回ここを更新すること
 const HOLIDAYS = {
   "2026-09-21": {jp: "敬老の日"},
   "2026-09-22": {jp: "国民の休日"},
@@ -463,6 +474,38 @@ const HOLIDAYS = {
   "2026-10-09": {kr: "ハングルの日"},
   "2026-12-25": {kr: "クリスマス"},
   "2027-01-01": {jp: "元日", kr: "新正月"},
+  "2027-01-11": {jp: "成人の日"},
+  "2027-02-06": {kr: "ソルラル(連休)"},
+  "2027-02-07": {kr: "ソルラル(旧正月)"},
+  "2027-02-08": {kr: "ソルラル(連休)"},
+  "2027-02-09": {kr: "ソルラル 振替休日"},
+  "2027-02-11": {jp: "建国記念の日"},
+  "2027-02-23": {jp: "天皇誕生日"},
+  "2027-03-01": {kr: "三一節"},
+  "2027-03-21": {jp: "春分の日"},
+  "2027-03-22": {jp: "振替休日"},
+  "2027-04-29": {jp: "昭和の日"},
+  "2027-05-03": {jp: "憲法記念日"},
+  "2027-05-04": {jp: "みどりの日"},
+  "2027-05-05": {jp: "こどもの日", kr: "こどもの日"},
+  "2027-05-13": {kr: "釈迦誕生日"},
+  "2027-06-06": {kr: "顕忠日"},
+  "2027-07-19": {jp: "海の日"},
+  "2027-08-11": {jp: "山の日"},
+  "2027-08-15": {kr: "光復節"},
+  "2027-08-16": {kr: "光復節 振替休日"},
+  "2027-09-14": {kr: "秋夕(連休)"},
+  "2027-09-15": {kr: "秋夕"},
+  "2027-09-16": {kr: "秋夕(連休)"},
+  "2027-09-20": {jp: "敬老の日"},
+  "2027-09-23": {jp: "秋分の日"},
+  "2027-10-03": {kr: "開天節"},
+  "2027-10-04": {kr: "開天節 振替休日"},
+  "2027-10-09": {kr: "ハングルの日"},
+  "2027-10-11": {jp: "スポーツの日", kr: "ハングルの日 振替休日"},
+  "2027-11-03": {jp: "文化の日"},
+  "2027-11-23": {jp: "勤労感謝の日"},
+  "2027-12-25": {kr: "クリスマス"},
 };
 function holidayBadge(iso){
   const h = HOLIDAYS[iso];
@@ -512,7 +555,7 @@ function openDayPicker(iso){
     const sb = f.sb && f.sb.Y !== undefined ? `・SB${f.sb.Y}` : "";
     return `<div class="dpk-row${on ? " on" : ""}" data-fn="${f.fn}">
       <span class="st">${on ? "★" : "☆"}</span><span class="sy s${j}">${sym}</span>
-      <span class="op" style="--oc:${(AL[f.al]||{}).c||"#888"}"></span><b>${f.fn}</b><span class="tm">${f.dep}</span>
+      ${alBadge(f.al)}<b>${f.fn}</b><span class="tm">${f.dep}</span>
       <span class="dv">Y${f.Y ?? "?"}${sb}</span></div>`;
   }).join("");
   ov.innerHTML = `<div class="dpk"><h3>${jd(iso)}${holidayBadge(iso)} の便をウォッチ</h3>
@@ -585,7 +628,7 @@ function render(){
         const j = judge(f);
         const sym = j === 0 ? "○" : j === 1 ? "△" : "×";
         const sb = f.sb && f.sb.Y !== undefined ? `・SB${f.sb.Y}` : "";
-        h += `<span class="tchip j${j}"><b>${sym}</b> ${f.fn} ${f.dep} <span class="tv">Y${f.Y ?? "?"}${sb}</span></span>`;
+        h += `<span class="tchip j${j}"><b>${sym}</b> ${alBadge(f.al)} ${f.fn} ${f.dep} <span class="tv">Y${f.Y ?? "?"}${sb}</span></span>`;
       }
       h += `</div>`;
     }
@@ -599,7 +642,7 @@ function render(){
       const dleft = Math.round((new Date(w.d + "T00:00:00") - new Date(tIso + "T00:00:00")) / 864e5);
       const leftTxt = dleft === 0 ? "今日" : "あと" + dleft + "日";
       if (!f){
-        h += `<div class="wcard"><button class="wdel" data-wi="${wi}">×</button><div class="wdate">${jd(w.d)} <span class="wleft">${leftTxt}</span></div><div class="wdir">${w.dir.replace("-"," → ")} ${w.fn}</div><div class="wnone">データなし(出発済み/欠航の可能性)</div></div>`;
+        h += `<div class="wcard"><button class="wdel" data-wi="${wi}">×</button><div class="wdate">${jd(w.d)} <span class="wleft">${leftTxt}</span></div><div class="wdir">${w.dir.replace("-"," → ")} ${alBadge(w.fn.slice(0,2))} ${w.fn}</div><div class="wnone">データなし(出発済み/欠航の可能性)</div></div>`;
         return;
       }
       const j = judge(f);
@@ -613,7 +656,7 @@ function render(){
       h += `<div class="wcard wj${j}"><button class="wdel" data-wi="${wi}" title="ウォッチ解除">×</button>
         <div class="wdate">${jd(w.d)}${holidayBadge(w.d)} <span class="wleft">${leftTxt}</span></div>
         <div class="wdir">${w.dir.replace("-", " → ")}</div>
-        <div class="wmain"><span class="wsym s${j}">${sym}</span><div class="winfo"><b>${f.fn}</b> ${f.dep}発<br><span class="wv">Y${f.Y ?? "?"}${sb} / chance ${f.chance || "?"}</span></div></div>
+        <div class="wmain"><span class="wsym s${j}">${sym}</span><div class="winfo">${alBadge(f.al)} <b>${f.fn}</b> ${f.dep}発<br><span class="wv">Y${f.Y ?? "?"}${sb} / chance ${f.chance || "?"}</span></div></div>
         ${sbTrend}</div>`;
     });
     h += `</div>`;
@@ -621,7 +664,7 @@ function render(){
 
   // ① ヒートマップ
   h += `<div class="sec">① 日別 空席ヒートマップ(最新収集)</div><div class="card"><div class="heatwrap"><table class="heat"><thead><tr><th class="corner" style="text-align:left">日付</th>`;
-  for (const f of cols) h += `<th><span class="opdot" style="--oc:${AL[f.al].c}"></span><span class="fno">${f.fn}</span>${f.dep}</th>`;
+  for (const f of cols) h += `<th>${alBadge(f.al)}<span class="fno">${f.fn}</span>${f.dep}</th>`;
   h += `</tr></thead><tbody>`;
   for (const d of ds){
     h += `<tr><td class="dt">${d.slice(5).replace("-","/")}<span class="wd ${wdcls(d)}">${WD[new Date(d+"T00:00:00").getDay()]}</span>${holidayBadge(d)}</td>`;
@@ -654,7 +697,7 @@ function render(){
 
   // ③ 乗りやすい日カレンダー(○△×) — 時間帯(全便/午前/午後)で絞って判定できる
   h += `<div class="sec">③ いつなら乗れるか(判定カレンダー)</div><div class="card">
-  <div class="ltseg"><span class="todlbl">時間帯</span>${[["all","全便"],["am","午前 〜12時"],["pm","午後 12時〜"]]
+  <div class="ltseg"><span class="todlbl">時間帯</span>${[["all", "全便"], ...Object.entries(TODS).map(([k, v]) => [k, `${v[0]} ${v[1]}`])]
     .map(([k, l]) => `<button class="todbtn${tod[dir] === k ? " on" : ""}" data-tod="${k}">${l}</button>`).join("")}</div>
   <div class="calwrap"><div class="cal">`;
   const WDS = ["日","月","火","水","木","金","土"];
@@ -688,12 +731,12 @@ function render(){
       ${watched ? `<span class="wstar">★</span>` : ""}
       <span class="cd" style="${wd===0?"color:var(--red)":wd===6?"color:var(--hover)":""}">${+iso.slice(5,7)}/${+iso.slice(8)}<span class="wd">${WDS[wd]}</span>${holidayBadge(iso)}</span>
       <span class="sym">${sym}</span>
-      <span class="bf"><b class="fno">${top.f.fn}</b> ${top.f.dep}</span>
+      <span class="bf">${alBadge(top.f.al)}<b class="fno"> ${top.f.fn}</b> ${top.f.dep}</span>
       <span class="bf"><span class="yv">Y${top.f.Y ?? "?"}${sb}</span><span class="nok">${nOk > 1 ? `・○${nOk}便` : ""}</span></span>
     </div>`;
   }
   h += `</div></div>
-  <div class="hint">記号=その日いちばん乗りやすい便の判定(○ 見込み高／△ 注意／× 厳しい)。<b>「午前/午後」で時間帯を絞ると、その時間帯に出る便だけで判定</b>します(例: GMP→HNDで夕方に乗りたい→「午後」。選択は方向ごとに記憶)。マスの下段はベスト便とY残席・スタンバイ数(JALのみ)、「○N便」=見込み高の便がN便ある日。<b>マスをクリック(タップ)するとその日の全便リストが開き、好きな便(他社便もOK)を選んでウォッチ登録</b>できます。登録した便はページ上部に大きく表示されます。<span class="hd jp">日</span><span class="hd kr">韓</span>=祝日。</div></div>`;
+  <div class="hint">記号=その日いちばん乗りやすい便の判定(○ 見込み高／△ 注意／× 厳しい)。<b>「午前/午後/夕方」で時間帯を絞ると、その時間帯に出る便だけで判定</b>します(例: GMP→HNDで夕方に乗りたい→「夕方」。選択は方向ごとに記憶)。マスの下段はベスト便とY残席・スタンバイ数(JALのみ)、「○N便」=見込み高の便がN便ある日。<b>マスをクリック(タップ)するとその日の全便リストが開き、好きな便(他社便もOK)を選んでウォッチ登録</b>できます。登録した便はページ上部に大きく表示されます。<span class="hd jp">日</span><span class="hd kr">韓</span>=祝日。</div></div>`;
 
   // ④ 収集履歴での変化
   h += `<div class="sec">④ 収集履歴での変化(スナップショット比較)</div><div class="card">
@@ -708,10 +751,10 @@ function render(){
     h += `<div class="hint">実績はまだありません。日付が過ぎると「その日の最後に観測したY残席・スタンバイ数」が自動でここに貯まっていきます(明日から)。</div></div>`;
   } else {
     const m2 = new Map();
-    for (const a of arch) for (const f of (a.flights || [])) if (alOn[f.al] && !m2.has(f.fn)) m2.set(f.fn, f.dep);
-    const fns2 = [...m2.keys()].sort((x, y) => m2.get(x) < m2.get(y) ? -1 : 1);
+    for (const a of arch) for (const f of (a.flights || [])) if (alOn[f.al] && !m2.has(f.fn)) m2.set(f.fn, {dep: f.dep, al: f.al});
+    const fns2 = [...m2.keys()].sort((x, y) => m2.get(x).dep < m2.get(y).dep ? -1 : 1);
     h += `<div class="tablewrap"><table><thead><tr><th style="text-align:left">日付</th>`;
-    for (const fn of fns2) h += `<th>${fn}<br>${m2.get(fn)}</th>`;
+    for (const fn of fns2) h += `<th>${alBadge(m2.get(fn).al)}<span class="fno">${fn}</span>${m2.get(fn).dep}</th>`;
     h += `</tr></thead><tbody>`;
     for (const a of arch){
       const wd2 = new Date(a.date + "T00:00:00").getDay();
@@ -896,7 +939,7 @@ function renderTrend(){
 
   for (const fn of fns){
     const al = meta.get(fn).al;
-    h += `<tr><td class="dt"><span class="opdot" style="--oc:${(AL[al]||{}).c||"#888"}"></span><span class="fnl">${fn}</span><span class="tdep">${meta.get(fn).dep}</span></td>`;
+    h += `<tr><td class="dt">${alBadge(al)} <span class="fnl">${fn}</span><span class="tdep">${meta.get(fn).dep}</span></td>`;
     const states = shown.map(s => ((s.days[d]||{})[dir]||[]).find(x => x.fn === fn) || null);
     const allPresent = states.every(Boolean);
     const same = allPresent && states.every(f => sig(f) === sig(states[0]));
