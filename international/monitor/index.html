@@ -234,8 +234,19 @@ details.judgedef .jd{margin-top:9px;font-size:12px;color:var(--sub);line-height:
 details.judgedef .jd b{color:var(--ink)}
 details.judgedef .jd .row{display:flex;gap:8px;align-items:baseline}
 details.judgedef .jd .row .pill{flex:none;min-width:3.4em;text-align:center}
-.stalebar{background:var(--bad-bg);color:var(--bad);font-weight:700;font-size:12.5px;
-  padding:8px 22px;border-bottom:1px solid var(--hair);letter-spacing:.02em}
+/* 収集の健康状態バー(国内線の空席機能と同じ考え方): 普段は目立たず、
+   更新が止まっている時だけ警告色にする。「● 収集 07:38 成功」のような一目表示。 */
+.healthbar{margin:0;padding:8px 22px;font-size:11.5px;
+  display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;line-height:1.65;
+  border-bottom:1px solid var(--hair)}
+.healthbar.ok{background:var(--chipbg);color:var(--sub)}
+.healthbar.warn{background:var(--warn-bg);color:var(--warn)}
+.healthbar .hdot{width:7px;height:7px;border-radius:50%;flex:none;margin-top:5px}
+.healthbar.ok .hdot{background:var(--ok)}
+.healthbar.warn .hdot{background:var(--warn)}
+.healthbar .hitem{white-space:nowrap;min-width:0}
+.healthbar .hsub{color:var(--sub);margin:0 2px}
+.healthbar.warn .hsub{color:color-mix(in srgb,var(--warn) 70%,var(--sub))}
 /* 祝日バッジ */
 .hd{display:inline-block;font-size:8px;font-weight:800;border-radius:4px;padding:0 3px;margin-left:3px;
   vertical-align:1px;line-height:1.5;letter-spacing:0}
@@ -311,7 +322,7 @@ footer{border-top:1px solid var(--hair);color:var(--sub);font-size:11px;
   <div class="titlebox">
     <div class="eyebrow">WINGS OF JAPAN — SEAT AVAILABILITY MONITOR</div>
     <h1><span class="jp-red">HND⇔GMP</span> 空席モニター</h1>
-    <div class="dateline" id="dateline">読み込み中… ※非公式・参考データ</div>
+    <div class="dateline">※非公式・参考データ</div>
   </div>
   <nav class="navtabs" aria-label="路線マップ切替">
     <a class="navtab" href="../../">国内線</a>
@@ -344,7 +355,7 @@ footer{border-top:1px solid var(--hair);color:var(--sub);font-size:11px;
   <span class="lg"><span class="dot" style="background:var(--bad-bg);color:var(--bad)">×</span>厳しい</span>
   <a href="./update.html" class="updbtn" title="iPhone/PCから手動で更新するためのブックマークレットを作成">📲 スマホで更新</a>
 </div>
-<div id="stalewarn" class="stalebar" style="display:none" role="status"></div>
+<div class="healthbar" id="healthbar" hidden role="status"></div>
 
 <main>
   <div id="app" class="loading">データを読み込んでいます…</div>
@@ -358,6 +369,31 @@ footer{border-top:1px solid var(--hair);color:var(--sub);font-size:11px;
 "use strict";
 const AL = {JL:{name:"JAL", c:"var(--c-JAL)"}, NH:{name:"ANA", c:"var(--c-NH)"}, OZ:{name:"アシアナ", c:"var(--c-OZ)"}, KE:{name:"大韓航空", c:"var(--c-KE)"}};
 const WD = "日月火水木金土";
+
+// 収集の健康状態バー(国内線の空席機能と同じ考え方): 「● 収集 07:38 成功」のような一目表示。
+// 普段は目立たせず、更新が止まっている(15時間超)ときだけ警告色にする。
+function whenLabel(ts){
+  const d = new Date(ts);
+  const sameDay = d.toDateString() === new Date().toDateString();
+  const hm = String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+  return sameDay ? hm : `${d.getMonth()+1}/${d.getDate()} ${hm}`;
+}
+function renderHealth(j){
+  const box = document.getElementById("healthbar");
+  if (!j.latest) { box.hidden = true; return; }
+  const ts = new Date(j.latest.ts);
+  const ageH = (Date.now() - ts.getTime()) / 36e5;
+  const dk = (dt) => dt.getFullYear() + "-" + dt.getMonth() + "-" + dt.getDate();
+  const todayCount = j.snapshots.filter(s => dk(new Date(s.ts)) === dk(new Date())).length;
+  const warn = ageH >= 15;
+  box.className = "healthbar " + (warn ? "warn" : "ok");
+  let html = `<span class="hdot"></span><span class="hitem">収集 <b>${whenLabel(j.latest.ts)}</b> ${warn ? "更新なし" : "成功"}</span>`;
+  html += `<span class="hsub">・</span><span class="hitem">本日${todayCount}回目</span>`;
+  if (warn) html += `<span class="hsub">・</span><span class="hitem">約${Math.round(ageH)}時間経過。myIDTravelにログインして収集ボタンを押してください</span>`;
+  box.innerHTML = html;
+  box.hidden = false;
+}
+
 let DATA = null;
 let dir = "HND-GMP";
 // 航空会社フィルタ: NHはデフォルトOFF(気になる時にタップでON)。変更は端末に記憶する
@@ -848,20 +884,7 @@ Promise.allSettled([
   const latest = sources.map(s => s.latest).sort((a, b) => a.ts < b.ts ? 1 : -1)[0];
   const j = {latest, snapshots};
   DATA = j;
-  const ts = new Date(j.latest.ts);
-  // 今日の収集回数(A3)とデータ鮮度の警告(A2)
-  const dk = (dt) => dt.getFullYear() + "-" + dt.getMonth() + "-" + dt.getDate();
-  const todaySnaps = j.snapshots.filter(s => dk(new Date(s.ts)) === dk(new Date()))
-    .map(s => { const t = new Date(s.ts); return String(t.getHours()).padStart(2,"0") + ":" + String(t.getMinutes()).padStart(2,"0"); });
-  const todayTxt = todaySnaps.length ? `今日の収集 ${todaySnaps.length}回(${todaySnaps.join("・")})` : "今日の収集 まだなし";
-  document.getElementById("dateline").textContent =
-    `最終収集: ${ts.toLocaleString("ja-JP",{year:"numeric",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})} ／ ${todayTxt} ※非公式・参考データ`;
-  const ageH = (Date.now() - ts.getTime()) / 36e5;
-  if (ageH >= 15) {
-    const w = document.getElementById("stalewarn");
-    w.textContent = `⚠ データが古い可能性があります: 最終収集から約${Math.round(ageH)}時間経過。myIDTravelにログインして収集ボタン(PC拡張/スマホのブックマークレット)を押してください。`;
-    w.style.display = "block";
-  }
+  renderHealth(j);
   document.getElementById("st-snap").textContent = j.snapshots.length;
   document.getElementById("st-days").textContent = Object.keys(j.latest.days).length;
   const d0 = Object.keys(j.latest.days).sort().find(d => (j.latest.days[d]["HND-GMP"]||[]).length);
