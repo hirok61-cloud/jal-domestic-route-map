@@ -83,9 +83,36 @@ const SEATMAP_API = "https://api.dom.jal.co.jp/rmweb-api/shopping/seatmaps";
    見ていないため、これが「座席0」として静かに処理され、直近48時間の
    座席詳細がまるごと更新されない実害につながった。search API 側は
    古い版でも黙って通るため、運賃データだけは正常に見えて発見が遅れた。
-   ズレていないか、たまに実機の値と突き合わせて確認すること
-   （JOHNページの実際のリクエストから読み取れる）。 */
-const CONTENT_VERSION = "/jl/statics/dom-bkg/content/1.0.171/";
+   **2026-08-28に同じことが再発した**（JALが 1.0.171 → 1.0.175 に上げた）。
+   8/26夜から座席表の取得数が 308→89→48→0 と数日かけて減っていったのは、
+   JAL側が版を段階的に切り替えたため（古い版がまだ残っているサーバに
+   当たったぶんだけ成功していた）。**書き写した定数はまたズレる**ので、
+   下の detectContentVersion() でページ自身が使っている値を借りる。
+   この定数はそれが読めなかったときの控えでしかない。 */
+const CONTENT_VERSION_FALLBACK = "/jl/statics/dom-bkg/content/1.0.175/";
+
+/* JALのSPAは、いま使っている版を `<body data-dynamiccontentpath="…">` に持っている。
+   アプリ自身が送っている contentVersionId はこの値そのもの（2026-08-28に、
+   ページのfetchを覗いて一致を確認した）。収集はそのページの中で動くので、
+   ここから借りれば**JALが版を上げても勝手に追随する**。
+   形が変わっていても収集ごと落とさないよう、読めなければ控えに戻す。 */
+export function detectContentVersion() {
+  const SHAPE = /\/jl\/statics\/[a-z0-9-]+\/content\/[0-9]+(?:\.[0-9]+)+\//;
+  try {
+    const attr = document.body && document.body.getAttribute
+      && document.body.getAttribute("data-dynamiccontentpath");
+    if (typeof attr === "string" && SHAPE.test(attr)) return attr.match(SHAPE)[0];
+    // 属性が無くなっていても、読み込んでいる静的ファイルのURLから拾えることがある
+    const html = (document.documentElement || {}).innerHTML;
+    const hit = typeof html === "string" && html.match(SHAPE);
+    if (hit) return hit[0];
+  } catch { /* ページの形が変わっていてもここで落とさない */ }
+  return CONTENT_VERSION_FALLBACK;
+}
+
+let detectedVersion = null;
+/** ページから借りた版。1回だけ調べて使い回す。 */
+const contentVersion = () => (detectedVersion ||= detectContentVersion());
 const API_KEY = "JZWuY6OJ5M2IfvIgZVRMA7dhbjk7jTtga0lclevt";
 export const DELAY_MS = 1200; // JALのサーバを叩く間隔。短くしないこと
 const SEAT_SAVE_EVERY = 50;   // 座席表を何便ぶん取るごとに保存するか
@@ -324,7 +351,7 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
           ? { discountCode: "NONE", isCorporate: true }
           : { discountCode: "JCF", isCorporate: false },
         searchPreferences: { showSoldOut: true, includeWaitlist: true },
-        contentVersionId: CONTENT_VERSION,
+        contentVersionId: contentVersion(),
       }),
     });
     return { status: res.status, payload: await res.json().catch(() => null) };
@@ -375,11 +402,30 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
         }],
         travelers: [{ passengerTypeCode: "ADT", isRequestedTraveler: true }],
         contentApplicationId: "-",
-        contentVersionId: CONTENT_VERSION,
+        contentVersionId: contentVersion(),
       }),
     });
     if (res.status !== 200) return null;
     const json = await res.json().catch(() => null);
+
+    /* 版がずれているときだけは、他の失敗と区別して呼び出し側に伝える。
+       JALは古い版を渡されると**HTTP 200のまま**
+       `{"errors":[{"code":"JSLCMNE002","title":"404 Not Found on GET request
+       for \"https://booking.jal.co.jp/jl/statics/dom-bkg/content/1.0.171/assets/…\""}]}`
+       を返す（2026-08-28に実機で採取）。status しか見ていないと
+       「その便には座席表が無い」と見分けが付かず、静かに全便ぶん空振りする。 */
+    const err = ((json || {}).errors || [])[0];
+    if (err) {
+      const detail = String(err.title || err.detail || err.code || "");
+      if (err.code === "JSLCMNE002" || /\/content\/[0-9]/.test(detail)) {
+        throw Object.assign(
+          new Error(`座席表の版がずれています（${contentVersion()} / ${detail.slice(0, 120)}）`),
+          { staleContentVersion: true },
+        );
+      }
+      return null; // それ以外のエラー本文は「この便は座席表なし」と同じ扱い
+    }
+
     const decks = ((((json || {}).data || {}).seatmaps || [])[0] || {}).decks || [];
     /* 同じレスポンスからクラスJ・ファーストと、窓側/通路側も数える。
        W=窓側, A=通路側（座席属性コード）。 */
@@ -615,6 +661,10 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
         : "残席数は9が上限（9席以上でも9と返る）。普通席=eco / クラスJ=clsj / ファースト=first。"
           + " sa=座席表で選べる普通席数 / st=普通席の総座席数。",
       routes,
+      /* そのとき使ったJALの静的コンテンツ版。座席表が取れなくなったときに
+         「いつからどの版で collect していたか」が後から分かるようにしておく
+         （2026-08-28の版ずれは、これが残っていれば数分で切り分けられた）。 */
+      contentVersion: contentVersion(),
       // 座席属性コードの実地調査ぶん（窓側の数え方を直すための材料。表示には使わない）
       ...(codeStats.n ? { codes: codeStats } : {}),
     });
@@ -668,6 +718,7 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
     for (const r of routes) {
       for (const f of r.flights || []) if (f.eco > 0) targets.push([r, f]);
     }
+    let staleRun = 0, staleReason = null; // 版ずれが何便続いたか
     for (let i = 0; i < targets.length; i++) {
       const [r, f] = targets[i];
       report("seats", {
@@ -678,7 +729,17 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
       try {
         const counts = await seatmap(r, f, date);
         if (counts) Object.assign(f, counts);
-      } catch { /* 1便取れなくても続ける */ }
+        staleRun = 0;
+      } catch (e) {
+        /* 版ずれは1便の揺らぎではなく全便に効くので、3便続いたら見切る。
+           そのまま続けても300便ぶん（約11分）を空振りするだけで、
+           2026-08-28の朝はそれで20分かけて何も取れずに終わっていた。 */
+        if (e && e.staleContentVersion) {
+          staleReason = String(e.message || e);
+          if (++staleRun >= 3) break;
+        }
+        /* それ以外（タイムアウト等）は1便取れなくても続ける */
+      }
 
       /* 座席表は1便2.3秒かかるので、最後にまとめて保存すると途中で落ちたときに
          その回ぶんが丸ごと消える（実際に 91/231 で止まって91便ぶんを失った）。
@@ -700,16 +761,24 @@ export function createRun({ auth, updateKey, runId, report = () => {}, onSaveFai
 
       /* 座席表APIはHTTP 200のまま中身がエラー本文のことがある
          （seatmap()はstatusしか見ないため、nullが返って「その便は座席表なし」
-         と区別がつかない）。CONTENT_VERSIONがずれるとこれが**全便**で起き、
-         2026-08-15、48時間気づかず座席詳細が更新され続けなかった実害が出た。
+         と区別がつかない）。版がずれるとこれが**全便**で起き、2026-08-15と
+         2026-08-28の2回、座席詳細が丸ごと更新されない実害が出た。
          個々の失敗は（タイムアウト等）想定内なので打ち切らないが、狙った
          対象が10件以上あるのに1件も取れていなければ、保存はしたうえで
-         理由を出す（＝運賃は保存済みのまま失敗として気づけるようにする）。 */
+         理由を出す（＝運賃は保存済みのまま失敗として気づけるようにする）。
+         版ずれだと分かっているときは、その中身をそのまま添える。 */
+      const saved = `運賃${stats.flights}便中${stats.withSeats}便に空席、までは保存済みです。`;
+      if (staleReason) {
+        throw new Error(
+          `${staleReason}。JALが静的コンテンツの版を上げたとみられます。`
+          + "JALの空席照会ページを開き直してから、もう一度実行してください"
+          + "（ページが持っている版を自動で使います）。" + saved,
+        );
+      }
       if (targets.length >= 10 && stats.seatChecked === 0) {
         throw new Error(
           "座席表が1件も取得できませんでした。CONTENT_VERSION が"
-          + "古くなっている可能性があります（tools/collect-core.js）。"
-          + `運賃${stats.flights}便中${stats.withSeats}便に空席、までは保存済みです。`,
+          + `古くなっている可能性があります（使った版: ${contentVersion()}）。` + saved,
         );
       }
     }

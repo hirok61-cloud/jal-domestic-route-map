@@ -1,6 +1,6 @@
 /* 生成物。編集しないこと。もとは tools/collect-core.js と collect-extension.js。
    直したら npm run build:bookmarklet && npm run test:collect && npm run purge:cdn */
-var __JAL_SEATS_BUILD__ = "2026-08-16 13:04Z";
+var __JAL_SEATS_BUILD__ = "2026-08-27 22:34Z";
 (() => {
   // tools/collect-core.js
   var ENDPOINT = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats";
@@ -49,7 +49,21 @@ var __JAL_SEATS_BUILD__ = "2026-08-16 13:04Z";
   ];
   var API = "https://api.dom.jal.co.jp/rmweb-api/search/air-bounds";
   var SEATMAP_API = "https://api.dom.jal.co.jp/rmweb-api/shopping/seatmaps";
-  var CONTENT_VERSION = "/jl/statics/dom-bkg/content/1.0.171/";
+  var CONTENT_VERSION_FALLBACK = "/jl/statics/dom-bkg/content/1.0.175/";
+  function detectContentVersion() {
+    const SHAPE = /\/jl\/statics\/[a-z0-9-]+\/content\/[0-9]+(?:\.[0-9]+)+\//;
+    try {
+      const attr = document.body && document.body.getAttribute && document.body.getAttribute("data-dynamiccontentpath");
+      if (typeof attr === "string" && SHAPE.test(attr)) return attr.match(SHAPE)[0];
+      const html = (document.documentElement || {}).innerHTML;
+      const hit = typeof html === "string" && html.match(SHAPE);
+      if (hit) return hit[0];
+    } catch {
+    }
+    return CONTENT_VERSION_FALLBACK;
+  }
+  var detectedVersion = null;
+  var contentVersion = () => detectedVersion ||= detectContentVersion();
   var API_KEY = "JZWuY6OJ5M2IfvIgZVRMA7dhbjk7jTtga0lclevt";
   var DELAY_MS = 1200;
   var SEAT_SAVE_EVERY = 50;
@@ -226,7 +240,7 @@ var __JAL_SEATS_BUILD__ = "2026-08-16 13:04Z";
              **叩くAPIもヘッダも認証もまったく同じ。違いはここだけ**。 */
           jalSearchPreferences: asCorp ? { discountCode: "NONE", isCorporate: true } : { discountCode: "JCF", isCorporate: false },
           searchPreferences: { showSoldOut: true, includeWaitlist: true },
-          contentVersionId: CONTENT_VERSION
+          contentVersionId: contentVersion()
         })
       });
       return { status: res.status, payload: await res.json().catch(() => null) };
@@ -266,11 +280,22 @@ var __JAL_SEATS_BUILD__ = "2026-08-16 13:04Z";
           }],
           travelers: [{ passengerTypeCode: "ADT", isRequestedTraveler: true }],
           contentApplicationId: "-",
-          contentVersionId: CONTENT_VERSION
+          contentVersionId: contentVersion()
         })
       });
       if (res.status !== 200) return null;
       const json = await res.json().catch(() => null);
+      const err = ((json || {}).errors || [])[0];
+      if (err) {
+        const detail = String(err.title || err.detail || err.code || "");
+        if (err.code === "JSLCMNE002" || /\/content\/[0-9]/.test(detail)) {
+          throw Object.assign(
+            new Error(`座席表の版がずれています（${contentVersion()} / ${detail.slice(0, 120)}）`),
+            { staleContentVersion: true }
+          );
+        }
+        return null;
+      }
       const decks = ((((json || {}).data || {}).seatmaps || [])[0] || {}).decks || [];
       let sa = 0, st = 0, sw = 0, sl = 0, sc = 0, se = 0, sg = 0, sj = null, sf = null;
       const smRaw = [];
@@ -448,6 +473,10 @@ var __JAL_SEATS_BUILD__ = "2026-08-16 13:04Z";
         source: corporate ? "JALオンライン（法人・制度利用）の空席照会 (api.dom.jal.co.jp/rmweb-api/search/air-bounds)" : "JAL公式 空席照会API (api.dom.jal.co.jp/rmweb-api/search/air-bounds)",
         note: corporate ? "flights は公式の全便。zl=true がその時点で制度で予約できた便。 eco は公式の運賃残席（9が上限）。座席表(sa)は取っていないので、 必要なら同じ日付の hub=HND のスナップショットと便名で突き合わせる。" : "残席数は9が上限（9席以上でも9と返る）。普通席=eco / クラスJ=clsj / ファースト=first。 sa=座席表で選べる普通席数 / st=普通席の総座席数。",
         routes,
+        /* そのとき使ったJALの静的コンテンツ版。座席表が取れなくなったときに
+           「いつからどの版で collect していたか」が後から分かるようにしておく
+           （2026-08-28の版ずれは、これが残っていれば数分で切り分けられた）。 */
+        contentVersion: contentVersion(),
         // 座席属性コードの実地調査ぶん（窓側の数え方を直すための材料。表示には使わない）
         ...codeStats.n ? { codes: codeStats } : {}
       });
@@ -475,6 +504,7 @@ var __JAL_SEATS_BUILD__ = "2026-08-16 13:04Z";
       for (const r of routes) {
         for (const f of r.flights || []) if (f.eco > 0) targets.push([r, f]);
       }
+      let staleRun = 0, staleReason = null;
       for (let i = 0; i < targets.length; i++) {
         const [r, f] = targets[i];
         report("seats", {
@@ -490,7 +520,12 @@ var __JAL_SEATS_BUILD__ = "2026-08-16 13:04Z";
         try {
           const counts = await seatmap(r, f, date);
           if (counts) Object.assign(f, counts);
-        } catch {
+          staleRun = 0;
+        } catch (e) {
+          if (e && e.staleContentVersion) {
+            staleReason = String(e.message || e);
+            if (++staleRun >= 3) break;
+          }
         }
         if ((i + 1) % SEAT_SAVE_EVERY === 0 && i + 1 < targets.length) {
           stats.seatChecked = count((f2) => f2.sa !== void 0);
@@ -505,9 +540,15 @@ var __JAL_SEATS_BUILD__ = "2026-08-16 13:04Z";
         stats.seatZero = count((f) => f.sa === 0);
         report("saving", { label, stats, phase: "seats" });
         await save(snapshot());
+        const saved = `運賃${stats.flights}便中${stats.withSeats}便に空席、までは保存済みです。`;
+        if (staleReason) {
+          throw new Error(
+            `${staleReason}。JALが静的コンテンツの版を上げたとみられます。JALの空席照会ページを開き直してから、もう一度実行してください（ページが持っている版を自動で使います）。` + saved
+          );
+        }
         if (targets.length >= 10 && stats.seatChecked === 0) {
           throw new Error(
-            `座席表が1件も取得できませんでした。CONTENT_VERSION が古くなっている可能性があります（tools/collect-core.js）。運賃${stats.flights}便中${stats.withSeats}便に空席、までは保存済みです。`
+            `座席表が1件も取得できませんでした。CONTENT_VERSION が古くなっている可能性があります（使った版: ${contentVersion()}）。` + saved
           );
         }
       }

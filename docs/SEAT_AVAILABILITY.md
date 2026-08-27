@@ -163,6 +163,11 @@ JALが当日空港割り当て分の座席を確保しているため、座席�
   ただし**「対象者限定」の運賃ファミリーは満席の便でも `HK` かつ `quota: 0` を返す**ので、
   空席の有無は `statusCode` ではなく **`quota` の最大値**で判定すること。
 - `boundDetails.segments` が2本以上の旅程（乗り継ぎ）は対象外。
+- **`contentVersionId` はJALのページから借りる**（定数に書き写さない）。
+  `<body data-dynamiccontentpath="/jl/statics/dom-bkg/content/1.0.175/">` が
+  アプリ自身の使っている値で、`detectContentVersion()` がこれを読む。
+  古い版を渡すと **seatmap だけ**が HTTP 200 のまま `JSLCMNE002`（静的ファイルの
+  404）を返して座席表が全滅する。詳しくは `docs/HANDOVER.md` の「ハマったところ」。
 - セッションは `booking.jal.co.jp` の `sessionStorage.apiAuthCreds.authToken`
   （有効約2時間）＋ 予約サイトのバンドルに埋まっている `x-api-key`。
 

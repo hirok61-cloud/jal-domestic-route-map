@@ -40,6 +40,10 @@
 | `jalSearchPreferences` | `{discountCode:"JCF", isCorporate:false}` | **`{discountCode:"NONE", isCorporate:true}`** |
 | `contentVersionId` | `/jl/statics/dom-bkg/content/1.0.170/` | `/jl/statics/dom-bkg/content/1.0.171/` |
 
+※ この表は2026-08-16に実測した当時の値。**いまは定数に書き写さず、
+ページの `<body data-dynamiccontentpath="…">` から借りている**（2026-08-28に変更。
+JALが版を上げると seatmap API が壊れるため。`docs/HANDOVER.md` の「ハマったところ」）。
+
 実測したリクエスト本文（法人・2026-08-16 CTS→HND）:
 
 ```json

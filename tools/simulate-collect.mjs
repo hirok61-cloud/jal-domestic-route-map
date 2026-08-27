@@ -40,7 +40,11 @@ function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick, blockFetchOnly,
 
   const node = (tag) => {
     const el = {
-      tagName: tag, style: { cssText: "" }, children: [], _text: "", id: "",
+      tagName: tag, style: { cssText: "" }, children: [], _text: "", id: "", _attrs: {},
+      /* 収集側が <body data-dynamiccontentpath="…"> からJALの静的コンテンツ版を
+         借りるようになったので、属性も持てるようにしておく。 */
+      getAttribute(k) { return k in el._attrs ? el._attrs[k] : null; },
+      setAttribute(k, v) { el._attrs[k] = String(v); },
       set textContent(v) { el._text = String(v); },
       get textContent() { return el._text; },
       /* innerHTML で組み立てたあと querySelector('#id') で引かれるので、
@@ -105,6 +109,9 @@ function makeEnv({ host = "booking.jal.co.jp", jal, saver, pick, blockFetchOnly,
   };
 
   const body = node("body");
+  /* 実物のJALのページが持っている属性。控えの定数（CONTENT_VERSION_FALLBACK）とは
+     わざと違う値にしてあり、**ページから借りているかどうか**をここで見分ける。 */
+  body.setAttribute("data-dynamiccontentpath", "/jl/statics/dom-bkg/content/9.9.9/");
   const document = {
     body, documentElement: body, head: body,
     createElement: (tag) => {
@@ -404,6 +411,37 @@ const cases = [
       "完走する": ok(out),
       "1日あたり運賃1回＋座席表3回＝計8回": log.saved.length === 8,
       "途中の保存にも調査ぶんが入る": log.saved[1].codes?.n > 0,
+    }),
+  },
+  {
+    name: "JALが静的コンテンツの版を上げても、ページから借りて追随する",
+    /* 収集側は版を書き写した定数ではなく、JALのページ自身が持っている
+       <body data-dynamiccontentpath="…"> を使う。偽ブラウザは 9.9.9 を
+       返すようにしてあるので、保存された値がそれなら借りている。 */
+    jal: (seat) => jalOk(seat),
+    saver: () => res(200, { ok: true }),
+    check: (log, out) => ({
+      "ページが持っている版を使う": log.saved.every(
+        (p) => p.contentVersion === "/jl/statics/dom-bkg/content/9.9.9/",
+      ),
+      "完走する": ok(out),
+    }),
+  },
+  {
+    name: "版がずれたら、全便ぶん空振りせず3便で見切って理由を出す",
+    /* 2026-08-28、JALが 1.0.171 → 1.0.175 に上げて座席表が全滅した。
+       JALは古い版を渡されると**HTTP 200のまま** JSLCMNE002 のエラー本文を
+       返すため、以前は「その便は座席表なし」と区別できず、300便ぶん
+       （約11分）を空振りしてから失敗していた。 */
+    jal: (seat) => (seat
+      ? res(200, { errors: [{ code: "JSLCMNE002", title: '404 Not Found on GET request for "https://booking.jal.co.jp/jl/statics/dom-bkg/content/9.9.9/assets/cms/common/flight-x.json"' }] })
+      : jalOk(false)),
+    saver: () => res(200, { ok: true }),
+    check: (log, out) => ({
+      "3便で見切る（70便ぶん空振りしない）": log.seatmaps === 3,
+      "運賃は保存済み": log.saved.length >= 1,
+      "版ずれだと分かる文面を出す": /版がずれ/.test(text(out)),
+      "失敗として報告する": !ok(out),
     }),
   },
   {
