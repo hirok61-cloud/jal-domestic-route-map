@@ -181,7 +181,9 @@ td.dt .wd.sat{color:var(--hover)} td.dt .wd.sun{color:var(--red)}
 .calhead.sun{color:var(--red)} .calhead.sat{color:var(--hover)}
 .cday{border:1px solid var(--panel-edge);border-radius:11px;background:var(--panel);
   min-height:78px;padding:5px 6px 6px;display:flex;flex-direction:column;align-items:center;gap:0;
-  box-shadow:var(--card-shadow);cursor:default}
+  box-shadow:var(--card-shadow);cursor:pointer;position:relative;transition:transform .1s}
+.cday[data-d]:hover{transform:translateY(-1px)}
+.cday.watched{box-shadow:0 0 0 2px var(--gold), var(--card-shadow)}
 .cday.blank{visibility:hidden}
 .cday.j0{background:var(--ok-bg);border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
 .cday.j1{background:var(--warn-bg);border-color:color-mix(in srgb,var(--warn) 45%,transparent)}
@@ -234,6 +236,42 @@ details.judgedef .jd .row{display:flex;gap:8px;align-items:baseline}
 details.judgedef .jd .row .pill{flex:none;min-width:3.4em;text-align:center}
 .stalebar{background:var(--bad-bg);color:var(--bad);font-weight:700;font-size:12.5px;
   padding:8px 22px;border-bottom:1px solid var(--hair);letter-spacing:.02em}
+/* 祝日バッジ */
+.hd{display:inline-block;font-size:8px;font-weight:800;border-radius:4px;padding:0 3px;margin-left:3px;
+  vertical-align:1px;line-height:1.5;letter-spacing:0}
+.hd.jp{color:var(--red);border:1px solid color-mix(in srgb,var(--red) 55%,transparent);background:color-mix(in srgb,var(--red) 10%,transparent)}
+.hd.kr{color:var(--hover);border:1px solid color-mix(in srgb,var(--hover) 55%,transparent);background:color-mix(in srgb,var(--hover) 10%,transparent)}
+/* C8: 本日これから */
+.todaycard{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:14px 0 2px;
+  background:var(--panel);border:1px solid var(--panel-edge);border-radius:14px;padding:10px 14px;box-shadow:var(--card-shadow)}
+.tdlbl{font-size:12px;font-weight:800;color:var(--red);letter-spacing:.06em;flex:none}
+.tchip{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700}
+.tchip .tv{font-weight:600;font-size:11px;opacity:.85}
+.tchip.j0{background:var(--ok-bg);color:var(--ok)} .tchip.j1{background:var(--warn-bg);color:var(--warn)} .tchip.j2{background:var(--bad-bg);color:var(--bad)}
+/* C7: ウォッチカード */
+.wgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin:12px 0 2px}
+.wcard{position:relative;background:var(--panel);border:1px solid var(--panel-edge);border-left:5px solid var(--sub);
+  border-radius:14px;padding:11px 14px 10px;box-shadow:var(--card-shadow)}
+.wcard.wj0{border-left-color:var(--ok)} .wcard.wj1{border-left-color:var(--warn)} .wcard.wj2{border-left-color:var(--bad)}
+.wdel{position:absolute;top:7px;right:9px;border:none;background:none;color:var(--sub);font-size:15px;cursor:pointer;padding:2px 6px}
+.wdel:hover{color:var(--red)}
+.wdate{font-weight:800;font-size:14px}
+.wleft{font-size:10.5px;color:#fff;background:linear-gradient(135deg,var(--red),var(--red-deep));border-radius:999px;padding:1px 9px;margin-left:6px;vertical-align:1px;font-weight:700}
+.wdir{font-size:10px;color:var(--sub);letter-spacing:.14em;font-weight:700;margin:1px 0 5px}
+.wmain{display:flex;align-items:center;gap:10px}
+.wsym{font-size:30px;font-weight:800;line-height:1}
+.wsym.s0{color:var(--ok)} .wsym.s1{color:var(--warn)} .wsym.s2{color:var(--bad)}
+.winfo{font-size:12.5px;line-height:1.5}
+.winfo b{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:14px}
+.wv{color:var(--sub)}
+.wsb{margin-top:5px;font-size:11px;color:var(--sub);font-variant-numeric:tabular-nums}
+.wnone{font-size:12px;color:var(--sub)}
+.wstar{position:absolute;top:1px;right:4px;font-size:10px;color:var(--gold)}
+/* ⑥リードタイム 便切替 */
+.ltseg{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.ltbtn{border:1px solid var(--panel-edge);background:var(--panel);border-radius:999px;padding:5px 14px;
+  font-size:12px;font-weight:700;cursor:pointer;box-shadow:var(--card-shadow);font-family:ui-monospace,"SF Mono",Menlo,monospace}
+.ltbtn.on{background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff;border-color:var(--red)}
 .loading{color:var(--sub);padding:40px;text-align:center;font-size:13px}
 footer{border-top:1px solid var(--hair);color:var(--sub);font-size:11px;
   padding:14px 22px 26px;text-align:center;letter-spacing:.04em}
@@ -330,6 +368,61 @@ try {
 } catch (e) {}
 function saveAlOn(){ try { localStorage.setItem("hndgmpAlOn", JSON.stringify(alOn)); } catch (e) {} }
 
+// 日韓の祝日(2026-08〜2027-01)。カレンダー/ヒートマップに小バッジ表示
+const HOLIDAYS = {
+  "2026-09-21": {jp: "敬老の日"},
+  "2026-09-22": {jp: "国民の休日"},
+  "2026-09-23": {jp: "秋分の日"},
+  "2026-10-12": {jp: "スポーツの日"},
+  "2026-11-03": {jp: "文化の日"},
+  "2026-11-23": {jp: "勤労感謝の日"},
+  "2026-09-24": {kr: "秋夕(連休)"},
+  "2026-09-25": {kr: "秋夕"},
+  "2026-09-26": {kr: "秋夕(連休)"},
+  "2026-10-03": {kr: "開天節"},
+  "2026-10-05": {kr: "開天節 振替休日"},
+  "2026-10-09": {kr: "ハングルの日"},
+  "2026-12-25": {kr: "クリスマス"},
+  "2027-01-01": {jp: "元日", kr: "新正月"},
+};
+function holidayBadge(iso){
+  const h = HOLIDAYS[iso];
+  if (!h) return "";
+  let s = "";
+  if (h.jp) s += `<span class="hd jp" title="日本: ${h.jp}">日</span>`;
+  if (h.kr) s += `<span class="hd kr" title="韓国: ${h.kr}">韓</span>`;
+  return s;
+}
+function holidayTip(iso){
+  const h = HOLIDAYS[iso];
+  if (!h) return "";
+  const parts = [];
+  if (h.jp) parts.push("日本:" + h.jp);
+  if (h.kr) parts.push("韓国:" + h.kr);
+  return " ／ 祝日 " + parts.join("・");
+}
+
+// ウォッチ(この日に乗る): localStorageに{d,dir}の配列。過去日は自動削除
+let WATCH = [];
+try { WATCH = JSON.parse(localStorage.getItem("hndgmpWatch") || "[]"); } catch (e) { WATCH = []; }
+function todayIso(){
+  const t = new Date();
+  return t.getFullYear() + "-" + String(t.getMonth()+1).padStart(2,"0") + "-" + String(t.getDate()).padStart(2,"0");
+}
+WATCH = WATCH.filter(w => w && w.d >= todayIso());
+function saveWatch(){ try { localStorage.setItem("hndgmpWatch", JSON.stringify(WATCH)); } catch (e) {} }
+function isWatched(d, dr){ return WATCH.some(w => w.d === d && w.dir === dr); }
+function toggleWatch(d, dr){
+  if (isWatched(d, dr)) WATCH = WATCH.filter(w => !(w.d === d && w.dir === dr));
+  else { WATCH.push({d, dir: dr}); WATCH.sort((a,b) => a.d < b.d ? -1 : 1); }
+  saveWatch(); render();
+}
+
+// 出発済み日の実績(サーバの最終観測値)。読み込みは起動時に1回
+let ARCHIVE = [];
+// ⑥リードタイム分析で選択中のJAL便
+let ltFn = "";
+
 function judge(f){
   const sb = f.sb && f.sb.Y !== undefined ? f.sb.Y : null;
   if (f.chance === "LOW") return 2;
@@ -369,12 +462,58 @@ function render(){
       <div class="bp-ap right"><b>${t}</b><span>${tName}</span></div>
     </div></div>`;
 
+  // C8: 本日これから出る便(現在時刻以降)
+  const tIso = todayIso();
+  if (ds.includes(tIso)){
+    const nowHM = (() => { const n = new Date(); return String(n.getHours()).padStart(2,"0") + ":" + String(n.getMinutes()).padStart(2,"0"); })();
+    const remain = flightsOf(tIso).filter(f => f.dep >= nowHM).sort((a,b) => a.dep < b.dep ? -1 : 1);
+    if (remain.length){
+      h += `<div class="todaycard"><span class="tdlbl">🛫 本日これから</span>`;
+      for (const f of remain){
+        const j = judge(f);
+        const sym = j === 0 ? "○" : j === 1 ? "△" : "×";
+        const sb = f.sb && f.sb.Y !== undefined ? `・SB${f.sb.Y}` : "";
+        h += `<span class="tchip j${j}"><b>${sym}</b> ${f.fn} ${f.dep} <span class="tv">Y${f.Y ?? "?"}${sb}</span></span>`;
+      }
+      h += `</div>`;
+    }
+  }
+
+  // C7: ウォッチ中の日(カレンダーのマスをクリックで登録/解除)
+  if (WATCH.length){
+    h += `<div class="wgrid">`;
+    WATCH.forEach((w, wi) => {
+      const fl = ((latestDays()[w.d] || {})[w.dir] || []).filter(f => alOn[f.al]);
+      const dleft = Math.round((new Date(w.d + "T00:00:00") - new Date(tIso + "T00:00:00")) / 864e5);
+      const leftTxt = dleft === 0 ? "今日" : "あと" + dleft + "日";
+      if (!fl.length){
+        h += `<div class="wcard"><button class="wdel" data-wi="${wi}">×</button><div class="wdate">${jd(w.d)} <span class="wleft">${leftTxt}</span></div><div class="wdir">${w.dir.replace("-"," → ")}</div><div class="wnone">データなし</div></div>`;
+        return;
+      }
+      const ranked = fl.map(f => ({f, j: judge(f)})).sort((a,b) => a.j - b.j || ((a.f.sb?.Y ?? 99) - (b.f.sb?.Y ?? 99)));
+      const top = ranked[0];
+      const sym = top.j === 0 ? "○" : top.j === 1 ? "△" : "×";
+      const sb = top.f.sb && top.f.sb.Y !== undefined ? `・SB${top.f.sb.Y}` : "";
+      // ベスト便のSB推移(直近5収集)
+      let sbTrend = "";
+      const hist = DATA.snapshots.map(s => (((s.days[w.d] || {})[w.dir]) || []).find(x => x.fn === top.f.fn))
+        .filter(f => f && f.sb && f.sb.Y !== undefined).map(f => f.sb.Y).slice(-5);
+      if (hist.length >= 2) sbTrend = `<div class="wsb">SB推移: ${hist.join("→")}</div>`;
+      h += `<div class="wcard wj${top.j}"><button class="wdel" data-wi="${wi}" title="ウォッチ解除">×</button>
+        <div class="wdate">${jd(w.d)}${holidayBadge(w.d)} <span class="wleft">${leftTxt}</span></div>
+        <div class="wdir">${w.dir.replace("-", " → ")}</div>
+        <div class="wmain"><span class="wsym s${top.j}">${sym}</span><div class="winfo"><b>${top.f.fn}</b> ${top.f.dep}発<br><span class="wv">Y${top.f.Y ?? "?"}${sb}${ranked.filter(x=>x.j===0).length > 1 ? "・○" + ranked.filter(x=>x.j===0).length + "便" : ""}</span></div></div>
+        ${sbTrend}</div>`;
+    });
+    h += `</div>`;
+  }
+
   // ① ヒートマップ
   h += `<div class="sec">① 日別 空席ヒートマップ(最新収集)</div><div class="card"><div class="heatwrap"><table class="heat"><thead><tr><th class="corner" style="text-align:left">日付</th>`;
   for (const f of cols) h += `<th><span class="opdot" style="--oc:${AL[f.al].c}"></span><span class="fno">${f.fn}</span>${f.dep}</th>`;
   h += `</tr></thead><tbody>`;
   for (const d of ds){
-    h += `<tr><td class="dt">${d.slice(5).replace("-","/")}<span class="wd ${wdcls(d)}">${WD[new Date(d+"T00:00:00").getDay()]}</span></td>`;
+    h += `<tr><td class="dt">${d.slice(5).replace("-","/")}<span class="wd ${wdcls(d)}">${WD[new Date(d+"T00:00:00").getDay()]}</span>${holidayBadge(d)}</td>`;
     const fl = flightsOf(d);
     for (const c of cols){
       const f = fl.find(x => x.fn === c.fn);
@@ -420,16 +559,18 @@ function render(){
     const nOk = ranked.filter(x => x.j === 0).length;
     const sb = top.f.sb && top.f.sb.Y !== undefined ? `・SB${top.f.sb.Y}` : "";
     const wd = cur.getDay();
-    const tip = `${jd(iso)} ベスト: ${top.f.fn} ${top.f.dep}発 / Y${top.f.Y ?? "?"} / chance ${top.f.chance}${sb} ／ 見込み高の便: ${nOk}便`;
-    h += `<div class="cday j${top.j}" title="${tip.replace(/"/g,"&quot;")}">
-      <span class="cd" style="${wd===0?"color:var(--red)":wd===6?"color:var(--hover)":""}">${+iso.slice(5,7)}/${+iso.slice(8)}<span class="wd">${WDS[wd]}</span></span>
+    const watched = isWatched(iso, dir);
+    const tip = `${jd(iso)} ベスト: ${top.f.fn} ${top.f.dep}発 / Y${top.f.Y ?? "?"} / chance ${top.f.chance}${sb} ／ 見込み高の便: ${nOk}便${holidayTip(iso)} ／ クリックでウォッチ${watched ? "解除" : "登録"}`;
+    h += `<div class="cday j${top.j}${watched ? " watched" : ""}" data-d="${iso}" title="${tip.replace(/"/g,"&quot;")}">
+      ${watched ? `<span class="wstar">★</span>` : ""}
+      <span class="cd" style="${wd===0?"color:var(--red)":wd===6?"color:var(--hover)":""}">${+iso.slice(5,7)}/${+iso.slice(8)}<span class="wd">${WDS[wd]}</span>${holidayBadge(iso)}</span>
       <span class="sym">${sym}</span>
       <span class="bf"><b class="fno">${top.f.fn}</b> ${top.f.dep}</span>
       <span class="bf"><span class="yv">Y${top.f.Y ?? "?"}${sb}</span><span class="nok">${nOk > 1 ? `・○${nOk}便` : ""}</span></span>
     </div>`;
   }
   h += `</div></div>
-  <div class="hint">記号=その日いちばん乗りやすい便の判定(○ 見込み高／△ 注意／× 厳しい)。マスの下段はベスト便とY残席・スタンバイ数(JALのみ)、「○N便」=見込み高の便がN便ある日。マウスを乗せると詳細。</div></div>`;
+  <div class="hint">記号=その日いちばん乗りやすい便の判定(○ 見込み高／△ 注意／× 厳しい)。マスの下段はベスト便とY残席・スタンバイ数(JALのみ)、「○N便」=見込み高の便がN便ある日。<b>マスをクリック(タップ)すると「この日をウォッチ」に登録</b>され、ページ上部に大きく表示されます(もう一度で解除)。<span class="hd jp">日</span><span class="hd kr">韓</span>=祝日。</div></div>`;
 
   // ④ 収集履歴での変化
   h += `<div class="sec">④ 収集履歴での変化(スナップショット比較)</div><div class="card">
@@ -437,10 +578,56 @@ function render(){
     <div id="trendwrap" style="margin-top:10px"></div>
     <div class="hint">右の列ほど新しい収集(最新6回まで・当日の収集時刻は赤)。動かなかった便は淡いチップ1つ+「変化なし」に集約。動いた便は全列を並べ、<b>枠付きのマス=前回の収集から変化</b>、SBの<span style="color:var(--bad)">▲=スタンバイ増(混んできた)</span>／<span style="color:var(--ok)">▼=減(空いてきた)</span>。SBが伸びる便は締切前に混む便、直前まで少ない便が狙い目。</div></div>`;
 
+  // ⑤ 出発済みの実績(その日の最後に観測した値)
+  const arch = ARCHIVE.filter(a => a.route === dir).slice(-21);
+  h += `<div class="sec">⑤ 出発済みの実績(直前の最終観測)</div><div class="card">`;
+  if (!arch.length){
+    h += `<div class="hint">実績はまだありません。日付が過ぎると「その日の最後に観測したY残席・スタンバイ数」が自動でここに貯まっていきます(明日から)。</div></div>`;
+  } else {
+    const m2 = new Map();
+    for (const a of arch) for (const f of (a.flights || [])) if (alOn[f.al] && !m2.has(f.fn)) m2.set(f.fn, f.dep);
+    const fns2 = [...m2.keys()].sort((x, y) => m2.get(x) < m2.get(y) ? -1 : 1);
+    h += `<div class="tablewrap"><table><thead><tr><th style="text-align:left">日付</th>`;
+    for (const fn of fns2) h += `<th>${fn}<br>${m2.get(fn)}</th>`;
+    h += `</tr></thead><tbody>`;
+    for (const a of arch){
+      const wd2 = new Date(a.date + "T00:00:00").getDay();
+      h += `<tr><td class="dt">${+a.date.slice(5,7)}/${+a.date.slice(8)}<span class="wd ${wd2===0?"sun":wd2===6?"sat":""}">${WDS[wd2]}</span>${holidayBadge(a.date)}</td>`;
+      for (const fn of fns2){
+        const f = (a.flights || []).find(x => x.fn === fn);
+        if (!f){ h += `<td><span class="cell">–</span></td>`; continue; }
+        const j = judge(f);
+        const sb2 = f.sb && f.sb.Y !== undefined ? `<span class="sb">SB ${f.sb.Y}</span>` : `<span class="sb">&nbsp;</span>`;
+        h += `<td><span class="cell j${j}"><span class="y">Y${f.Y ?? "?"}</span>${sb2}</span></td>`;
+      }
+      h += `</tr>`;
+    }
+    h += `</tbody></table></div><div class="hint">各日について「その日の最後に収集した時点」の値=締切直前の実勢に最も近い記録。ここが貯まるほど⑥の分析・予測が効いてきます。</div></div>`;
+  }
+
+  // ⑥ スタンバイの伸び方(リードタイム分析・JAL便)
+  const jlFns = [...new Set(DATA.snapshots.flatMap(s =>
+    Object.keys(s.days).flatMap(d2 => (((s.days[d2] || {})[dir]) || []).filter(f => f.al === "JL").map(f => f.fn))))].sort();
+  if (jlFns.length){
+    if (!jlFns.includes(ltFn)) ltFn = jlFns[0];
+    h += `<div class="sec">⑥ スタンバイの伸び方(出発までの日数別・JAL便)</div><div class="card">
+      <div class="ltseg">${jlFns.map(f2 => `<button class="ltbtn${f2 === ltFn ? " on" : ""}" data-fn="${f2}">${f2}</button>`).join("")}</div>
+      ${leadChart(ltFn)}
+      <div class="hint">横軸=出発までの日数(右端0=出発当日)。1本の線が1つの出発日。<b>色付き=これから出発する直近の日</b>・灰色=出発済み。収集が貯まるほど「何日前からどう伸びるか」のパターンが見え、直前予測に使えるようになります。</div></div>`;
+  }
+
   document.getElementById("app").className = "";
   document.getElementById("app").innerHTML = h;
   const sel = document.getElementById("trendsel");
   if (sel){ sel.addEventListener("change", renderTrend); renderTrend(); }
+  // C7: カレンダーのマスでウォッチ登録/解除、カードの×で解除
+  document.querySelectorAll(".cday[data-d]").forEach(el =>
+    el.addEventListener("click", () => toggleWatch(el.dataset.d, dir)));
+  document.querySelectorAll(".wdel").forEach(el =>
+    el.addEventListener("click", (ev) => { ev.stopPropagation(); const w = WATCH[+el.dataset.wi]; if (w) toggleWatch(w.d, w.dir); }));
+  // ⑥: 便切替
+  document.querySelectorAll(".ltbtn").forEach(el =>
+    el.addEventListener("click", () => { ltFn = el.dataset.fn; render(); }));
 }
 
 function sbChart(ds, jlCols){
@@ -475,6 +662,68 @@ function sbChart(ds, jlCols){
   s += `</svg></div><div class="chartlegend">` + jlCols.map((c, ci) =>
     `<span class="it"><span class="sw" style="background:${colors[ci % colors.length]}"></span>${c.fn} ${c.dep}発</span>`).join("") + `</div>
   <div class="hint">数字=スタンバイ登録人数(0の点は省略)。横にスクロールできます。</div>`;
+  return s;
+}
+
+// ⑥ リードタイムチャート: 便fnについて「出発までの日数×SB」を出発日ごとの折れ線で描く
+function leadChart(fn){
+  const MAXLEAD = 14;
+  const byDate = new Map();   // 出発日 -> Map(lead -> {sb, ts})
+  const put = (d2, lead, sb, ts) => {
+    if (lead < 0 || lead > MAXLEAD) return;
+    if (!byDate.has(d2)) byDate.set(d2, new Map());
+    const m = byDate.get(d2);
+    const cur = m.get(lead);
+    if (!cur || ts > cur.ts) m.set(lead, {sb, ts});   // 同じリード日数は最新の観測を採用
+  };
+  const dayOf = (ts) => { const t = new Date(ts); return new Date(t.getFullYear(), t.getMonth(), t.getDate()); };
+  for (const s of DATA.snapshots){
+    const snapDay = dayOf(s.ts);
+    for (const [d2, routes] of Object.entries(s.days)){
+      const f = (((routes || {})[dir]) || []).find(x => x.fn === fn);
+      if (!f || !f.sb || f.sb.Y === undefined) continue;
+      put(d2, Math.round((new Date(d2 + "T00:00:00") - snapDay) / 864e5), f.sb.Y, s.ts);
+    }
+  }
+  for (const a of ARCHIVE.filter(a => a.route === dir)){
+    const f = (a.flights || []).find(x => x.fn === fn);
+    if (!f || !f.sb || f.sb.Y === undefined) continue;
+    put(a.date, Math.round((new Date(a.date + "T00:00:00") - dayOf(a.ts)) / 864e5), f.sb.Y, a.ts);
+  }
+  if (!byDate.size) return `<div class="hint">この便のスタンバイ観測はまだありません。</div>`;
+
+  const t0 = todayIso();
+  const past = [...byDate.keys()].filter(d2 => d2 < t0).sort();
+  const upcoming = [...byDate.keys()].filter(d2 => d2 >= t0).sort().slice(0, 7);
+  const allPts = [...byDate.values()].flatMap(m => [...m.values()].map(v => v.sb));
+  const maxSb = Math.max(5, ...allPts);
+  const W = 720, H = 232, L = 40, R = 18, T = 18, B = 34;
+  const x = (lead) => L + (MAXLEAD - lead) * ((W - L - R) / MAXLEAD);
+  const y = (v) => T + (H - T - B) * (1 - v / maxSb);
+  let s = `<div class="tablewrap"><svg class="chart" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="スタンバイのリードタイム分析">`;
+  for (const g of [0, Math.round(maxSb/2), maxSb])
+    s += `<line class="axis" x1="${L}" y1="${y(g)}" x2="${W-R}" y2="${y(g)}"/><text class="tick" x="${L-6}" y="${y(g)+4}" text-anchor="end">${g}</text>`;
+  for (let ld2 = MAXLEAD; ld2 >= 0; ld2 -= 2)
+    s += `<text class="tick" x="${x(ld2)}" y="${H-16}" text-anchor="middle">${ld2 === 0 ? "当日" : ld2 + "日前"}</text>`;
+  const series = (d2, color, wgt, withLabels) => {
+    const pts = [...byDate.get(d2).entries()].sort((a, b) => b[0] - a[0]).map(([ld2, v]) => [x(ld2), y(v.sb), v.sb]);
+    if (!pts.length) return "";
+    let o = pts.length > 1
+      ? `<polyline fill="none" stroke="${color}" stroke-width="${wgt}" points="${pts.map(p => p[0] + "," + p[1]).join(" ")}"/>`
+      : "";
+    for (const p of pts){
+      o += `<circle cx="${p[0]}" cy="${p[1]}" r="${withLabels ? 3.2 : 2.2}" fill="${color}"/>`;
+      if (withLabels && p[2] > 0) o += `<text class="val" x="${p[0]}" y="${p[1]-8}" text-anchor="middle" fill="${color}">${p[2]}</text>`;
+    }
+    return o;
+  };
+  for (const d2 of past) s += series(d2, "color-mix(in srgb,var(--sub) 55%,transparent)", 1.5, false);
+  const palette = ["var(--red)", "var(--hover)", "var(--gold)", "var(--c-OZ)", "var(--c-KE)", "var(--c-NH)", "var(--ok)"];
+  upcoming.forEach((d2, i) => { s += series(d2, palette[i % palette.length], 2.5, true); });
+  s += `</svg></div><div class="chartlegend">`
+    + upcoming.map((d2, i) => `<span class="it"><span class="sw" style="background:${palette[i % palette.length]}"></span>${jd(d2)}発</span>`).join("")
+    + (past.length ? `<span class="it"><span class="sw" style="background:color-mix(in srgb,var(--sub) 55%,transparent)"></span>出発済み ${past.length}日分</span>` : "")
+    + `</div>`;
   return s;
 }
 
@@ -584,7 +833,11 @@ const EF_URL = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/hnd-gmp-mo
 Promise.allSettled([
   fetch(EF_URL).then(r => r.json()),
   fetch("./data.json", {cache: "no-cache"}).then(r => r.json()),
+  fetch(EF_URL + "?view=archive").then(r => r.json()),
 ]).then(results => {
+  if (results[2] && results[2].status === "fulfilled" && Array.isArray(results[2].value.archive)) {
+    ARCHIVE = results[2].value.archive;
+  }
   const sources = results
     .filter(r => r.status === "fulfilled" && r.value && r.value.latest && r.value.latest.days)
     .map(r => r.value);
@@ -606,7 +859,7 @@ Promise.allSettled([
   const ageH = (Date.now() - ts.getTime()) / 36e5;
   if (ageH >= 15) {
     const w = document.getElementById("stalewarn");
-    w.textContent = `⚠ データが古い可能性があります: 最終収集から約${Math.round(ageH)}時間経過。拡張の自動収集が止まっていないか確認するか、スマホ/PCから収集してください。`;
+    w.textContent = `⚠ データが古い可能性があります: 最終収集から約${Math.round(ageH)}時間経過。myIDTravelにログインして収集ボタン(PC拡張/スマホのブックマークレット)を押してください。`;
     w.style.display = "block";
   }
   document.getElementById("st-snap").textContent = j.snapshots.length;
