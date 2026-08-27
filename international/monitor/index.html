@@ -116,9 +116,11 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
 .lg{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--sub);flex:none}
 .lg .dot{width:17px;height:17px;border-radius:5px;flex:none;border:1px solid var(--hair);
   display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;line-height:1}
+/* 横スクロール中も右端に貼り付いて常に見えるように(スマホ対策) */
 .updbtn{margin-left:auto;flex:none;text-decoration:none;font-size:12px;font-weight:700;color:var(--red);
   border:1px solid var(--panel-edge);background:var(--panel);border-radius:999px;padding:5px 13px;
-  box-shadow:var(--card-shadow);white-space:nowrap;transition:all .15s}
+  position:sticky;right:0;z-index:2;
+  box-shadow:-10px 0 10px -6px rgba(0,0,0,.22),var(--card-shadow);white-space:nowrap;transition:all .15s}
 .updbtn:hover{border-color:var(--red);transform:translateY(-1px)}
 /* ---------- 本文 ---------- */
 main{max-width:1240px;margin:0 auto;padding:20px 22px 60px}
@@ -298,14 +300,22 @@ details.judgedef .jd .row .pill{flex:none;min-width:3.4em;text-align:center}
 .dpk-row .dv{margin-left:auto;font-size:11.5px;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap}
 .dpk-close{margin-top:10px;width:100%;border:1px solid var(--panel-edge);background:var(--chipbg);
   color:var(--ink);border-radius:999px;padding:9px;font-size:13px;font-weight:700;cursor:pointer}
-/* ⑥リードタイム 便切替 */
-.ltseg{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
-.ltbtn{border:1px solid var(--panel-edge);background:var(--panel);border-radius:999px;padding:5px 14px;
+/* ⑥リードタイム 便切替 / ③時間帯フィルタ(共通見た目) */
+.ltseg{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center}
+.ltbtn,.todbtn{border:1px solid var(--panel-edge);background:var(--panel);border-radius:999px;padding:5px 14px;
   font-size:12px;font-weight:700;cursor:pointer;box-shadow:var(--card-shadow);font-family:ui-monospace,"SF Mono",Menlo,monospace}
-.ltbtn.on{background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff;border-color:var(--red)}
+.ltbtn.on,.todbtn.on{background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff;border-color:var(--red)}
+.todbtn{font-family:inherit}
+.todlbl{font-size:10px;color:var(--sub);letter-spacing:.16em;font-weight:600;margin-right:2px}
 .loading{color:var(--sub);padding:40px;text-align:center;font-size:13px}
 footer{border-top:1px solid var(--hair);color:var(--sub);font-size:11px;
   padding:14px 22px 26px;text-align:center;letter-spacing:.04em}
+.ut-s{display:none}
+@media (max-width:560px){
+  /* 狭い画面ではラベルを「📲 更新」に短縮し、方向ボタンとの重なりを避ける */
+  .ut-l{display:none}
+  .ut-s{display:inline}
+}
 @media (max-width:760px){
   header{padding:12px 14px 10px;gap:4px 10px}
   .crest{width:36px;height:36px}.crest span{font-size:17px}
@@ -374,7 +384,7 @@ footer{border-top:1px solid var(--hair);color:var(--sub);font-size:11px;
   <span class="lg"><span class="dot" style="background:var(--ok-bg);color:var(--ok)">○</span>乗れる可能性 高</span>
   <span class="lg"><span class="dot" style="background:var(--warn-bg);color:var(--warn)">△</span>注意</span>
   <span class="lg"><span class="dot" style="background:var(--bad-bg);color:var(--bad)">×</span>厳しい</span>
-  <a href="./update.html" class="updbtn" title="iPhone/PCから手動で更新するためのブックマークレットを作成">📲 スマホで更新</a>
+  <a href="./update.html" class="updbtn" title="iPhone/PCから手動で更新するためのブックマークレットを作成">📲 <span class="ut-l">スマホで更新</span><span class="ut-s">更新</span></a>
 </div>
 <div class="healthbar" id="healthbar" hidden role="status"></div>
 
@@ -424,6 +434,18 @@ try {
   if (saved && typeof saved === "object") for (const k of Object.keys(alOn)) if (typeof saved[k] === "boolean") alOn[k] = saved[k];
 } catch (e) {}
 function saveAlOn(){ try { localStorage.setItem("hndgmpAlOn", JSON.stringify(alOn)); } catch (e) {} }
+
+// ③時間帯フィルタ: 方向ごとに「全便/午前/午後」を記憶する
+// (HND→GMPは朝便・GMP→HNDは夕方便に乗る、のような使い分けを想定。境界は12:00)
+const tod = {"HND-GMP": "all", "GMP-HND": "all"};
+try {
+  const savedTod = JSON.parse(localStorage.getItem("hndgmpTod") || "null");
+  if (savedTod && typeof savedTod === "object")
+    for (const k of Object.keys(tod)) if (["all","am","pm"].includes(savedTod[k])) tod[k] = savedTod[k];
+} catch (e) {}
+function saveTod(){ try { localStorage.setItem("hndgmpTod", JSON.stringify(tod)); } catch (e) {} }
+function inTod(f){ const m = tod[dir]; return m === "all" || (m === "am" ? f.dep < "12:00" : f.dep >= "12:00"); }
+const todLabel = () => tod[dir] === "am" ? "午前便" : tod[dir] === "pm" ? "午後便" : "";
 
 // 日韓の祝日(2026-08〜2027-01)。カレンダー/ヒートマップに小バッジ表示
 const HOLIDAYS = {
@@ -630,8 +652,11 @@ function render(){
     h += `<div class="sec">② JAL便 スタンバイ数(日別・最新収集)</div><div class="card">${sbChart(ds, jlCols)}</div>`;
   }
 
-  // ③ 乗りやすい日カレンダー(○△×)
-  h += `<div class="sec">③ いつなら乗れるか(判定カレンダー)</div><div class="card"><div class="calwrap"><div class="cal">`;
+  // ③ 乗りやすい日カレンダー(○△×) — 時間帯(全便/午前/午後)で絞って判定できる
+  h += `<div class="sec">③ いつなら乗れるか(判定カレンダー)</div><div class="card">
+  <div class="ltseg"><span class="todlbl">時間帯</span>${[["all","全便"],["am","午前 〜12時"],["pm","午後 12時〜"]]
+    .map(([k, l]) => `<button class="todbtn${tod[dir] === k ? " on" : ""}" data-tod="${k}">${l}</button>`).join("")}</div>
+  <div class="calwrap"><div class="cal">`;
   const WDS = ["日","月","火","水","木","金","土"];
   WDS.forEach((w, i) => { h += `<div class="calhead ${i===0?"sun":i===6?"sat":""}">${w}</div>`; });
   const first = new Date(ds[0] + "T00:00:00");
@@ -641,7 +666,16 @@ function render(){
     const iso = cur.getFullYear() + "-" + String(cur.getMonth()+1).padStart(2,"0") + "-" + String(cur.getDate()).padStart(2,"0");
     if (iso > dLast) break;
     if (!ds.includes(iso)){ h += `<div class="cday blank"></div>`; continue; }
-    const fl = flightsOf(iso);
+    const fl = flightsOf(iso).filter(inTod);
+    if (!fl.length){
+      // 選択中の時間帯に便がない日(当日の出発済みなど)。タップすれば全便リストは開ける
+      const wd0 = cur.getDay();
+      h += `<div class="cday" data-d="${iso}" title="${jd(iso)} ${todLabel() || "この時間帯"}の便データなし ／ クリックで全便リスト">
+        <span class="cd" style="${wd0===0?"color:var(--red)":wd0===6?"color:var(--hover)":""}">${+iso.slice(5,7)}/${+iso.slice(8)}<span class="wd">${WDS[wd0]}</span>${holidayBadge(iso)}</span>
+        <span class="sym" style="color:var(--sub)">–</span>
+        <span class="bf">便なし</span></div>`;
+      continue;
+    }
     const ranked = fl.map(f => ({f, j: judge(f)})).sort((a,b) => a.j - b.j || ((a.f.sb?.Y ?? 99) - (b.f.sb?.Y ?? 99)));
     const top = ranked[0];
     const sym = top.j === 0 ? "○" : top.j === 1 ? "△" : "×";
@@ -649,7 +683,7 @@ function render(){
     const sb = top.f.sb && top.f.sb.Y !== undefined ? `・SB${top.f.sb.Y}` : "";
     const wd = cur.getDay();
     const watched = dayHasWatch(iso, dir);
-    const tip = `${jd(iso)} ベスト: ${top.f.fn} ${top.f.dep}発 / Y${top.f.Y ?? "?"} / chance ${top.f.chance}${sb} ／ 見込み高の便: ${nOk}便${holidayTip(iso)} ／ クリックで便を選んでウォッチ`;
+    const tip = `${jd(iso)}${todLabel() ? " [" + todLabel() + "]" : ""} ベスト: ${top.f.fn} ${top.f.dep}発 / Y${top.f.Y ?? "?"} / chance ${top.f.chance}${sb} ／ 見込み高の便: ${nOk}便${holidayTip(iso)} ／ クリックで便を選んでウォッチ`;
     h += `<div class="cday j${top.j}${watched ? " watched" : ""}" data-d="${iso}" title="${tip.replace(/"/g,"&quot;")}">
       ${watched ? `<span class="wstar">★</span>` : ""}
       <span class="cd" style="${wd===0?"color:var(--red)":wd===6?"color:var(--hover)":""}">${+iso.slice(5,7)}/${+iso.slice(8)}<span class="wd">${WDS[wd]}</span>${holidayBadge(iso)}</span>
@@ -659,7 +693,7 @@ function render(){
     </div>`;
   }
   h += `</div></div>
-  <div class="hint">記号=その日いちばん乗りやすい便の判定(○ 見込み高／△ 注意／× 厳しい)。マスの下段はベスト便とY残席・スタンバイ数(JALのみ)、「○N便」=見込み高の便がN便ある日。<b>マスをクリック(タップ)するとその日の全便リストが開き、好きな便(他社便もOK)を選んでウォッチ登録</b>できます。登録した便はページ上部に大きく表示されます。<span class="hd jp">日</span><span class="hd kr">韓</span>=祝日。</div></div>`;
+  <div class="hint">記号=その日いちばん乗りやすい便の判定(○ 見込み高／△ 注意／× 厳しい)。<b>「午前/午後」で時間帯を絞ると、その時間帯に出る便だけで判定</b>します(例: GMP→HNDで夕方に乗りたい→「午後」。選択は方向ごとに記憶)。マスの下段はベスト便とY残席・スタンバイ数(JALのみ)、「○N便」=見込み高の便がN便ある日。<b>マスをクリック(タップ)するとその日の全便リストが開き、好きな便(他社便もOK)を選んでウォッチ登録</b>できます。登録した便はページ上部に大きく表示されます。<span class="hd jp">日</span><span class="hd kr">韓</span>=祝日。</div></div>`;
 
   // ④ 収集履歴での変化
   h += `<div class="sec">④ 収集履歴での変化(スナップショット比較)</div><div class="card">
@@ -714,6 +748,9 @@ function render(){
     el.addEventListener("click", () => openDayPicker(el.dataset.d)));
   document.querySelectorAll(".wdel").forEach(el =>
     el.addEventListener("click", (ev) => { ev.stopPropagation(); const w = WATCH[+el.dataset.wi]; if (w) { toggleWatch(w.d, w.dir, w.fn); render(); } }));
+  // ③: 時間帯フィルタ切替(方向ごとに記憶)
+  document.querySelectorAll(".todbtn").forEach(el =>
+    el.addEventListener("click", () => { tod[dir] = el.dataset.tod; saveTod(); render(); }));
   // ⑥: 便切替
   document.querySelectorAll(".ltbtn").forEach(el =>
     el.addEventListener("click", () => { ltFn = el.dataset.fn; render(); }));
