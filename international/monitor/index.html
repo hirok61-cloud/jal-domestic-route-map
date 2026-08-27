@@ -278,6 +278,26 @@ details.judgedef .jd .row .pill{flex:none;min-width:3.4em;text-align:center}
 .wsb{margin-top:5px;font-size:11px;color:var(--sub);font-variant-numeric:tabular-nums}
 .wnone{font-size:12px;color:var(--sub)}
 .wstar{position:absolute;top:1px;right:4px;font-size:10px;color:var(--gold)}
+/* 便選択ピッカー(日付タップで開く) */
+.dpk-ov{position:fixed;inset:0;background:rgba(10,10,14,.45);z-index:1000;
+  display:flex;align-items:center;justify-content:center;padding:16px}
+.dpk{background:var(--panel);border:1px solid var(--panel-edge);border-radius:16px;box-shadow:var(--shadow);
+  width:100%;max-width:430px;max-height:82vh;overflow:auto;padding:15px 16px 13px}
+.dpk h3{margin:0 0 2px;font-size:15.5px;letter-spacing:.02em}
+.dpk-sub{font-size:11px;color:var(--sub);margin-bottom:9px}
+.dpk-row{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;cursor:pointer;
+  border:1px solid transparent;transition:background .12s}
+.dpk-row:hover{background:var(--chipbg)}
+.dpk-row.on{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 13%,transparent)}
+.dpk-row .st{font-size:15px;color:var(--gold);width:18px;text-align:center;flex:none}
+.dpk-row .sy{font-weight:800;width:18px;text-align:center;flex:none}
+.dpk-row .sy.s0{color:var(--ok)} .dpk-row .sy.s1{color:var(--warn)} .dpk-row .sy.s2{color:var(--bad)}
+.dpk-row .op{width:9px;height:9px;border-radius:3px;background:var(--oc,#888);flex:none}
+.dpk-row b{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:13.5px}
+.dpk-row .tm{font-size:12px;color:var(--sub)}
+.dpk-row .dv{margin-left:auto;font-size:11.5px;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap}
+.dpk-close{margin-top:10px;width:100%;border:1px solid var(--panel-edge);background:var(--chipbg);
+  color:var(--ink);border-radius:999px;padding:9px;font-size:13px;font-weight:700;cursor:pointer}
 /* ⑥リードタイム 便切替 */
 .ltseg{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
 .ltbtn{border:1px solid var(--panel-edge);background:var(--panel);border-radius:999px;padding:5px 14px;
@@ -446,13 +466,46 @@ function todayIso(){
   const t = new Date();
   return t.getFullYear() + "-" + String(t.getMonth()+1).padStart(2,"0") + "-" + String(t.getDate()).padStart(2,"0");
 }
-WATCH = WATCH.filter(w => w && w.d >= todayIso());
+// 便単位のウォッチ({d, dir, fn})。旧形式(便なし)と過去日は捨てる
+WATCH = WATCH.filter(w => w && w.d >= todayIso() && w.fn);
 function saveWatch(){ try { localStorage.setItem("hndgmpWatch", JSON.stringify(WATCH)); } catch (e) {} }
-function isWatched(d, dr){ return WATCH.some(w => w.d === d && w.dir === dr); }
-function toggleWatch(d, dr){
-  if (isWatched(d, dr)) WATCH = WATCH.filter(w => !(w.d === d && w.dir === dr));
-  else { WATCH.push({d, dir: dr}); WATCH.sort((a,b) => a.d < b.d ? -1 : 1); }
-  saveWatch(); render();
+function isWatched(d, dr, fn){ return WATCH.some(w => w.d === d && w.dir === dr && w.fn === fn); }
+function dayHasWatch(d, dr){ return WATCH.some(w => w.d === d && w.dir === dr); }
+function toggleWatch(d, dr, fn){
+  if (isWatched(d, dr, fn)) WATCH = WATCH.filter(w => !(w.d === d && w.dir === dr && w.fn === fn));
+  else { WATCH.push({d, dir: dr, fn}); WATCH.sort((a,b) => a.d < b.d ? -1 : (a.fn < b.fn ? -1 : 1)); }
+  saveWatch();
+}
+
+// 日付をタップ→その日の全便(JAL以外も)から選んでウォッチするピッカー
+function openDayPicker(iso){
+  const fl = flightsOf(iso).slice().sort((a,b) => a.dep < b.dep ? -1 : 1);
+  if (!fl.length) return;
+  const ov = document.createElement("div");
+  ov.className = "dpk-ov";
+  const rows = fl.map(f => {
+    const j = judge(f);
+    const sym = j === 0 ? "○" : j === 1 ? "△" : "×";
+    const on = isWatched(iso, dir, f.fn);
+    const sb = f.sb && f.sb.Y !== undefined ? `・SB${f.sb.Y}` : "";
+    return `<div class="dpk-row${on ? " on" : ""}" data-fn="${f.fn}">
+      <span class="st">${on ? "★" : "☆"}</span><span class="sy s${j}">${sym}</span>
+      <span class="op" style="--oc:${(AL[f.al]||{}).c||"#888"}"></span><b>${f.fn}</b><span class="tm">${f.dep}</span>
+      <span class="dv">Y${f.Y ?? "?"}${sb}</span></div>`;
+  }).join("");
+  ov.innerHTML = `<div class="dpk"><h3>${jd(iso)}${holidayBadge(iso)} の便をウォッチ</h3>
+    <div class="dpk-sub">${dir.replace("-", " → ")} ／ 便をタップで登録・解除(★)。上部に大きく表示されます</div>
+    ${rows}<button class="dpk-close">閉じる</button></div>`;
+  const close = () => { ov.remove(); render(); };
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  ov.querySelector(".dpk-close").addEventListener("click", close);
+  ov.querySelectorAll(".dpk-row").forEach(r => r.addEventListener("click", () => {
+    toggleWatch(iso, dir, r.dataset.fn);
+    const on = isWatched(iso, dir, r.dataset.fn);
+    r.classList.toggle("on", on);
+    r.querySelector(".st").textContent = on ? "★" : "☆";
+  }));
+  document.body.appendChild(ov);
 }
 
 // 出発済み日の実績(サーバの最終観測値)。読み込みは起動時に1回
@@ -516,30 +569,29 @@ function render(){
     }
   }
 
-  // C7: ウォッチ中の日(カレンダーのマスをクリックで登録/解除)
+  // C7: ウォッチ中の便(カレンダーの日付タップ→便を選んで登録)
   if (WATCH.length){
     h += `<div class="wgrid">`;
     WATCH.forEach((w, wi) => {
-      const fl = ((latestDays()[w.d] || {})[w.dir] || []).filter(f => alOn[f.al]);
+      const f = ((latestDays()[w.d] || {})[w.dir] || []).find(x => x.fn === w.fn);
       const dleft = Math.round((new Date(w.d + "T00:00:00") - new Date(tIso + "T00:00:00")) / 864e5);
       const leftTxt = dleft === 0 ? "今日" : "あと" + dleft + "日";
-      if (!fl.length){
-        h += `<div class="wcard"><button class="wdel" data-wi="${wi}">×</button><div class="wdate">${jd(w.d)} <span class="wleft">${leftTxt}</span></div><div class="wdir">${w.dir.replace("-"," → ")}</div><div class="wnone">データなし</div></div>`;
+      if (!f){
+        h += `<div class="wcard"><button class="wdel" data-wi="${wi}">×</button><div class="wdate">${jd(w.d)} <span class="wleft">${leftTxt}</span></div><div class="wdir">${w.dir.replace("-"," → ")} ${w.fn}</div><div class="wnone">データなし(出発済み/欠航の可能性)</div></div>`;
         return;
       }
-      const ranked = fl.map(f => ({f, j: judge(f)})).sort((a,b) => a.j - b.j || ((a.f.sb?.Y ?? 99) - (b.f.sb?.Y ?? 99)));
-      const top = ranked[0];
-      const sym = top.j === 0 ? "○" : top.j === 1 ? "△" : "×";
-      const sb = top.f.sb && top.f.sb.Y !== undefined ? `・SB${top.f.sb.Y}` : "";
-      // ベスト便のSB推移(直近5収集)
+      const j = judge(f);
+      const sym = j === 0 ? "○" : j === 1 ? "△" : "×";
+      const sb = f.sb && f.sb.Y !== undefined ? `・SB${f.sb.Y}` : "";
+      // この便のSB推移(直近5収集・JAL便のみデータあり)
       let sbTrend = "";
-      const hist = DATA.snapshots.map(s => (((s.days[w.d] || {})[w.dir]) || []).find(x => x.fn === top.f.fn))
-        .filter(f => f && f.sb && f.sb.Y !== undefined).map(f => f.sb.Y).slice(-5);
+      const hist = DATA.snapshots.map(s => (((s.days[w.d] || {})[w.dir]) || []).find(x => x.fn === w.fn))
+        .filter(x => x && x.sb && x.sb.Y !== undefined).map(x => x.sb.Y).slice(-5);
       if (hist.length >= 2) sbTrend = `<div class="wsb">SB推移: ${hist.join("→")}</div>`;
-      h += `<div class="wcard wj${top.j}"><button class="wdel" data-wi="${wi}" title="ウォッチ解除">×</button>
+      h += `<div class="wcard wj${j}"><button class="wdel" data-wi="${wi}" title="ウォッチ解除">×</button>
         <div class="wdate">${jd(w.d)}${holidayBadge(w.d)} <span class="wleft">${leftTxt}</span></div>
         <div class="wdir">${w.dir.replace("-", " → ")}</div>
-        <div class="wmain"><span class="wsym s${top.j}">${sym}</span><div class="winfo"><b>${top.f.fn}</b> ${top.f.dep}発<br><span class="wv">Y${top.f.Y ?? "?"}${sb}${ranked.filter(x=>x.j===0).length > 1 ? "・○" + ranked.filter(x=>x.j===0).length + "便" : ""}</span></div></div>
+        <div class="wmain"><span class="wsym s${j}">${sym}</span><div class="winfo"><b>${f.fn}</b> ${f.dep}発<br><span class="wv">Y${f.Y ?? "?"}${sb} / chance ${f.chance || "?"}</span></div></div>
         ${sbTrend}</div>`;
     });
     h += `</div>`;
@@ -596,8 +648,8 @@ function render(){
     const nOk = ranked.filter(x => x.j === 0).length;
     const sb = top.f.sb && top.f.sb.Y !== undefined ? `・SB${top.f.sb.Y}` : "";
     const wd = cur.getDay();
-    const watched = isWatched(iso, dir);
-    const tip = `${jd(iso)} ベスト: ${top.f.fn} ${top.f.dep}発 / Y${top.f.Y ?? "?"} / chance ${top.f.chance}${sb} ／ 見込み高の便: ${nOk}便${holidayTip(iso)} ／ クリックでウォッチ${watched ? "解除" : "登録"}`;
+    const watched = dayHasWatch(iso, dir);
+    const tip = `${jd(iso)} ベスト: ${top.f.fn} ${top.f.dep}発 / Y${top.f.Y ?? "?"} / chance ${top.f.chance}${sb} ／ 見込み高の便: ${nOk}便${holidayTip(iso)} ／ クリックで便を選んでウォッチ`;
     h += `<div class="cday j${top.j}${watched ? " watched" : ""}" data-d="${iso}" title="${tip.replace(/"/g,"&quot;")}">
       ${watched ? `<span class="wstar">★</span>` : ""}
       <span class="cd" style="${wd===0?"color:var(--red)":wd===6?"color:var(--hover)":""}">${+iso.slice(5,7)}/${+iso.slice(8)}<span class="wd">${WDS[wd]}</span>${holidayBadge(iso)}</span>
@@ -607,7 +659,7 @@ function render(){
     </div>`;
   }
   h += `</div></div>
-  <div class="hint">記号=その日いちばん乗りやすい便の判定(○ 見込み高／△ 注意／× 厳しい)。マスの下段はベスト便とY残席・スタンバイ数(JALのみ)、「○N便」=見込み高の便がN便ある日。<b>マスをクリック(タップ)すると「この日をウォッチ」に登録</b>され、ページ上部に大きく表示されます(もう一度で解除)。<span class="hd jp">日</span><span class="hd kr">韓</span>=祝日。</div></div>`;
+  <div class="hint">記号=その日いちばん乗りやすい便の判定(○ 見込み高／△ 注意／× 厳しい)。マスの下段はベスト便とY残席・スタンバイ数(JALのみ)、「○N便」=見込み高の便がN便ある日。<b>マスをクリック(タップ)するとその日の全便リストが開き、好きな便(他社便もOK)を選んでウォッチ登録</b>できます。登録した便はページ上部に大きく表示されます。<span class="hd jp">日</span><span class="hd kr">韓</span>=祝日。</div></div>`;
 
   // ④ 収集履歴での変化
   h += `<div class="sec">④ 収集履歴での変化(スナップショット比較)</div><div class="card">
@@ -657,11 +709,11 @@ function render(){
   document.getElementById("app").innerHTML = h;
   const sel = document.getElementById("trendsel");
   if (sel){ sel.addEventListener("change", renderTrend); renderTrend(); }
-  // C7: カレンダーのマスでウォッチ登録/解除、カードの×で解除
+  // C7: カレンダーのマス→便選択ピッカー、カードの×で解除
   document.querySelectorAll(".cday[data-d]").forEach(el =>
-    el.addEventListener("click", () => toggleWatch(el.dataset.d, dir)));
+    el.addEventListener("click", () => openDayPicker(el.dataset.d)));
   document.querySelectorAll(".wdel").forEach(el =>
-    el.addEventListener("click", (ev) => { ev.stopPropagation(); const w = WATCH[+el.dataset.wi]; if (w) toggleWatch(w.d, w.dir); }));
+    el.addEventListener("click", (ev) => { ev.stopPropagation(); const w = WATCH[+el.dataset.wi]; if (w) { toggleWatch(w.d, w.dir, w.fn); render(); } }));
   // ⑥: 便切替
   document.querySelectorAll(".ltbtn").forEach(el =>
     el.addEventListener("click", () => { ltFn = el.dataset.fn; render(); }));
@@ -704,7 +756,7 @@ function sbChart(ds, jlCols){
 
 // ⑥ リードタイムチャート: 便fnについて「出発までの日数×SB」を出発日ごとの折れ線で描く
 function leadChart(fn){
-  const MAXLEAD = 14;
+  const MAXLEAD = 7;   // 7日前からの推移を見る
   const byDate = new Map();   // 出発日 -> Map(lead -> {sb, ts})
   const put = (d2, lead, sb, ts) => {
     if (lead < 0 || lead > MAXLEAD) return;
@@ -740,7 +792,7 @@ function leadChart(fn){
   let s = `<div class="tablewrap"><svg class="chart" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="スタンバイのリードタイム分析">`;
   for (const g of [0, Math.round(maxSb/2), maxSb])
     s += `<line class="axis" x1="${L}" y1="${y(g)}" x2="${W-R}" y2="${y(g)}"/><text class="tick" x="${L-6}" y="${y(g)+4}" text-anchor="end">${g}</text>`;
-  for (let ld2 = MAXLEAD; ld2 >= 0; ld2 -= 2)
+  for (let ld2 = MAXLEAD; ld2 >= 0; ld2 -= 1)
     s += `<text class="tick" x="${x(ld2)}" y="${H-16}" text-anchor="middle">${ld2 === 0 ? "当日" : ld2 + "日前"}</text>`;
   const series = (d2, color, wgt, withLabels) => {
     const pts = [...byDate.get(d2).entries()].sort((a, b) => b[0] - a[0]).map(([ld2, v]) => [x(ld2), y(v.sb), v.sb]);
