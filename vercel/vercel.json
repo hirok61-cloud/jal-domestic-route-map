@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    { "source": "/international/zed", "destination": "/api/zed-page" },
+    { "source": "/international/zed/", "destination": "/api/zed-page" },
+    { "source": "/international/zed/data.json", "destination": "/api/zed-data" },
+    { "source": "/(.*)", "destination": "https://hirok61-cloud.github.io/jal-domestic-route-map/$1" }
+  ]
+}
