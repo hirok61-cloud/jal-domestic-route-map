@@ -1,0 +1,28 @@
+{
+  // JALグループ路線マップ サイト本体（Cloudflare Workers）。
+  //   本番: https://jal-route-map.hiro-k61.workers.dev
+  //   デプロイ: npx wrangler@latest deploy
+  //
+  // Vercel時代の4プロジェクト（本体 + relay×3）を1本に統合したもの。
+  // 旧構成は vercel/ に回収してある。
+  "name": "jal-route-map",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-08-01",
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    // ここに挙げたパスだけがWorkerに届く。残りは静的ファイルが直接返るので速い。
+    // ZEDは配下まるごと通して、Worker側で認証してから配る。
+    "run_worker_first": ["/api/*", "/international/zed", "/international/zed/*"]
+  },
+  "kv_namespaces": [
+    {
+      // ZEDのdata.json（公開リポジトリから外した本体データ）の置き場所
+      "binding": "PRIVATE",
+      "id": "f3957ad140ed4d39b59b0804c3971ea6"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

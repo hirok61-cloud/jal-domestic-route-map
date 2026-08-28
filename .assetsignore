@@ -1,0 +1,19 @@
+# 配信しないもの。ソースや作業用ファイルはサイトの一部ではない。
+.git
+.gitignore
+.assetsignore
+.wrangler
+.secret-hashes
+.DS_Store
+node_modules
+package.json
+package-lock.json
+wrangler.jsonc
+worker
+vercel
+relay
+supabase
+tools
+extension
+docs
+international/zed/data.json
