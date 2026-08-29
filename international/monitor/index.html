@@ -495,15 +495,37 @@ function saveAlOn(){ try { localStorage.setItem("hndgmpAlOn", JSON.stringify(alO
 const TODS = {am: ["午前", "〜12時", t => t < "12:00"],
               pm: ["午後", "12〜17時", t => t >= "12:00" && t < "17:00"],
               eve: ["夕方", "17時〜", t => t >= "17:00"]};
-const tod = {"HND-GMP": "all", "GMP-HND": "all"};
+// 時間帯は複数選べる(例: 午後+夕方)。方向ごとに「選んだ帯の配列」で持つ。
+// 全帯そろっている状態 = 「全便」。旧形式(単一選択の文字列)は読み込み時に配列へ移行する。
+const TOD_KEYS = Object.keys(TODS);
+const tod = {"HND-GMP": TOD_KEYS.slice(), "GMP-HND": TOD_KEYS.slice()};
 try {
   const savedTod = JSON.parse(localStorage.getItem("hndgmpTod") || "null");
-  if (savedTod && typeof savedTod === "object")
-    for (const k of Object.keys(tod)) if (savedTod[k] === "all" || TODS[savedTod[k]]) tod[k] = savedTod[k];
+  if (savedTod && typeof savedTod === "object"){
+    for (const k of Object.keys(tod)){
+      const v = savedTod[k];
+      const arr = Array.isArray(v) ? v : (v === "all" ? TOD_KEYS.slice() : (TODS[v] ? [v] : null));
+      if (arr){ const cl = TOD_KEYS.filter(x => arr.includes(x)); if (cl.length) tod[k] = cl; }
+    }
+  }
 } catch (e) {}
 function saveTod(){ try { localStorage.setItem("hndgmpTod", JSON.stringify(tod)); } catch (e) {} }
-function inTod(f){ const m = tod[dir]; return m === "all" || TODS[m][2](f.dep); }
-const todLabel = () => TODS[tod[dir]] ? TODS[tod[dir]][0] + "便" : "";
+const todSel = () => { const m = tod[dir]; return (m && m.length) ? m : TOD_KEYS; };
+const todIsAll = () => todSel().length === TOD_KEYS.length;
+function inTod(f){ return todIsAll() || todSel().some(k => TODS[k][2](f.dep)); }
+const todLabel = () => todIsAll() ? "" : todSel().map(k => TODS[k][0]).join("・") + "便";
+// 「全便」からは単独選択(旧UXのまま)、絞り込み中は追加/解除のトグル。全部外したら全便に戻す。
+function toggleTod(k){
+  if (k === "all") tod[dir] = TOD_KEYS.slice();
+  else {
+    const cur = todSel();
+    let next = todIsAll() ? [k]
+      : cur.includes(k) ? cur.filter(x => x !== k)
+      : TOD_KEYS.filter(x => cur.includes(x) || x === k);
+    tod[dir] = next.length ? next : TOD_KEYS.slice();
+  }
+  saveTod(); render();
+}
 
 // 日韓の祝日(2026-08〜2027-12)。カレンダー/ヒートマップに小バッジ表示
 // ※旧暦連動(ソルラル・釈迦誕生日・秋夕)は毎年変わるので年1回ここを更新すること
@@ -746,8 +768,9 @@ function render(){
 
   // ③ 乗りやすい日カレンダー(○△×) — 時間帯(全便/午前/午後)で絞って判定できる
   h += `<div class="sec">③ いつなら乗れるか(判定カレンダー)</div><div class="card">
-  <div class="ltseg"><span class="todlbl">時間帯</span>${[["all", "全便"], ...Object.entries(TODS).map(([k, v]) => [k, `${v[0]} ${v[1]}`])]
-    .map(([k, l]) => `<button class="todbtn${tod[dir] === k ? " on" : ""}" data-tod="${k}">${l}</button>`).join("")}</div>
+  <div class="ltseg"><span class="todlbl">時間帯</span>${[["all", "全便", todIsAll()],
+    ...TOD_KEYS.map(k => [k, `${TODS[k][0]} ${TODS[k][1]}`, !todIsAll() && todSel().includes(k)])]
+    .map(([k, l, on]) => `<button class="todbtn${on ? " on" : ""}" data-tod="${k}" aria-pressed="${on}">${l}</button>`).join("")}</div>
   <div class="calwrap"><div class="cal">`;
   const WDS = ["日","月","火","水","木","金","土"];
   WDS.forEach((w, i) => { h += `<div class="calhead ${i===0?"sun":i===6?"sat":""}">${w}</div>`; });
@@ -785,7 +808,7 @@ function render(){
     </div>`;
   }
   h += `</div></div>
-  <div class="hint">記号=その日いちばん乗りやすい便の判定(○ 見込み高／△ 注意／× 厳しい)。<b>「午前/午後/夕方」で時間帯を絞ると、その時間帯に出る便だけで判定</b>します(例: GMP→HNDで夕方に乗りたい→「夕方」。選択は方向ごとに記憶)。マスの下段はベスト便とY残席・スタンバイ数(JALのみ)、「○N便」=見込み高の便がN便ある日。<b>マスをクリック(タップ)するとその日の全便リストが開き、好きな便(他社便もOK)を選んでウォッチ登録</b>できます。登録した便はページ上部に大きく表示されます。<span class="hd jp">日</span><span class="hd kr">韓</span>=祝日。</div></div>`;
+  <div class="hint">記号=その日いちばん乗りやすい便の判定(○ 見込み高／△ 注意／× 厳しい)。<b>「午前/午後/夕方」で時間帯を絞ると、その時間帯に出る便だけで判定</b>します。<b>時間帯は複数選べます</b> — 「全便」から1つ押すとその帯だけになり、そこから他の帯を押すと足し引きできます(例: 午前は不要で「午後」+「夕方」だけを見る)。全部外すと全便に戻ります。選択は方向ごとに記憶。マスの下段はベスト便とY残席・スタンバイ数(JALのみ)、「○N便」=見込み高の便がN便ある日。<b>マスをクリック(タップ)するとその日の全便リストが開き、好きな便(他社便もOK)を選んでウォッチ登録</b>できます。登録した便はページ上部に大きく表示されます。<span class="hd jp">日</span><span class="hd kr">韓</span>=祝日。</div></div>`;
 
   // ④ 収集履歴での変化
   h += `<div class="sec">④ 収集履歴での変化(スナップショット比較)</div><div class="card">
@@ -873,9 +896,9 @@ function render(){
     el.addEventListener("click", () => openDayPicker(el.dataset.d)));
   document.querySelectorAll(".wdel").forEach(el =>
     el.addEventListener("click", (ev) => { ev.stopPropagation(); const w = WATCH[+el.dataset.wi]; if (w) { toggleWatch(w.d, w.dir, w.fn); render(); } }));
-  // ③: 時間帯フィルタ切替(方向ごとに記憶)
+  // ③: 時間帯フィルタ切替(複数選択・方向ごとに記憶)
   document.querySelectorAll(".todbtn").forEach(el =>
-    el.addEventListener("click", () => { tod[dir] = el.dataset.tod; saveTod(); render(); }));
+    el.addEventListener("click", () => toggleTod(el.dataset.tod)));
   // ⑥: 便切替
   document.querySelectorAll(".ltbtn").forEach(el =>
     el.addEventListener("click", () => { ltFn = el.dataset.fn; render(); }));
