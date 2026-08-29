@@ -434,11 +434,16 @@ function renderHealth(j){
 
 let DATA = null;
 let dir = "HND-GMP";
-// 航空会社フィルタ: NHはデフォルトOFF(気になる時にタップでON)。変更は端末に記憶する
-const alOn = {JL:true, NH:false, OZ:true, KE:true};
+// 航空会社フィルタ: NH・OZはデフォルトOFF(気になる時にタップでON)。変更は端末に記憶する
+const alOn = {JL:true, NH:false, OZ:false, KE:true};
 try {
   const saved = JSON.parse(localStorage.getItem("hndgmpAlOn") || "null");
   if (saved && typeof saved === "object") for (const k of Object.keys(alOn)) if (typeof saved[k] === "boolean") alOn[k] = saved[k];
+  // 既存端末には旧デフォルト(OZ:ON)が保存済みなので、OZをOFFにする変更を1回だけ適用する
+  if (localStorage.getItem("hndgmpAlOnV") !== "2"){
+    if (saved) { alOn.OZ = false; localStorage.setItem("hndgmpAlOn", JSON.stringify(alOn)); }
+    localStorage.setItem("hndgmpAlOnV", "2");
+  }
 } catch (e) {}
 function saveAlOn(){ try { localStorage.setItem("hndgmpAlOn", JSON.stringify(alOn)); } catch (e) {} }
 
