@@ -325,6 +325,7 @@ export default {
     const url = new URL(request.url);
     const p = url.pathname;
 
+
     if (p === "/api/save") return handleSave(request);
     if (p === "/api/flyzed") return handleFlyzed(request, env, url);
     if (p === "/api/alliances") return handleAlliances(request, env);
@@ -345,8 +346,12 @@ export default {
         });
       }
 
+      /* ページ本体。アセット側は html_handling が既定の "auto-trailing-slash" なので、
+         index.html を名指しで頼むと "/international/zed/" への307が返ってくる。
+         それをこのWorkerがそのまま返すと同じパスに戻ってリダイレクトループになる
+         （2026-08-29に実際に踏んだ）。ディレクトリ形式で頼めば中身が返る。 */
       if (p === "/international/zed" || p === "/international/zed/") {
-        return env.ASSETS.fetch(new Request(new URL("/international/zed/index.html", url), request));
+        return env.ASSETS.fetch(new Request(new URL("/international/zed/", url), request));
       }
       return env.ASSETS.fetch(request); // assets/ 配下のアライアンス章など
     }
