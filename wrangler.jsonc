@@ -1,7 +1,8 @@
 {
   // JALグループ路線マップ サイト本体（Cloudflare Workers）。
   //   本番: https://jal-route-map.hiro-k61.workers.dev
-  //   デプロイ: npx wrangler@latest deploy
+  //   デプロイ: mainへのpushでWorkers Buildsが自動デプロイ（2026-08-30接続）。
+  //             手動で上げたいときは npx wrangler@latest deploy でも可（後勝ち）。
   //
   // Vercel時代の4プロジェクト（本体 + relay×3）を1本に統合したもの。
   // 旧構成は vercel/ に回収してある。
