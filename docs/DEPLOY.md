@@ -29,3 +29,16 @@ npx wrangler@latest deploy
   Cloudflare は Workers Builds が担当する。片方だけ更新されている状態に注意すること
 - 空コミットは監視パスに一致しないためビルドが走らない（疎通確認には実ファイルの変更が要る）
 - 配信対象から外すものは `.assetsignore` に書く（`node_modules` や `worker/` などはここで除外済み）
+
+## 接続でハマった点（2026-08-29）
+
+- **Worker の接続先リポジトリを間違えやすい。** 一度 `uas-exam-3d-visualizer` に繋がっており、
+  `jal-domestic-route-map` へ push してもビルドは起動しなかった。
+  設定 → ビルド の「Git リポジトリ」欄で接続先を必ず確認すること
+- **Cloudflare の GitHub アプリ側にも、対象リポジトリのアクセス権が要る。**
+  https://github.com/settings/installations → Cloudflare → Configure →
+  Repository access に `jal-domestic-route-map` を追加する。
+  ここが無いと、Cloudflare 側の候補リストにリポジトリが出てこない
+- 起動したかどうかは `npx wrangler@latest versions list` の最新 Created 時刻で判定できる。
+  GitHub のチェック欄に出る build / deploy は **GitHub Pages 用の Actions** であって
+  Cloudflare のものではないので、これを見て成功と誤認しないこと
