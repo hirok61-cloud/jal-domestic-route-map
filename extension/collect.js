@@ -1,12 +1,12 @@
 /* 生成物。編集しないこと。もとは tools/collect-core.js と collect-extension.js。
    直したら npm run build:bookmarklet && npm run test:collect && npm run purge:cdn */
-var __JAL_SEATS_BUILD__ = "2026-08-27 22:34Z";
+var __JAL_SEATS_BUILD__ = "2026-08-29 00:46Z";
 (() => {
   // tools/collect-core.js
   var ENDPOINT = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats";
   var SAVE_ENDPOINTS = [
     { url: ENDPOINT, name: "保存先", ways: ["fetch", "xhr"] },
-    { url: "https://jal-seats-relay2.vercel.app/api/save", name: "中継経由", ways: ["fetch", "xhr", "iframe"] }
+    { url: "https://jal-route-map.hiro-k61.workers.dev/api/save", name: "中継経由", ways: ["fetch", "xhr", "iframe"] }
   ];
   var HUB = "HND";
   var CORP_HUB = "JOH";

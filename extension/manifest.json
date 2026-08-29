@@ -14,6 +14,7 @@
   "content_scripts": [
     {
       "matches": [
+        "https://jal-route-map.hiro-k61.workers.dev/*",
         "https://jal-domestic-route-map.vercel.app/*",
         "https://hirok61-cloud.github.io/jal-domestic-route-map/*",
         "http://localhost/*"

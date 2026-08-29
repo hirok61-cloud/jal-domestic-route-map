@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /* jsDelivr のキャッシュを消す。**push したら必ず実行すること。**
  *
- * ブックマークレットは収集スクリプトを Vercel → jsDelivr → GitHub Pages の順に
- * 読み込む。Vercel と GitHub Pages は push すればすぐ新しくなるが、
+ * ブックマークレットは収集スクリプトを Cloudflare → Vercel → GitHub Pages →
+ * jsDelivr の順に読み込む。GitHub Pages は push で、Cloudflare は
+ * `npx wrangler deploy` で新しくなるが、
  * **jsDelivr は @main を最大12時間キャッシュする**。
  *
  * そのため、Vercel に届かない端末（プライバシー系の拡張やブロッカーが
@@ -32,7 +33,7 @@ for (const path of PATHS) {
 // 本当に新しくなったかを確かめる。消したつもりで残っているのがいちばん困る
 for (const path of PATHS) {
   const cdn = await fetch(`https://cdn.jsdelivr.net/gh/${REPO}@main/${path}`).then((r) => r.text());
-  const site = await fetch(`https://jal-domestic-route-map.vercel.app/${path}`).then((r) => r.text());
+  const site = await fetch(`https://jal-route-map.hiro-k61.workers.dev/${path}`).then((r) => r.text());
   const same = cdn.trim() === site.trim();
   console.log(`${same ? "OK " : "NG "} ${path} がサイトと一致（${cdn.length} 字 / ${site.length} 字）`);
   if (!same) ng++;

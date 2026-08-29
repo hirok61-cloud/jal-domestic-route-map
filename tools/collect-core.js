@@ -16,7 +16,7 @@
    =========================================================================== */
 
 export const ENDPOINT = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-seats";
-export const SITE = "https://jal-domestic-route-map.vercel.app/seats/";
+export const SITE = "https://jal-route-map.hiro-k61.workers.dev/seats/";
 
 /* 保存先。宛先を増やせる形にしてある。
 
@@ -41,15 +41,23 @@ export const SITE = "https://jal-domestic-route-map.vercel.app/seats/";
    （隠しフォームのPOST。fetch/XHRを経由しない）も持たせてある。
    Supabase本体はJSONしか返さないので対象外（"fetch","xhr"のみ）。
 
-   ドメインが jal-seats-relay2 なのは、jal-seats-relay への**2回目以降の
-   デプロイがVercel側の権限で拒否された**ため（このAPIキーは新規プロジェクトの
-   初回デプロイはできるが、既存プロジェクトへの再デプロイは403で弾かれた。
-   何度か別名で試して再現したので、個別プロジェクトの不調ではなく仕様とみられる）。
-   直すときは新しいプロジェクト名で作り直すしかない。詳細は
-   docs/HANDOVER_ANDROID_SAVE_ISSUE.md。 */
+   **2026-08-29、Cloudflare Workers へ移行した。** サイト本体が Workers に
+   なったことで、静的配信とサーバ側処理が同一オリジンで両立するようになり、
+   「サイト自身を中継にできない」という上の制約そのものが消えた。中継は
+   サイトと同じ Worker の /api/save が受ける（worker/index.js）。
+
+   旧 jal-seats-relay2 はこの一覧から外した（Vercel側にはまだ生きているので、
+   新しい中継が駄目だったときは1行戻せば復帰できる）。中継を2つ並べることも
+   考えたが、全滅時に試す回数が15→24に増えて失敗確定までが長くなるのと、
+   Vercelから離れるという移行の目的に反するので1本にした。
+
+   （旧経緯: ドメインが jal-seats-relay2 なのは jal-seats-relay への2回目以降の
+   デプロイがVercel側の権限で403になったため。詳細は
+   docs/HANDOVER_ANDROID_SAVE_ISSUE.md。wrangler は同名の上書きが普通に通るので
+   この問題は移行で解消した。） */
 const SAVE_ENDPOINTS = [
   { url: ENDPOINT, name: "保存先", ways: ["fetch", "xhr"] },
-  { url: "https://jal-seats-relay2.vercel.app/api/save", name: "中継経由", ways: ["fetch", "xhr", "iframe"] },
+  { url: "https://jal-route-map.hiro-k61.workers.dev/api/save", name: "中継経由", ways: ["fetch", "xhr", "iframe"] },
 ];
 
 export const HUB = "HND";
