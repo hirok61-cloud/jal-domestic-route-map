@@ -303,6 +303,28 @@ details.judgedef .jd .row .pill{flex:none;min-width:3.4em;text-align:center}
 .dpk-row b{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:13.5px}
 .dpk-row .tm{font-size:12px;color:var(--sub)}
 .dpk-row .dv{margin-left:auto;font-size:11.5px;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap}
+/* 参考運賃(ZED): 便の横に添える小さな価格と、⑦の一覧表 */
+.prc{font-size:11.5px;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap}
+.dpk-row .prc{flex:none;margin-left:8px}
+.dpk-row .dv{margin-left:auto}
+.zl{display:inline-block;padding:1px 5px;border-radius:5px;font-size:9.5px;font-weight:700;
+  letter-spacing:.06em;background:var(--chipbg);color:var(--sub);vertical-align:1px}
+/* 狭い画面: 便リストに運賃を足した分、間隔と文字を詰めて1行に収める(実測で376px幅がはみ出した) */
+@media (max-width:560px){
+  .dpk-row{gap:6px;padding:9px 8px}
+  .dpk-row .dv,.dpk-row .prc{font-size:10.5px}
+  .dpk-row .prc{margin-left:6px}
+}
+.farewrap{overflow-x:auto}
+.faretbl{width:100%;border-collapse:collapse;font-size:13px;min-width:520px}
+.faretbl th,.faretbl td{padding:9px 10px;border-bottom:1px solid var(--hair);text-align:right;
+  white-space:nowrap;font-variant-numeric:tabular-nums}
+.faretbl th:first-child,.faretbl td:first-child{text-align:left}
+.faretbl thead th{font-size:10.5px;color:var(--sub);font-weight:700;letter-spacing:.08em}
+.faretbl tbody tr:last-child td{border-bottom:none}
+.faretbl td.tot{font-weight:800;color:var(--ink);font-size:14px}
+.faretbl td.sub{color:var(--sub)}
+.faretbl .cvt{display:block;font-size:10.5px;color:var(--sub);font-weight:600}
 .dpk-close{margin-top:10px;width:100%;border:1px solid var(--panel-edge);background:var(--chipbg);
   color:var(--ink);border-radius:999px;padding:9px;font-size:13px;font-weight:700;cursor:pointer}
 /* ⑥リードタイム 便切替 / ③時間帯フィルタ(共通見た目) */
@@ -407,6 +429,27 @@ footer{border-top:1px solid var(--hair);color:var(--sub);font-size:11px;
 const AL = {JL:{name:"JAL", c:"var(--c-JAL)"}, NH:{name:"ANA", c:"var(--c-NH)"}, OZ:{name:"アシアナ", c:"var(--c-OZ)"}, KE:{name:"大韓航空", c:"var(--c-KE)"}};
 const alBadge = code => `<span class="ab" style="--oc:${(AL[code]||{}).c||"#888"}">${code}</span>`;
 const WD = "日月火水木金土";
+
+// 参考運賃(ZED)。会社×方向で1つ(日付・便では変わらないことを実測済み → ⑦の注記)。
+// 収集で取れなかった場合は Edge Function が直近で取れた分にフォールバックして返す。
+function faresAll(){ return (DATA && DATA.latest && DATA.latest.fares) || {}; }
+function fareOf(al, dr){ return faresAll()[al + "|" + (dr || dir)] || null; }
+const yen = (n) => "¥" + Math.round(n).toLocaleString("ja-JP");
+const amt = (n, cur) => (cur === "JPY" ? yen(n) : Math.round(n).toLocaleString("ja-JP") + " " + cur);
+// 一言表示。外貨建て(KEはKRW)は円換算の参考値を出す
+function fareShort(f){
+  if (!f || f.total == null) return "";
+  if (f.cur === "JPY") return yen(f.total);
+  return f.home != null ? "≒" + yen(f.home) : amt(f.total, f.cur);
+}
+// ツールチップ用: ZED運賃レベルと参考額
+function fareTip(f){
+  const fa = fareOf(f.al);
+  const lv = f.tf || (fa && fa.tarif) || null;
+  if (!lv && !fa) return "";
+  const p = fareShort(fa);
+  return "\n運賃 ZED " + (lv || "?") + (p ? " ／ 参考 " + p + "(片道・込み)" : "");
+}
 
 // 収集の健康状態バー(国内線の空席機能と同じ考え方): 「● 収集 07:38 成功」のような一目表示。
 // 普段は目立たせず、更新が止まっている(15時間超)ときだけ警告色にする。
@@ -558,10 +601,11 @@ function openDayPicker(iso){
     const sym = j === 0 ? "○" : j === 1 ? "△" : "×";
     const on = isWatched(iso, dir, f.fn);
     const sb = f.sb && f.sb.Y !== undefined ? `・SB${f.sb.Y}` : "";
+    const prc = fareShort(fareOf(f.al));
     return `<div class="dpk-row${on ? " on" : ""}" data-fn="${f.fn}">
       <span class="st">${on ? "★" : "☆"}</span><span class="sy s${j}">${sym}</span>
       ${alBadge(f.al)}<b>${f.fn}</b><span class="tm">${f.dep}</span>
-      <span class="dv">Y${f.Y ?? "?"}${sb}</span></div>`;
+      <span class="dv">Y${f.Y ?? "?"}${sb}</span>${prc ? `<span class="prc">${prc}</span>` : ""}</div>`;
   }).join("");
   ov.innerHTML = `<div class="dpk"><h3>${jd(iso)}${holidayBadge(iso)} の便をウォッチ</h3>
     <div class="dpk-sub">${dir.replace("-", " → ")} ／ 便をタップで登録・解除(★)。上部に大きく表示されます</div>
@@ -661,7 +705,7 @@ function render(){
       h += `<div class="wcard wj${j}"><button class="wdel" data-wi="${wi}" title="ウォッチ解除">×</button>
         <div class="wdate">${jd(w.d)}${holidayBadge(w.d)} <span class="wleft">${leftTxt}</span></div>
         <div class="wdir">${w.dir.replace("-", " → ")}</div>
-        <div class="wmain"><span class="wsym s${j}">${sym}</span><div class="winfo">${alBadge(f.al)} <b>${f.fn}</b> ${f.dep}発<br><span class="wv">Y${f.Y ?? "?"}${sb} / chance ${f.chance || "?"}</span></div></div>
+        <div class="wmain"><span class="wsym s${j}">${sym}</span><div class="winfo">${alBadge(f.al)} <b>${f.fn}</b> ${f.dep}発<br><span class="wv">Y${f.Y ?? "?"}${sb} / chance ${f.chance || "?"}${(() => { const fa = fareOf(f.al, w.dir); const lv = f.tf || (fa && fa.tarif); return (lv ? ` / ZED ${lv}` : "") + (fareShort(fa) ? ` ${fareShort(fa)}` : ""); })()}</span></div></div>
         ${sbTrend}</div>`;
     });
     h += `</div>`;
@@ -679,7 +723,7 @@ function render(){
       if (!f){ h += `<td><span class="cell">–</span></td>`; continue; }
       const j = judge(f);
       const sb = f.sb && f.sb.Y !== undefined ? `<span class="sb ${f.sb.Y >= 10 ? "hot" : ""}">SB ${f.sb.Y}</span>` : `<span class="sb">&nbsp;</span>`;
-      const tip = `${f.fn} ${jd(d)} ${f.dep}発 ${f.ac||""} / chance ${f.chance}${f.cls ? "\n" + f.cls : ""}${f.sb && f.sb.Y !== undefined ? "\nスタンバイ Y:" + f.sb.Y + " C:" + (f.sb.C ?? "-") : ""}`;
+      const tip = `${f.fn} ${jd(d)} ${f.dep}発 ${f.ac||""} / chance ${f.chance}${f.cls ? "\n" + f.cls : ""}${f.sb && f.sb.Y !== undefined ? "\nスタンバイ Y:" + f.sb.Y + " C:" + (f.sb.C ?? "-") : ""}${fareTip(f)}`;
       h += `<td><span class="cell j${j}" title="${tip.replace(/"/g,"&quot;")}"><span class="y">Y${f.Y ?? "?"}</span>${sb}</span></td>`;
     }
     h += `</tr>`;
@@ -785,6 +829,39 @@ function render(){
       <div class="ltseg">${jlFns.map(f2 => `<button class="ltbtn${f2 === ltFn ? " on" : ""}" data-fn="${f2}">${f2}</button>`).join("")}</div>
       ${leadChart(ltFn)}
       <div class="hint">横軸=出発までの日数(右端0=出発当日)。1本の線が1つの出発日。<b>色付き=これから出発する直近の日</b>・灰色=出発済み。収集が貯まるほど「何日前からどう伸びるか」のパターンが見え、直前予測に使えるようになります。</div></div>`;
+  }
+
+  // ⑦ 参考運賃(ZED) — 会社×方向で1つ。日付・便では変わらない(実測)ので表で置くだけにする
+  const FD = faresAll();
+  const rev = dir === "HND-GMP" ? "GMP-HND" : "HND-GMP";
+  const fAls = ["JL", "NH", "OZ", "KE"].filter(a => FD[a + "|" + dir]);
+  if (fAls.length){
+    const fts = new Date(DATA.latest.faresTs || DATA.latest.ts)
+      .toLocaleString("ja-JP", {month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit"});
+    h += `<div class="sec">⑦ 参考運賃(ZED・片道1名)</div><div class="card"><div class="farewrap">
+      <table class="faretbl"><thead><tr>
+        <th>航空会社</th><th>運賃</th><th>税・料金</th><th>myIDTravel手数料</th><th>合計(片道)</th><th>往復めやす</th>
+      </tr></thead><tbody>`;
+    for (const a of fAls){
+      const f = FD[a + "|" + dir], r = FD[a + "|" + rev];
+      const cur = f.cur;
+      // 往復は「円換算どうしの和」で出す(KEはKRW建てなので単純加算できない)
+      const rt = (f.home != null && r && r.home != null) ? f.home + r.home
+        : (cur === "JPY" && r && r.cur === "JPY" && f.total != null && r.total != null) ? f.total + r.total : null;
+      const td = (f.taxDetails || []).filter(x => x.amount != null);
+      h += `<tr>
+        <td>${alBadge(a)} ${(AL[a] || {}).name || a}${f.tarif ? ` <span class="zl">ZED ${f.tarif}</span>` : ""}</td>
+        <td class="sub">${f.fare != null ? amt(f.fare, cur) : "–"}</td>
+        <td class="sub">${f.tax != null ? amt(f.tax, cur) : "–"}${td.length ? `<span class="cvt">${td.map(x => x.code + " " + Math.round(x.amount).toLocaleString("ja-JP")).join(" / ")}</span>` : ""}</td>
+        <td class="sub">${f.fee != null ? amt(f.fee, cur) : "–"}</td>
+        <td class="tot">${f.total != null ? amt(f.total, cur) : "–"}${cur !== "JPY" && f.home != null ? `<span class="cvt">≒${yen(f.home)}</span>` : ""}</td>
+        <td class="tot">${rt != null ? yen(rt) : "–"}</td>
+      </tr>`;
+    }
+    h += `</tbody></table></div>
+      <div class="hint">${dir.replace("-", " → ")} の片道・本人1名・エコノミー(ZED)。<b>この金額は日付でも便でも変わりません</b>(9/5と9/19で完全一致を確認済み)。動くのは燃油・税の改定タイミングだけなので、収集のたびに取り直しています(最終取得 ${fts})。
+      <br><b>NH(ANA)・OZ(アシアナ)は運賃が出ません</b> — myIDTravel上でそもそも予約対象外(選択不可)だからで、取り漏らしではありません。
+      <br>大韓航空はKRW建てで、円表示はmyIDTravelの換算による<b>参考値・非拘束</b>(実際の請求は発券会社の通貨)。「往復めやす」は往路+復路の単純合計です。</div></div>`;
   }
 
   document.getElementById("app").className = "";
