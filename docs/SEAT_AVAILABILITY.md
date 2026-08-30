@@ -32,7 +32,7 @@
 
 **方法2: スマホのブックマークレット（PCが寝ているとき）**
 
-初回だけ <https://jal-domestic-route-map.vercel.app/seats/update.html> で
+初回だけ <https://jal-route-map.hiro-k61.workers.dev/seats/update.html> で
 合言葉を入れ、ブックマークに登録する。以降は:
 
 1. [JAL公式サイト](https://www.jal.co.jp/ja-jp/)を開く（検索は不要）

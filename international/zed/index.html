@@ -626,7 +626,7 @@ async function refreshAlliances(){
   } catch (err) {
     msg.style.display = "flex";
     msg.innerHTML = `<span>⚠ ${err && err.message === "NOAPI"
-      ? "この配信元では自動更新を利用できません(vercel.app 版でお試しください)"
+      ? "この配信元では自動更新を利用できません(jal-route-map.hiro-k61.workers.dev でお試しください)"
       : "取得できませんでした。時間をおいて再試行してください"}</span>`;
   }
   btn.disabled = false;
@@ -1191,7 +1191,7 @@ async function runCheck(d, wrap){
       state: "error",
       at: new Date().toISOString(),
       msg: err && err.message === "NOAPI"
-        ? "この配信元では自動確認を利用できません(vercel.app 版でお試しください)"
+        ? "この配信元では自動確認を利用できません(jal-route-map.hiro-k61.workers.dev でお試しください)"
         : "原文サーバーに接続できませんでした。時間をおいて再試行してください",
     };
   }

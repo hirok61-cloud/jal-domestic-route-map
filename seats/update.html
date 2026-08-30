@@ -305,11 +305,10 @@ const STORE_KEY = "jalSeatsUpdateKey";
 /* 並び順は「新しくなるのが速いもの」を先に。jsDelivr は @main を最大12時間
    キャッシュするので最後にする（古いコピーが動くと、直したはずの不具合が
    その端末だけ再現し続ける。2026-08-09 に実際に起きた）。
-   **Cloudflare は push ではなく `npx wrangler deploy` で更新される。**
-   collect.min.js を作り直したらデプロイも忘れないこと。 */
+   Cloudflare は main への push で自動デプロイされる（2026-08-29 Workers Builds接続）。
+   Vercel は運用終了のため外した（2026-08-30）。 */
 const SOURCES = [
   "https://jal-route-map.hiro-k61.workers.dev/seats/collect.min.js",
-  "https://jal-domestic-route-map.vercel.app/seats/collect.min.js",
   "https://hirok61-cloud.github.io/jal-domestic-route-map/seats/collect.min.js",
   "https://cdn.jsdelivr.net/gh/hirok61-cloud/jal-domestic-route-map@main/seats/collect.min.js",
 ];
