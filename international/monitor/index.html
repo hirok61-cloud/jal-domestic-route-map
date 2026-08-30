@@ -705,10 +705,13 @@ function render(){
     }
   }
 
-  // C7: ウォッチ中の便(カレンダーの日付タップ→便を選んで登録)
-  if (WATCH.length){
+  // C7: ウォッチ中の便(カレンダーの日付タップ→便を選んで登録)。
+  // 表示中の方向の分だけ出す(逆方向のウォッチは方向を切り替えたときに見える)
+  const watchShown = WATCH.filter(w => w.dir === dir);
+  if (watchShown.length){
     h += `<div class="wgrid">`;
     WATCH.forEach((w, wi) => {
+      if (w.dir !== dir) return;   // wi(解除ボタンの参照先)はWATCH全体の添字のまま使う
       const f = ((latestDays()[w.d] || {})[w.dir] || []).find(x => x.fn === w.fn);
       const dleft = Math.round((new Date(w.d + "T00:00:00") - new Date(tIso + "T00:00:00")) / 864e5);
       const leftTxt = dleft === 0 ? "今日" : "あと" + dleft + "日";
