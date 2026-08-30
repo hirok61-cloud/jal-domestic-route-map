@@ -195,6 +195,7 @@ th{font-size:9.5px;color:var(--sub);text-align:left;font-weight:600;letter-spaci
   padding:3px 7px;border-bottom:2px solid var(--red)}
 td{padding:6px 7px;border-bottom:1px solid var(--hair);white-space:nowrap;vertical-align:middle}
 td.fno{font-weight:700}
+td.dur{color:var(--sub);font-variant-numeric:tabular-nums}
 .plus1{color:#fff;background:var(--red);font-size:8.5px;padding:0 4px;border-radius:4px;margin-left:3px;vertical-align:top;font-weight:700}
 .freq{display:block;font-size:9px;color:var(--sub);font-weight:400;letter-spacing:-.02em;margin-top:1px}
 tr.flight:hover td{background:var(--chipbg)}
@@ -879,19 +880,46 @@ function applyDim(){
 }
 const opChipHTML = o => `<span class="opchip" style="--oc:var(${opColorVar(o)})">${OPS[o][0]}</span>`;
 const allyBadge = a => `<span class="allybadge" style="color:var(${ALLY[a][1]})">${ALLY_BADGE[a]}</span>`;
-function flightRow(f){
+/* フライト時間: 現地時刻の差にUTCオフセット差を足して求める。
+   ダイヤは2026年7月時点のスケジュール実績なので、オフセットも同じ7月中旬で評価する
+   (「今」の日付で評価すると、夏時間のある路線が冬に見たとき1時間ずれる)。 */
+const TZ_REF = new Date("2026-07-15T12:00:00Z");
+const tzOffCache = {};
+function tzOffMin(tz){
+ if(tz in tzOffCache) return tzOffCache[tz];
+ let off = null;
+ try{
+  const parts = new Intl.DateTimeFormat("en-US",{timeZone:tz,hour12:false,
+   year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}).formatToParts(TZ_REF);
+  const g = t => +parts.find(x=>x.type===t).value;
+  const asUTC = Date.UTC(g("year"),g("month")-1,g("day"),g("hour")%24,g("minute"));
+  off = Math.round((asUTC - TZ_REF.getTime())/60000);
+ }catch(e){}
+ return tzOffCache[tz]=off;
+}
+const hm2min = t => { const [h,m]=t.split(":").map(Number); return h*60+m; };
+function flightDur(dep,arr,plus,orgCode,dstCode){
+ const oA=tzOffMin(AP[orgCode][3]), oB=tzOffMin(AP[dstCode][3]);
+ if(oA==null||oB==null) return null;
+ const min = hm2min(arr)+plus*1440-oB - (hm2min(dep)-oA);
+ if(!(min>0&&min<24*60)) return null;   // データ異常は表示しない
+ return Math.floor(min/60)+"h"+(min%60? String(min%60).padStart(2,"0")+"m":"");
+}
+function flightRow(f,orgCode,dstCode){
  const [no,dep,arr,plus,ac,op,freq]=f;
  const plusTag = plus>0?`<span class="plus1">+${plus}</span>`:"";
  const freqTag = (freq&&freq!=="毎日運航")?`<span class="freq" title="運航曜日">${freq}</span>`:"";
+ const dur = flightDur(dep,arr,plus,orgCode,dstCode);
  return `<tr class="flight"><td class="fno mono">${no}${freqTag}</td>`+
   `<td class="mono">${dep} → ${arr}${plusTag}</td>`+
+  `<td class="mono dur">${dur||"–"}</td>`+
   `<td><button class="acbtn" data-ac="${ac}" title="${acName(ac)}の路線を見る">${acShort(ac)}</button></td>`+
   `<td><span class="opdot" style="--oc:var(${opColorVar(op)})"></span>${OPS[op][0]} ${allyBadge(allianceOf(op))}</td></tr>`;
 }
-function flightTableHTML(list){
+function flightTableHTML(list,orgCode,dstCode){
  if(!list.length) return `<p class="hint">この方向の定期便は確認できませんでした。</p>`;
- return `<div class="tablewrap"><table><thead><tr><th>便名</th><th>出発 → 到着(現地)</th><th>機材</th><th>運航</th></tr></thead><tbody>`+
-  list.map(flightRow).join("")+`</tbody></table></div>`;
+ return `<div class="tablewrap"><table><thead><tr><th>便名</th><th>出発 → 到着(現地)</th><th>所要</th><th>機材</th><th>運航</th></tr></thead><tbody>`+
+  list.map(f=>flightRow(f,orgCode,dstCode)).join("")+`</tbody></table></div>`;
 }
 function bindAcButtons(scope){scope.querySelectorAll("[data-ac]").forEach(b=>b.onclick=()=>selectAircraft(b.dataset.ac));}
 /* ============ パネル ============ */
@@ -927,9 +955,9 @@ function selectRoute(i){
    <span>${carriers.map(opChipHTML).join(" ")}</span>
   </div>
   ${r.note?`<div class="note">${r.note}</div>`:""}
-  <div class="dirhead">${AP[r.a][0]} <span class="arr">→</span> ${AP[r.b][0]}</div>${flightTableHTML(r.F0)}
-  <div class="dirhead">${AP[r.b][0]} <span class="arr">→</span> ${AP[r.a][0]}</div>${flightTableHTML(r.F1)}
-  <p class="hint">時刻は<b>各空港の現地時刻</b>。<span class="plus1" style="position:static">+1</span>＝翌日着。便名をタップで機材別マップへ。<br>使用機材: ${r.acs.map(a=>`${acName(a)}`).join("／")}<br>※便名・時刻・機材・運航会社はFlightAwareの2026年7月時点スケジュール実績に基づく参考情報です。</p>`);
+  <div class="dirhead">${AP[r.a][0]} <span class="arr">→</span> ${AP[r.b][0]}</div>${flightTableHTML(r.F0,r.a,r.b)}
+  <div class="dirhead">${AP[r.b][0]} <span class="arr">→</span> ${AP[r.a][0]}</div>${flightTableHTML(r.F1,r.b,r.a)}
+  <p class="hint">時刻は<b>各空港の現地時刻</b>。<span class="plus1" style="position:static">+1</span>＝翌日着。所要=時差を補正した実飛行時間(2026年7月ダイヤ基準)。便名をタップで機材別マップへ。<br>使用機材: ${r.acs.map(a=>`${acName(a)}`).join("／")}<br>※便名・時刻・機材・運航会社はFlightAwareの2026年7月時点スケジュール実績に基づく参考情報です。</p>`);
  bindBack(); bindAcButtons(panel); scrollToPanel();
 }
 function selectAirport(code){
