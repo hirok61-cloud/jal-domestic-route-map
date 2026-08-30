@@ -58,4 +58,24 @@ npx wrangler@latest kv key get "zed:data.json" \
 | AF エールフランス | 3,782字 | 3,234字（冒頭の「最新情報」項が消滅） |
 | DL デルタ航空 | 1,451字 | 3,548字（大幅増補） |
 
-この3社は再収録が要る。
+→ 2026-08-30 に全263社を照合し、変更が見つかった11社
+（XZ・AR・UX・AF・MX・BA・DL・HX・XE・LX・VN）を下の手順で再収録済み。
+
+## 再収録の手順（原文が更新された社を最新版にする）
+
+1. **検知＋ジョブ生成**: `python3 scripts/fingerprint.py --data <現行data.json> --workdir <作業dir>`
+   （現行data.jsonはKVから取得: 上の `kv key get`）。変更社の `changed.json`・原文HTML(`raw/`)・
+   翻訳ジョブ(`jobs/<CODE>.json`)が作業dirにできる。
+2. **和訳**: 各 `jobs/<CODE>.json` をClaudeで和訳し `out/<CODE>.json`
+   （`{"sections":[{"title","text","summary"},…]}`）を作る。ルール:
+   **原文の見出し構成をそのまま保持・情報を落とさない全訳**、旧訳と同一内容の部分は
+   `old_entry` の旧訳を再利用、Embargo系見出しは「エンバーゴ」を含める
+   （UIがこの語で警告バッジを判定）、`**強調**` 記法は使ってよい。
+3. **マージ**: `python3 scripts/zed_merge.py --data <現行> --workdir <作業dir> --date YYYY-MM-DD --out <新data.json>`
+   （fp/fpChars更新・`updated`付与・note除去まで自動。検証NGなら書き出さない）
+4. **KVへ反映**: 上の `kv key put`。**リポジトリへのコミットは不要**（データはKVのみ）。
+   ページの「◯月◯日再収録」表示は `updated` フィールドから自動で出る。
+5. **確認**: もう一度 `fingerprint.py --data <新data.json>` を回して changed=0 を確認。
+
+翻訳を挟むため完全自動にはできない。Claudeに「ZEDの原文更新チェックして、
+変わってたら再収録して」と頼めばこの手順を通しで実行できる。

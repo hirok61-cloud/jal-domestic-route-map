@@ -480,7 +480,7 @@ footer a{color:var(--hover)}
 <footer>
   出典: <a href="https://www.flyzed.info/" target="_blank" rel="noopener noreferrer">flyzed.info</a>
   (ZED MIBA — helping airline employees along their ZED journey)<br>
-  データ取得: 2026年8月3日 ・ 全263社を原文の見出し構成のまま検証・再取得 ・
+  データ取得: 2026年8月3日(原文の更新を検知した社は随時再収録) ・ 全263社を原文の見出し構成のまま検証・再取得 ・
   <a href="../">国際線ルートマップ</a> / <a href="../../">国内線ルートマップ</a><br>
   当サイトはJALグループとは無関係の非公式ファンサイトです。
 </footer>
@@ -493,6 +493,23 @@ footer a{color:var(--hover)}
 <script>
 const SHARE_URL = location.href.split("#")[0];
 const FETCHED_ON = "2026年8月3日";
+// 再収録済みの社は data.json 側に updated("YYYY-MM-DD")を持つ。日付表示はデータ駆動なので、
+// 以後の再収録は KV の data.json を差し替えるだけで、このファイルの変更は不要。
+const fmtDateJa = iso => { const [y, m, d] = iso.split("-").map(Number); return `${y}年${m}月${d}日`; };
+const lastUpdated = () => DATA.map(d => d.updated).filter(Boolean).sort().pop() || null;
+const fetchedLabel = () => {
+  const up = lastUpdated();
+  return up ? `${FETCHED_ON}取得・${fmtDateJa(up)}一部再収録` : `${FETCHED_ON}取得`;
+};
+function refreshDateline(){
+  const el = document.getElementById("dateline");
+  if (!el) return;
+  const up = lastUpdated();
+  const n = DATA.filter(d => d.updated).length;
+  el.textContent = up
+    ? `flyzed.info 全${DATA.length}社・${FETCHED_ON}取得(うち${n}社は${fmtDateJa(up)}再収録) ※非公式・参考データ`
+    : `flyzed.info 全${DATA.length}社・${FETCHED_ON}取得 ※非公式・参考データ`;
+}
 const API = "/api/flyzed";
 const LS_KEY = "zed-check-v1";
 
@@ -1032,7 +1049,7 @@ function renderChk(wrap, d){
   wrap.querySelectorAll(".orig").forEach(n => n.remove());
   if (!c) {
     msg.className = "chkmsg";
-    msg.textContent = `当サイトの和訳は ${FETCHED_ON} 時点の原文にもとづきます`;
+    msg.textContent = `当サイトの和訳は ${d.updated ? fmtDateJa(d.updated) + " 再収録" : FETCHED_ON} 時点の原文にもとづきます`;
     return;
   }
   const when = new Date(c.at).toLocaleString("ja-JP", { month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" });
@@ -1546,7 +1563,7 @@ window.addEventListener("beforeprint", () => {
   meta.innerHTML = `<h1>ZED運賃 条件一覧(資料)</h1>
     <p>出力日時: ${esc(new Date().toLocaleString("ja-JP"))} ・
     ${q ? `検索「${esc(q)}」で ` : ""}${rows.length}社を表示 ・
-    出典: flyzed.info(${esc(FETCHED_ON)}取得分) ・
+    出典: flyzed.info(${esc(fetchedLabel())}分) ・
     必ず一次情報で最終確認してください</p>`;
   document.querySelector("main").prepend(meta);
 });
@@ -1564,6 +1581,7 @@ fetch("./data.json")
   .then(r => r.json())
   .then(rows => {
     DATA = rows;
+    refreshDateline();
     document.getElementById("st-all").textContent = DATA.length;
     document.getElementById("st-det").textContent = DATA.filter(isDetailed).length;
     document.getElementById("st-emb").textContent = DATA.filter(hasEmbargo).length;
