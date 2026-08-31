@@ -743,6 +743,22 @@ const busy = new Set();
 try { checks = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch (e) { checks = {}; }
 function saveChecks(){ try { localStorage.setItem(LS_KEY, JSON.stringify(checks)); } catch (e) {} }
 
+/* 保存済みの「原文更新あり」は、その後こちらが再収録すると解消される。
+   保存されたハッシュが現行データの fp と一致していれば、その確認時点の原文＝
+   いま表示している和訳の底本なので「一致」に畳む。これをやらないと、
+   再収録後もブラウザに古い警告と英語原文が残り続ける。 */
+function reconcileChecks(){
+  let dirty = false;
+  for (const d of DATA) {
+    const c = checks[d.src];
+    if (c && c.state === "changed" && c.hash && c.hash === d.fp) {
+      checks[d.src] = { state: "same", at: c.at, hash: c.hash };
+      dirty = true;
+    }
+  }
+  if (dirty) saveChecks();
+}
+
 // ---- お気に入り(ピン留め) ----------------------------------------------
 const PIN_KEY = "zed-pins-v1";
 let PINS = new Set();
@@ -1581,6 +1597,7 @@ fetch("./data.json")
   .then(r => r.json())
   .then(rows => {
     DATA = rows;
+    reconcileChecks();
     refreshDateline();
     document.getElementById("st-all").textContent = DATA.length;
     document.getElementById("st-det").textContent = DATA.filter(isDetailed).length;
