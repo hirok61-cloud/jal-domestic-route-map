@@ -499,7 +499,7 @@ const fmtDateJa = iso => { const [y, m, d] = iso.split("-").map(Number); return 
 const lastUpdated = () => DATA.map(d => d.updated).filter(Boolean).sort().pop() || null;
 const fetchedLabel = () => {
   const up = lastUpdated();
-  return up ? `${FETCHED_ON}取得・${fmtDateJa(up)}一部再収録` : `${FETCHED_ON}取得`;
+  return up ? `${FETCHED_ON}取得・最終再収録${fmtDateJa(up)}` : `${FETCHED_ON}取得`;
 };
 function refreshDateline(){
   const el = document.getElementById("dateline");
@@ -507,7 +507,7 @@ function refreshDateline(){
   const up = lastUpdated();
   const n = DATA.filter(d => d.updated).length;
   el.textContent = up
-    ? `flyzed.info 全${DATA.length}社・${FETCHED_ON}取得(うち${n}社は${fmtDateJa(up)}再収録) ※非公式・参考データ`
+    ? `flyzed.info 全${DATA.length}社・${FETCHED_ON}取得(うち${n}社は再収録済・最終${fmtDateJa(up)}) ※非公式・参考データ`
     : `flyzed.info 全${DATA.length}社・${FETCHED_ON}取得 ※非公式・参考データ`;
 }
 const API = "/api/flyzed";
