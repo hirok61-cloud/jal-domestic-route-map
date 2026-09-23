@@ -243,6 +243,8 @@ td.fno{font-weight:700;color:var(--red)}
 .corplegend{font-size:11.5px;color:var(--sub);margin:0 0 8px;display:flex;
   align-items:center;gap:14px;flex-wrap:wrap}
 .corplegend>span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+/* 長い説明は折り返す。nowrap のままだとスマホで横スクロールが出る（2026-09-23に実際に出た） */
+.corplegend>span.wrap{white-space:normal;display:inline}
 .corplegend .corpmark{width:19px;height:19px;font-size:11px}
 .corpsum details summary{cursor:pointer}
 .corpsum details summary .sub{margin-left:4px}
@@ -302,6 +304,25 @@ td.fno{font-weight:700;color:var(--red)}
   padding:5px 12px;font-size:12.5px;outline:none;color:var(--ink);font:inherit}
 .fcpick input[type=date]:focus{border-color:var(--red)}
 .fcnote{margin:6px 0 2px;font-size:11.5px;color:var(--sub)}
+.fcpick label{font-size:11.5px;color:var(--sub);white-space:nowrap}
+/* 混みそうな日（連休・年末年始など）のチップ。日付チップより控えめに */
+.fcbusy{display:flex;gap:6px 8px;flex-wrap:wrap;align-items:center;margin:2px 0 8px;font-size:11.5px;color:var(--sub)}
+.fcbusy button{border:1px solid var(--panel-edge);background:var(--bg);border-radius:999px;padding:4px 10px;
+  font-size:11.5px;font-weight:700;color:var(--full);cursor:pointer;font-variant-numeric:tabular-nums}
+.fcbusy button.on{background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff;border-color:transparent}
+.fccal summary{cursor:pointer;font-size:11.5px;color:var(--sub);margin:4px 0}
+/* 推定値（その時期の記録が足りず、平日/土日祝の実績に時期の係数を掛けたもの）は見た目で区別する */
+.bar.est i{opacity:.45;background:repeating-linear-gradient(90deg,var(--ok) 0 6px,transparent 6px 9px)}
+.esttag{display:inline-block;padding:0 5px;border-radius:4px;font-size:9.5px;font-weight:700;
+  color:var(--warn);border:1px solid var(--warn);line-height:1.5;vertical-align:1px}
+/* スマホ。レポートの内訳（1567/3033・24日 など）が右端の細い列で折れて縦に伸びていたので、
+   横棒の下の行に回す。路線見出しの天気は1行に収まらず切れていたので折り返す。 */
+@media (max-width:640px){
+  .rrow{flex-wrap:wrap}
+  .rrow .sub{flex:1 0 100%;margin:-1px 0 0 104px}
+  .wxtag{white-space:normal;margin-left:0;flex-basis:100%;line-height:1.6}
+  .corpcol{width:60px}
+}
 /* 普通席セルをクリックすると座席表の詳細が開く。座席の情報がある便だけ
    button にする。中身（バッジ等）の見た目は素のセルと変わらないようにする。 */
 .seatcell{display:block;width:100%;border:none;background:none;padding:0;margin:0;
@@ -798,26 +819,59 @@ function fcChips(){
     return {d, label: `${Number(d.slice(8))}(${DOW_JA[dowOf(d)]})`, off: isOffDay(d)};
   });
 }
+/** この先400日で「繁忙期・連休」にあたる期間の先頭いくつか（チップ用）。 */
+function upcomingBusy(limit = 3){
+  const today = todayJST();
+  const runs = [];
+  let cur = null;
+  for (let i = 1; i <= 400 && runs.length <= limit; i++) {
+    const d = addDays(today, i);
+    if (demandOf(d) !== 0) { cur = null; continue; }
+    if (cur) cur.to = d; else { cur = {from: d, to: d}; runs.push(cur); }
+  }
+  return runs.slice(0, limit).map(r => {
+    const md = r.from.slice(5), s = seasonOf(r.from);
+    const why = s === "繁忙期" ? ((md >= "12-28" || md <= "01-05") ? "年末年始" : md <= "05-06" ? "GW" : "お盆")
+      : `${Math.round((Date.parse(r.to) - Date.parse(r.from)) / DAY_MS) + 1}連休`;
+    return {...r, label: `${fmtMD(r.from)}(${DOW_JA[dowOf(r.from)]})〜${fmtMD(r.to)} ${why}`};
+  });
+}
 function renderForecast(){
   const box = document.getElementById("corpforecast");
   if (!FLT) { box.hidden = true; return; }
   const today = todayJST();
   const chips = fcChips().map(c =>
     `<button type="button" data-d="${c.d}" class="${c.d === FC_DATE ? "on" : ""}${c.off ? " off" : ""}">${c.label}</button>`).join("");
+  const busy = upcomingBusy(3).map(r =>
+    `<button type="button" data-d="${r.from}" class="${r.from === FC_DATE ? "on" : ""}">${r.label}</button>`).join("");
+  const dm = FLT.demand || [];
+  const recorded = [0, 1, 2, 3].filter(i => dm[i] && dm[i].days)
+    .map(i => `${DEMAND[i].label} ${dm[i].days}日（${dateRanges(dm[i].dates)}）`).join("、");
   box.innerHTML = `<h3>この先の日を予測する</h3>
-    <div class="sub">日付を選ぶと、その日と同じ区分（<b>平日</b>／<b>土日祝</b>）での便ごとの実績を並べます
-      （直近${FLT_DAYS}日・平日${FLT.wdDays}日／土日祝${FLT.offDays}日の記録）。
-      過去の割合をそのまま当てはめるだけなので、繁忙期や天候の影響は含みません。</div>
+    <div class="sub">日付を選ぶと、その日と同じ区分（<b>平日／土日祝</b> × <b>繁忙期・連休／準繁忙／通常／閑散期</b>）での
+      便ごとの実績を並べます（直近${FLT_DAYS}日・平日${FLT.wdDays}日／土日祝${FLT.offDays}日の記録）。
+      その時期の記録がまだ無い便は、平日／土日祝の実績に時期の係数を掛けた<b>推定</b>で出します。天候は見ていません。</div>
     <div class="fcpick"><div class="fcchips" role="group" aria-label="日付">${chips}</div>
+      <label for="fcdate">それより先の日：</label>
       <input type="date" id="fcdate" min="${today}" value="${FC_DATE || ""}" aria-label="それより先の日付"></div>
+    <div class="fcbusy"><span>混みそうな日：</span>${busy}</div>
+    <details class="fccal"><summary>時期の区分（どの日が繁忙期・連休あつかいか）と、記録のある時期</summary>
+      <div class="sub">${DEMAND.map(D => `<b>${D.label}</b>＝${D.note}`).join("。")}。<br>
+        記録のある時期：${recorded || "まだありません"}。
+        ${[0, 1, 3].filter(i => !dm[i] || dm[i].days < FLT_KIND_MIN).length
+          ? `記録が3日未満の時期（${[0, 1, 3].filter(i => !dm[i] || dm[i].days < FLT_KIND_MIN).map(i => DEMAND[i].label).join("・")}）は、
+             その時期に「制度枠を記録」を重ねると推定ではなく実績で出るようになります。` : ""}</div></details>
     ${FC_DATE ? forecastBody(FC_DATE) : `<div class="fcnote">↑ 日付を選んでください（赤い日付は土日祝）。</div>`}`;
   box.hidden = false;
-  box.querySelector(".fcchips").addEventListener("click", ev => {
+  const pick = (ev) => {
     const b = ev.target.closest("button");
     if (!b) return;
     FC_DATE = b.dataset.d;
     renderForecast();
-  });
+    box.querySelector(".lead")?.scrollIntoView({behavior: "smooth", block: "start"});
+  };
+  box.querySelector(".fcchips").addEventListener("click", pick);
+  box.querySelector(".fcbusy").addEventListener("click", pick);
   box.querySelector("#fcdate").addEventListener("change", ev => {
     if (!ev.target.value) return;
     FC_DATE = ev.target.value;
@@ -827,9 +881,10 @@ function renderForecast(){
 function forecastBody(date){
   const off = isOffDay(date), hol = isHoliday(date);
   const kind = off ? "土日祝" : "平日";
-  const kindDays = off ? FLT.offDays : FLT.wdDays;
+  const dmi = demandOf(date), D = DEMAND[dmi], dName = demandName(date);
+  const g = (FLT.demand || [])[dmi] || {days: 0, offDays: 0, wdDays: 0, dates: [], n: 0, ok: 0};
   const w = DOW_JA[dowOf(date)];
-  const head = `${Number(date.slice(5, 7))}/${Number(date.slice(8))}（${w}${hol ? "・祝" : ""}）`;
+  const head = `${fmtMD(date)}（${w}${hol ? "・祝" : ""}）`;
   const rows = [];
   for (const [k, e] of FLT.map) {
     if (e.n < FLT_MIN_DAYS) continue;
@@ -840,11 +895,24 @@ function forecastBody(date){
     rows.push({seg, no, dep: h.dep, b, sd: fltSameDow(h, date), all: h.rate});
   }
   if (!rows.length) {
-    return `<div class="lead">${head}は${kind}です。</div>
+    return `<div class="lead">${head}は ${kind}・${dName} です。</div>
       <div class="sub">${kind}の記録がまだ${FLT_KIND_MIN}日に満たない便ばかりで、予測を出せません。${kind}に「制度枠を記録」を重ねてください。</div>`;
   }
   const tiers = [0, 0, 0, 0];
   for (const r of rows) tiers[fltTier(r.b.rate)]++;
+  const estN = rows.filter(r => r.b.est).length;
+  const factor = (FLT.factor || [])[dmi];
+  /* 根拠の説明。実績で出せている便と推定の便が混じるときは、その内訳と係数の出どころを必ず書く */
+  const basis = (() => {
+    if (dmi === 2) return `${kind}の記録 ${off ? FLT.offDays : FLT.wdDays} 日分（通常期）で見ると`;
+    const have = `${D.label}の記録は ${g.days} 日${g.days ? `（${dateRanges(g.dates)}・平日${g.wdDays}日／土日祝${g.offDays}日）` : ""}`;
+    if (!estN) return `${have}。この記録で見ると`;
+    const fx = factor !== null && factor !== undefined
+      ? `${estN} 便は${D.label}の${kind}の記録が足りないため、${kind}の実績に${D.label}係数 <b>×${factor.toFixed(2)}</b>`
+        + `（記録上、${D.label}は全期間より${factor < 1 ? "取りにくく" : "取りやすく"}、取れやすさの比が ${pct100(g.ok, g.n)}％÷${pct100(FLT.total.ok, FLT.total.n)}％）を掛けた<b>推定</b>`
+      : `${estN} 便は${D.label}の記録が無いため${kind}の実績のまま（時期の補正なし。${dmi === 3 ? "閑散期は実際にはこれより取りやすい" : "実際にはこれより取りにくい"}と考えてください）`;
+    return `${have}。${rows.length - estN ? `${rows.length - estN} 便は${D.label}の実績、` : ""}${fx}。この見方では`;
+  })();
   const byRate = (dir) => [...rows].sort((a, b) =>
     dir * (b.b.rate - a.b.rate) || b.b.n - a.b.n || a.dep.localeCompare(b.dep));
   const top = byRate(1).slice(0, 15), bottom = byRate(-1).slice(0, 15);
@@ -870,8 +938,10 @@ function forecastBody(date){
   const line = (r, showSeg) => `<div class="frow">
       <span class="fk"><b class="fno">${r.no}</b> <span class="mono">${r.dep}</span>${showSeg
         ? `<span class="sub">${(() => { const [o, d] = r.seg.split("-"); return `${AP[o] || o}→${AP[d] || d}`; })()}</span>` : ""}</span>
-      ${`<span class="bar"><i style="width:${Math.round(r.b.rate * 100)}%"></i></span>`}<b>${Math.round(r.b.rate * 100)}%</b>
-      <span class="fmeta sub"><span>${kind} ${r.b.ok}/${r.b.n}日</span>${r.sd
+      ${`<span class="bar${r.b.est ? " est" : ""}"><i style="width:${Math.round(r.b.rate * 100)}%"></i></span>`}<b>${Math.round(r.b.rate * 100)}%</b>
+      <span class="fmeta sub"><span>${r.b.est
+        ? `<span class="esttag">推定</span> ${kind} ${r.b.ok}/${r.b.n}日（${Math.round(r.b.base * 100)}%）${r.b.factor !== null ? `×${r.b.factor.toFixed(2)}` : ""}`
+        : `${r.b.long} ${r.b.ok}/${r.b.n}日`}</span>${r.sd
         ? `<span>${r.sd.label} ${pct100(r.sd.ok, r.sd.n)}%（${r.sd.ok}/${r.sd.n}日）</span>` : ""}<span>全体 ${Math.round(r.all * 100)}%</span></span></div>`;
 
   const groups = new Map();
@@ -887,12 +957,13 @@ function forecastBody(date){
   }).join("");
 
   return `
-    <div class="lead">${head}は <b>${kind}</b>。${kind}の記録 ${kindDays} 日分で見ると、${rows.length} 便のうち
-      <b>${tiers[3]} 便</b>が狙い目（8割以上）、${tiers[0]} 便が取りにくい（2割未満）です。</div>
+    <div class="lead">${head}は <b>${kind}・${dName}</b>。</div>
+    <div class="sub" style="margin:2px 0 6px">${basis}、${rows.length} 便のうち <b>${tiers[3]} 便</b>が狙い目（8割以上）、
+      <b>${tiers[0]} 便</b>が取りにくい（2割未満）です。</div>
     <div class="tierlead">${[3, 2, 1, 0].map(i =>
       `<span class="t${i}">${FLT_TIER[i].mark} ${FLT_TIER[i].label}（${FLT_TIER[i].range}）<b>${tiers[i]}便</b></span>`).join("")}</div>
     <div class="rtblock">
-      <div class="rthead">往復で狙える行き先（行き・帰りとも、5割以上取れる便がある）</div>
+      <div class="rthead">往復で狙える行き先（${D.short ? D.label + "の実績で" : ""}行き・帰りとも、5割以上取れる便がある）</div>
       ${(() => {
         /* 行き先が多いと長くなるので、上位10件だけ見せて残りは畳む（順は行き・帰りの低いほう） */
         const row = (x) => `<div class="rtline"><b class="rtok">${spokeName(x.spoke)}</b>：`
@@ -905,18 +976,18 @@ function forecastBody(date){
       ${oneWay.length ? `<div class="rtline"><span class="hint">片道だけ5割以上</span>：`
         + oneWay.map(x => `${spokeName(x.spoke)}（${x.out ? "行きのみ" : "帰りのみ"}）`).join("、") + `</div>` : ""}
     </div>
-    <h4>狙い目の便（${kind}の実績が高い順・上位15）</h4>
+    <h4>狙い目の便（${D.short ? D.label : kind}の実績が高い順・上位15）</h4>
     <div class="rlist">${top.map(x => line(x, true)).join("")}</div>
-    <h4>取りにくい便（${kind}の実績が低い順・下位15）</h4>
+    <h4>取りにくい便（${D.short ? D.label : kind}の実績が低い順・下位15）</h4>
     <div class="rlist">${bottom.map(x => line(x, true)).join("")}</div>
     <details class="fltall"><summary>全便を区間ごとに見る（${groups.size}区間・${rows.length}便）
       <span class="sub">クリックで開閉</span></summary>
-      <div class="sub" style="margin:6px 0">各区間を開くと出発時刻順に並びます。「${kind} a/b日」は
-        ${kind}にb日記録してa日取れた、という意味。${hol ? "" : `同じ曜日（${w}曜）の実績は祝日を除いた日数です。`}</div>
+      <div class="sub" style="margin:6px 0">各区間を開くと出発時刻順に並びます。「a/b日」は b日記録して a日取れた、という意味。
+        ${hol ? "" : `同じ曜日（${w}曜）の実績は祝日を除いた日数です。`}</div>
       ${groupHtml}</details>
     <div class="sub" style="margin-top:8px">各日の○×は、その便を最後に記録した時点のもの。記録が朝で止まった日は
-      その後の解放を反映していないので、実際より厳しめに出ます。時期（繁忙期・閑散期）の違いは
-      「詳細レポート」の「時期」で確かめてください。</div>`;
+      その後の解放を反映していないので、実際より厳しめに出ます。時期の係数は記録が増えるほど確かになります
+      （いまは ${(FLT.demand || []).map((x, i) => `${DEMAND[i].label} ${x.days}日`).join("・")}）。</div>`;
 }
 
 /* ================= 詳細レポート（中長期の傾向） =================
@@ -1048,24 +1119,96 @@ let FLT = null;           // {days, map: Map<"区間|便名", {n,ok,wn,wok,dep,r
 /* v = [記録日数, 取れた日数, 土日祝の日数, 土日祝で取れた日数, 出発時刻, 直近の並び, 曜日別(14個)]。
    wn/wok は名前こそ weekend だが**土日祝**（祝日込み）。曜日別は祝日を除いた素の曜日。 */
 const fltEntry = (v) => ({n: v[0], ok: v[1], wn: v[2], wok: v[3], dep: v[4] || "", recent: v[5] || "",
-  dow: Array.isArray(v[6]) && v[6].length === 14 ? v[6].slice() : null});
-const FLT_KIND_MIN = 3; // 区分別（平日/土日祝/曜日）の割合を出す最低日数。これ未満は出さない
+  dow: Array.isArray(v[6]) && v[6].length === 14 ? v[6].slice() : null,
+  dk: Array.isArray(v[7]) && v[7].length === 16 ? v[7].slice() : null});
+const FLT_KIND_MIN = 3; // 区分別（平日/土日祝/曜日/時期）の割合を出す最低日数。これ未満は出さない
 const DOW_JA = "日月火水木金土";
+const fmtMD = (d) => `${Number(d.slice(5, 7))}/${Number(d.slice(8))}`;
+
+/* 混み方の区分。0=繁忙期（年末年始・GW・お盆）＋土日祝が3日以上つづく連休、1=準繁忙、2=通常、3=閑散期。
+   Edge Function の demandOf と同じ規則（flt の時期別はサーバ側で集計している）。
+   繁忙期と連休を同じ枠にまとめるのは、どちらも「休みが続いて空席が減る日」で、
+   別々にすると記録が薄すぎて何も言えなくなるため。 */
+const DEMAND = [
+  {label: "繁忙期・連休", short: "繁忙", note: "年末年始(12/28〜1/5)・GW(4/27〜5/6)・お盆(8/8〜8/17)と、土日祝が3日以上つづく連休"},
+  {label: "準繁忙", short: "準繁忙", note: "春休み(3/20〜4/7)・夏休み(7/20〜8/31)・年末前(12/20〜12/27)"},
+  {label: "通常", short: "", note: "上のどれにも当たらない日"},
+  {label: "閑散期", short: "閑散", note: "1/6〜2月末・6月・12/1〜12/19"},
+];
+const SEASON_IDX = {"繁忙期": 0, "準繁忙": 1, "通常": 2, "閑散期": 3};
+function inLongOff(date){
+  if (!isOffDay(date)) return false;
+  let run = 1;
+  for (let i = 1; i <= 9 && isOffDay(addDays(date, -i)); i++) run++;
+  for (let i = 1; i <= 9 && isOffDay(addDays(date, i)); i++) run++;
+  return run >= 3;
+}
+const demandOf = (date) => { const s = SEASON_IDX[seasonOf(date)]; return s === 0 || inLongOff(date) ? 0 : s; };
+/** 見出し用の時期の名前。「繁忙期（年末年始）」「3連休（10/10〜10/12）」など。 */
+function demandName(date){
+  const s = seasonOf(date), md = date.slice(5);
+  if (s === "繁忙期") return `繁忙期（${(md >= "12-28" || md <= "01-05") ? "年末年始" : md <= "05-06" ? "GW" : "お盆"}）`;
+  if (inLongOff(date)) {
+    let a = date, b = date;
+    while (isOffDay(addDays(a, -1))) a = addDays(a, -1);
+    while (isOffDay(addDays(b, 1))) b = addDays(b, 1);
+    const len = Math.round((Date.parse(b) - Date.parse(a)) / DAY_MS) + 1;
+    return `${len}連休（${fmtMD(a)}〜${fmtMD(b)}）`;
+  }
+  if (s === "準繁忙") return `準繁忙（${md <= "04-07" ? "春休み" : md <= "08-31" ? "夏休み" : "年末前"}）`;
+  return s === "閑散期" ? "閑散期" : "通常期";
+}
+/** 日付の並びを「8/15〜8/17・9/19〜9/23」のように縮める。 */
+function dateRanges(dates){
+  const out = [];
+  for (const d of [...dates].sort()) {
+    const last = out[out.length - 1];
+    if (last && addDays(last.to, 1) === d) last.to = d; else out.push({from: d, to: d});
+  }
+  return out.map(r => r.from === r.to ? fmtMD(r.from) : `${fmtMD(r.from)}〜${fmtMD(r.to)}`).join("・");
+}
 /** 区分ごとの割合をそろえる。平日＝土日祝でない日、土日祝＝土日と祝日、曜日別＝祝日を除いた素の曜日。 */
 function fltRates(e){
   const wdN = e.n - e.wn, wdOk = e.ok - e.wok;
   const dow = e.dow ? Array.from({length: 7}, (_, i) => ({n: e.dow[i * 2], ok: e.dow[i * 2 + 1]})) : null;
+  // 時期別: dk[混み方 0..3][0=平日, 1=土日祝] = {n, ok}
+  const dk = e.dk ? [0, 1, 2, 3].map(d => [0, 1].map(k => ({n: e.dk[(d * 2 + k) * 2], ok: e.dk[(d * 2 + k) * 2 + 1]}))) : null;
   return {...e, rate: e.n ? e.ok / e.n : 0,
     wd: {n: wdN, ok: wdOk, rate: wdN ? wdOk / wdN : null},
     off: {n: e.wn, ok: e.wok, rate: e.wn ? e.wok / e.wn : null},
-    dow};
+    dow, dk};
 }
-/** その日付に合う区分（平日 or 土日祝）の実績。日数が足りなければ null。 */
+/** その日付に合う区分の実績。優先順は
+    ① 同じ混み方（繁忙/準繁忙/通常/閑散）× 同じ区分（平日/土日祝）の記録が3日以上
+    ② 同じ混み方の記録が（平日・土日祝込みで）3日以上（通常期以外）
+    ③ 平日/土日祝の実績に、その時期の係数（記録上の取れやすさの比）を掛けた**推定**
+    日数が足りなければ null。返り値: {label(短), long(説明), rate, n, ok, est, off} */
 function fltForDate(h, date){
-  const off = isOffDay(date);
-  const b = off ? h.off : h.wd;
-  if (!b || b.n < FLT_KIND_MIN) return null;
-  return {label: off ? "土日祝" : "平日", off, ...b};
+  const off = isOffDay(date), k = off ? 1 : 0, kindLabel = off ? "土日祝" : "平日";
+  const dm = demandOf(date), D = DEMAND[dm];
+  const short = D.short || kindLabel;
+  if (h.dk) {
+    const b = h.dk[dm][k];
+    if (b.n >= FLT_KIND_MIN) {
+      return {label: short, long: dm === 2 ? kindLabel : `${D.label}の${kindLabel}`, off, est: false, n: b.n, ok: b.ok, rate: b.ok / b.n};
+    }
+    const n = h.dk[dm][0].n + h.dk[dm][1].n, ok = h.dk[dm][0].ok + h.dk[dm][1].ok;
+    if (dm !== 2 && n >= FLT_KIND_MIN) {
+      return {label: D.short, long: `${D.label}（平日・土日祝込み）`, off, est: false, n, ok, rate: ok / n};
+    }
+  }
+  const kb = off ? h.off : h.wd;
+  if (!kb || kb.n < FLT_KIND_MIN) return null;
+  if (dm === 2) return {label: kindLabel, long: kindLabel, off, est: false, n: kb.n, ok: kb.ok, rate: kb.rate};
+  // その時期の記録がまだ足りない。平日/土日祝の実績に時期の係数を掛けて推定する
+  const f = FLT && FLT.factor ? FLT.factor[dm] : null;
+  return {label: `${D.short}≈`, long: f !== null ? `${kindLabel}の実績×${D.label}係数${f.toFixed(2)}` : `${kindLabel}の実績（${D.label}の補正なし）`,
+    off, est: true, factor: f, n: kb.n, ok: kb.ok, base: kb.rate, rate: f !== null ? Math.min(1, kb.rate * f) : kb.rate};
+}
+/** 「繁忙期・連休の土日祝」「平日」のような区分名。 */
+function kindLabelOf(date){
+  const dm = demandOf(date), kl = isOffDay(date) ? "土日祝" : "平日";
+  return dm === 2 ? kl : `${DEMAND[dm].label}の${kl}`;
 }
 /** 同じ曜日の実績（祝日は曜日の傾向とは別物なので出さない）。 */
 function fltSameDow(h, date){
@@ -1110,10 +1253,40 @@ const fltTip = (h, date) => {
   const parts = [`直近${FLT_DAYS}日の実績  全体 ${p(h)}`, `平日 ${p(h.wd)}`, `土日祝 ${p(h.off)}`];
   const sd = date ? fltSameDow(h, date) : null;
   if (sd) parts.push(`${sd.label} ${p(sd)}`);
+  if (date && h.dk) {
+    const dm = demandOf(date);
+    if (dm !== 2) parts.push(`${DEMAND[dm].label}: 平日 ${p(h.dk[dm][0])}／土日祝 ${p(h.dk[dm][1])}`);
+    const b = fltForDate(h, date);
+    if (b && b.est) parts.push(`表示は推定（${b.long}）`);
+  }
   parts.push("各日は、その便を最後に記録した時点で制度で予約できたか");
   if (/[ox]/.test(h.recent || "")) parts.push(`直近: ${h.recent.replace(/o/g, "○").replace(/x/g, "×").replace(/-/g, "·")}`);
   return parts.join(" ／ ");
 };
+
+/* 時期（混み方）ごとの記録日数と、時期の係数を出す。
+   係数＝その時期の取れやすさ ÷ 全期間の取れやすさ（便×日を1件として全便を足したもの）。
+   その時期の記録が無い便の予測に、平日/土日祝の実績へ掛けて使う。
+   記録が3日未満の時期は係数を出さない（null＝補正なしで表示し、その旨を書く）。 */
+function fltDemandStats(F, dates){
+  const demand = [0, 1, 2, 3].map(() => ({n: 0, ok: 0, days: 0, offDays: 0, wdDays: 0, dates: []}));
+  for (const d of dates) {
+    const g = demand[demandOf(d)];
+    g.days++; g.dates.push(d);
+    if (isOffDay(d)) g.offDays++; else g.wdDays++;
+  }
+  let tn = 0, tok = 0;
+  for (const e of F.map.values()) {
+    if (!e.dk) continue;
+    for (let i = 0; i < 4; i++) {
+      const n = e.dk[i * 4] + e.dk[i * 4 + 2], ok = e.dk[i * 4 + 1] + e.dk[i * 4 + 3];
+      demand[i].n += n; demand[i].ok += ok; tn += n; tok += ok;
+    }
+  }
+  F.demand = demand;
+  F.total = {n: tn, ok: tok};
+  F.factor = demand.map(g => (g.days >= FLT_KIND_MIN && g.n && tn && tok) ? (g.ok / g.n) / (tok / tn) : null);
+}
 
 async function loadFlightStats(){
   try {
@@ -1129,6 +1302,7 @@ async function loadFlightStats(){
     const dates = [...new Set((body.captures || []).map(c => c.date))];
     const offDays = dates.filter(isOffDay).length;
     FLT = {days: dates.length, offDays, wdDays: dates.length - offDays, map, recentDates: body.recentDates || []};
+    fltDemandStats(FLT, dates);
     if (DATA) render(); // 一覧が先に描かれていたら、実績の列を足して描き直す
     renderForecast();
   } catch { /* 無くても一覧は出せる */ }
@@ -1221,6 +1395,7 @@ async function fetchCorpStats(onProgress){
       cur.n += e.n; cur.ok += e.ok; cur.wn += e.wn; cur.wok += e.wok;
       if (e.dep) cur.dep = e.dep;
       if (e.dow) cur.dow = cur.dow ? cur.dow.map((x, i) => x + e.dow[i]) : e.dow.slice();
+      if (e.dk) cur.dk = cur.dk ? cur.dk.map((x, i) => x + e.dk[i]) : e.dk.slice();
       flt.set(k, cur);
     }
     if (i === ranges.length - 1) { lastFlt = body.flt || {}; recentDates = body.recentDates || []; }
@@ -1581,7 +1756,8 @@ function renderCorpSummary(){
      ○×は記録した瞬間の断面でしかないので、この2行が断面と傾向の橋渡しになる。 */
   if (FLT) {
     /* 今日と同じ区分（平日/土日祝）の実績で見る。区分の記録が足りない便は全体の割合で代用 */
-    const kindLabel = isOffDay(CORP.date) ? "土日祝" : "平日";
+    const kindLabel = (() => { const dm = demandOf(CORP.date), kl = isOffDay(CORP.date) ? "土日祝" : "平日";
+      return dm === 2 ? kl : `${DEMAND[dm].label}の${kl}`; })();
     const withHist = rows.map(x => {
       const h = fltStat(`${x.o}-${x.d}`, x.no);
       if (!h) return null;
@@ -1640,7 +1816,7 @@ function renderCorpSummary(){
     <h3>制度枠のサマリ（${hhmm(CORP.generatedAt)}時点）</h3>
     <div class="corplegend"><span><span class="corpmark ok">○</span>この時刻に予約できた</span>
       <span><span class="corpmark ng">×</span>できなかった</span>${FLT
-        ? `<span><span class="corphist t3" style="margin:0">${isOffDay(CORP.date) ? "土日祝" : "平日"}NN%</span>今日と同じ区分での、過去${FLT_DAYS}日に制度が取れた日の割合（平日${FLT.wdDays}日・土日祝${FLT.offDays}日の記録）</span>` : ""}</div>
+        ? `<span class="wrap"><span class="corphist t3" style="margin:0;display:inline">${(DEMAND[demandOf(CORP.date)].short || (isOffDay(CORP.date) ? "土日祝" : "平日"))}NN%</span> ＝ 今日と同じ区分（${kindLabelOf(CORP.date)}）での、過去${FLT_DAYS}日に制度が取れた日の割合（平日${FLT.wdDays}日・土日祝${FLT.offDays}日の記録）</span>` : ""}</div>
     <div class="lead">対象 ${rows.length} 便のうち <b>${ok} 便（${pct}％）</b> が予約できる状態でした。</div>
     ${hidden ? `<div class="sub"><span class="hint">うち注意</span>：`
       + `空席あり（残席9以上）なのに制度では出ていない便が <b>${hidden} 便</b>`
@@ -1864,7 +2040,7 @@ function render(){
   const showCorp = hasCorp || !!FLT;
   const corpTitle = "JALオンライン（制度利用）で予約できたか。"
     + (hasCorp ? `${hhmm(CORP.generatedAt)}時点の記録。` : "")
-    + (FLT ? `「平日NN%／土日祝NN%」は、この日と同じ区分での過去${FLT_DAYS}日に制度が取れた日の割合。` : "");
+    + (FLT ? `「${DEMAND[demandOf(DATA.date)].short || (isOffDay(DATA.date) ? "土日祝" : "平日")}NN%」は、この日と同じ区分（${kindLabelOf(DATA.date)}）での過去${FLT_DAYS}日に制度が取れた日の割合。「≈」は推定。` : "");
 
   for (const route of visible){
     const flights = flightsOf(route);

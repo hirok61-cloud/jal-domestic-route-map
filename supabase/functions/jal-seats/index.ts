@@ -135,6 +135,31 @@ const dowOf = (date: string) => {
 const isHoliday = (date: string) => holidaysOf(Number(date.slice(0, 4))).has(date);
 /** 土日祝か。「平日」はこれの否定。 */
 const isOffDay = (date: string) => { const w = dowOf(date); return w === 0 || w === 6 || isHoliday(date); };
+const addDaysISO = (date: string, n: number) => {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+};
+/* 時期の区分。サイト側（seats/index.html の seasonOf）と同じ日付範囲。
+   0=繁忙期（年末年始・GW・お盆） 1=準繁忙（春休み・夏休み・年末前） 2=通常 3=閑散期 */
+function seasonOf(date: string): number {
+  const md = date.slice(5);
+  const between = (a: string, b: string) => md >= a && md <= b;
+  if (md >= "12-28" || md <= "01-05") return 0;
+  if (between("04-27", "05-06") || between("08-08", "08-17")) return 0;
+  if (between("03-20", "04-07") || between("07-20", "08-31") || between("12-20", "12-27")) return 1;
+  if (between("01-06", "02-29") || between("06-01", "06-30") || between("12-01", "12-19")) return 3;
+  return 2;
+}
+/** 土日祝が3日以上つづく連休の一部か。 */
+function inLongOff(date: string): boolean {
+  if (!isOffDay(date)) return false;
+  let run = 1;
+  for (let i = 1; i <= 9 && isOffDay(addDaysISO(date, -i)); i++) run++;
+  for (let i = 1; i <= 9 && isOffDay(addDaysISO(date, i)); i++) run++;
+  return run >= 3;
+}
+/** 混み方の区分。繁忙期と3連休以上は同じ枠（0）にまとめる。サイト側の demandOf と同じ規則にすること。 */
+const demandOf = (date: string) => { const s = seasonOf(date); return s === 0 || inLongOff(date) ? 0 : s; };
 
 /** JSTの今日を YYYY-MM-DD で返す。 */
 const todayJST = () =>
@@ -367,7 +392,9 @@ Deno.serve(async (req: Request) => {
        を最大14日ぶん。表示側で「○○×○…」に直す。
        曜日別は [日n, 日ok, 月n, 月ok, …, 土n, 土ok] の14個。祝日は素の曜日の傾向を
        濁すので曜日別からは外す（土日祝の枠には入る）。「来週の土曜はどうか」の
-       予測で、土日祝の割合に添える「同じ曜日の実績」に使う。 */
+       予測で、土日祝の割合に添える「同じ曜日の実績」に使う。
+       時期別（8番目）は [繁忙期の平日n, ok, 繁忙期の土日祝n, ok, 準繁忙の平日n, ok, …] の16個
+       （demandOf × 平日/土日祝）。年末年始やGWの予測に、同じ混み方の日の実績を使うため。 */
     const lastObs = new Map<string, { date: string; s: string; n: string; z: boolean; d: string }>();
     for (const row of rows) { // rows は flight_date, captured_at の昇順なので、後勝ちで最終観測になる
       for (const f of row.flights ?? []) {
@@ -375,7 +402,7 @@ Deno.serve(async (req: Request) => {
           { date: row.flight_date, s: String(f.s), n: String(f.n), z: !!f.z, d: String(f.d ?? "") });
       }
     }
-    const flt: Record<string, [number, number, number, number, string, string, number[]]> = {};
+    const flt: Record<string, [number, number, number, number, string, string, number[], number[]]> = {};
     const dates = [...new Set(rows.map((r) => r.flight_date as string))].sort();
     const recentDates = dates.slice(-14);
     const recentIdx = new Map(recentDates.map((d, i) => [d, i]));
@@ -383,10 +410,11 @@ Deno.serve(async (req: Request) => {
       const we = isOffDay(o.date);
       const ri = recentIdx.get(o.date);
       const k = `${o.s}|${o.n}`;
-      const x = flt[k] ?? (flt[k] = [0, 0, 0, 0, o.d, "-".repeat(recentDates.length), new Array(14).fill(0)]);
+      const x = flt[k] ?? (flt[k] = [0, 0, 0, 0, o.d, "-".repeat(recentDates.length), new Array(14).fill(0), new Array(16).fill(0)]);
       x[0]++; if (o.z) x[1]++;
       if (we) { x[2]++; if (o.z) x[3]++; }
       if (!isHoliday(o.date)) { const w = dowOf(o.date) * 2; x[6][w]++; if (o.z) x[6][w + 1]++; }
+      { const q = (demandOf(o.date) * 2 + (we ? 1 : 0)) * 2; x[7][q]++; if (o.z) x[7][q + 1]++; }
       if (o.d && !x[4]) x[4] = o.d;
       if (ri !== undefined) x[5] = x[5].slice(0, ri) + (o.z ? "o" : "x") + x[5].slice(ri + 1);
     }
