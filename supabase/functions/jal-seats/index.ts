@@ -87,6 +87,55 @@ const rpc = (name: string) =>
     body: "{}",
   }).catch(() => {});
 
+/* 日本の祝日。サイト側（seats/index.html の holidaysOf）と同じ規則で、土日祝と平日を
+   分けて数えるために要る。表で持つと毎年書き足しが要るので規則から出す
+   （ハッピーマンデー・春分/秋分の近似式・振替休日・国民の休日）。 */
+const holidayCache = new Map<number, Set<string>>();
+function holidaysOf(year: number): Set<string> {
+  const hit = holidayCache.get(year);
+  if (hit) return hit;
+  const set = new Set<string>();
+  const key = (m: number, d: number) => `${year}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  const dow1 = (m: number) => new Date(Date.UTC(year, m - 1, 1)).getUTCDay();
+  const nthMonday = (m: number, nth: number) => 1 + ((8 - dow1(m)) % 7) + (nth - 1) * 7;
+  const equinox = (base: number) =>
+    Math.floor(base + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+  const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
+  const DAY = 86_400_000;
+  for (const [m, d] of [[1, 1], [2, 11], [2, 23], [4, 29], [5, 3], [5, 4], [5, 5], [8, 11], [11, 3], [11, 23]]) {
+    set.add(key(m, d));
+  }
+  set.add(key(1, nthMonday(1, 2)));    // 成人の日
+  set.add(key(7, nthMonday(7, 3)));    // 海の日
+  set.add(key(9, nthMonday(9, 3)));    // 敬老の日
+  set.add(key(10, nthMonday(10, 2)));  // スポーツの日
+  set.add(key(3, equinox(20.8431)));   // 春分の日
+  set.add(key(9, equinox(23.2488)));   // 秋分の日
+  // 振替休日: 日曜と重なったら、次の（祝日でない）日にずらす
+  for (const day of [...set]) {
+    const [y, m, d] = day.split("-").map(Number);
+    if (new Date(Date.UTC(y, m - 1, d)).getUTCDay() !== 0) continue;
+    let t = Date.UTC(y, m - 1, d + 1);
+    while (set.has(iso(t))) t += DAY;
+    set.add(iso(t));
+  }
+  // 国民の休日: 祝日に挟まれた平日
+  for (const day of [...set]) {
+    const t = Date.parse(day + "T00:00:00Z");
+    const mid = iso(t + DAY);
+    if (!set.has(mid) && set.has(iso(t + 2 * DAY)) && new Date(t + DAY).getUTCDay() !== 0) set.add(mid);
+  }
+  holidayCache.set(year, set);
+  return set;
+}
+const dowOf = (date: string) => {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+};
+const isHoliday = (date: string) => holidaysOf(Number(date.slice(0, 4))).has(date);
+/** 土日祝か。「平日」はこれの否定。 */
+const isOffDay = (date: string) => { const w = dowOf(date); return w === 0 || w === 6 || isHoliday(date); };
+
 /** JSTの今日を YYYY-MM-DD で返す。 */
 const todayJST = () =>
   new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10);
@@ -268,12 +317,6 @@ Deno.serve(async (req: Request) => {
       const h = Number(String(dep ?? "").slice(0, 2));
       return !Number.isFinite(h) ? -1 : h < 9 ? 0 : h < 14 ? 1 : h < 18 ? 2 : 3;
     };
-    const isWeekend = (date: string) => {
-      const [y, m, d] = date.split("-").map(Number);
-      const w = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
-      return w === 0 || w === 6;
-    };
-
     /* **1回の記録＝1件**として返す（1日に複数回あれば複数件）。
        時間帯（朝/昼/晩）どうしを比べたいのはまさにここなので、
        日ごとにまとめてしまうと比べる材料が消える。 */
@@ -301,9 +344,12 @@ Deno.serve(async (req: Request) => {
       const cur = latestByDate.get(row.flight_date);
       if (!cur || row.captured_at > cur.captured_at) latestByDate.set(row.flight_date, row);
     }
+    /* seg の値: [記録日数, 取れた日数, 土日祝の日数, 土日祝で取れた日数]。
+       以前は土日だけ（祝日は平日側）だったが、サイトは「土日祝」と表示していたので
+       祝日も休日側に入れた（2026-09-23）。 */
     const seg: Record<string, number[]> = {};
     for (const row of latestByDate.values()) {
-      const we = isWeekend(row.flight_date);
+      const we = isOffDay(row.flight_date);
       for (const f of row.flights ?? []) {
         const s = seg[f.s] ?? (seg[f.s] = [0, 0, 0, 0]);
         s[0]++; if (f.z) s[1]++;
@@ -316,9 +362,12 @@ Deno.serve(async (req: Request) => {
        区間のように「その日の最後の記録」で切ると、朝の便は夕方の記録には
        もう載っていない（出発済み）ため、丸ごと数えられなくなってしまう。
        キーは「区間|便名」（同じ便名が経由地の違いで別区間に現れることがある）。
-       値: [記録日数, 取れた日数, 土日の日数, 土日で取れた日数, 出発時刻, 直近の並び]
+       値: [記録日数, 取れた日数, 土日祝の日数, 土日祝で取れた日数, 出発時刻, 直近の並び, 曜日別]
        直近の並びは古い→新しいの順で、o=取れた x=取れなかった -=その日の記録に無い、
-       を最大14日ぶん。表示側で「○○×○…」に直す。 */
+       を最大14日ぶん。表示側で「○○×○…」に直す。
+       曜日別は [日n, 日ok, 月n, 月ok, …, 土n, 土ok] の14個。祝日は素の曜日の傾向を
+       濁すので曜日別からは外す（土日祝の枠には入る）。「来週の土曜はどうか」の
+       予測で、土日祝の割合に添える「同じ曜日の実績」に使う。 */
     const lastObs = new Map<string, { date: string; s: string; n: string; z: boolean; d: string }>();
     for (const row of rows) { // rows は flight_date, captured_at の昇順なので、後勝ちで最終観測になる
       for (const f of row.flights ?? []) {
@@ -326,17 +375,18 @@ Deno.serve(async (req: Request) => {
           { date: row.flight_date, s: String(f.s), n: String(f.n), z: !!f.z, d: String(f.d ?? "") });
       }
     }
-    const flt: Record<string, [number, number, number, number, string, string]> = {};
+    const flt: Record<string, [number, number, number, number, string, string, number[]]> = {};
     const dates = [...new Set(rows.map((r) => r.flight_date as string))].sort();
     const recentDates = dates.slice(-14);
     const recentIdx = new Map(recentDates.map((d, i) => [d, i]));
     for (const o of lastObs.values()) {
-      const we = isWeekend(o.date);
+      const we = isOffDay(o.date);
       const ri = recentIdx.get(o.date);
       const k = `${o.s}|${o.n}`;
-      const x = flt[k] ?? (flt[k] = [0, 0, 0, 0, o.d, "-".repeat(recentDates.length)]);
+      const x = flt[k] ?? (flt[k] = [0, 0, 0, 0, o.d, "-".repeat(recentDates.length), new Array(14).fill(0)]);
       x[0]++; if (o.z) x[1]++;
       if (we) { x[2]++; if (o.z) x[3]++; }
+      if (!isHoliday(o.date)) { const w = dowOf(o.date) * 2; x[6][w]++; if (o.z) x[6][w + 1]++; }
       if (o.d && !x[4]) x[4] = o.d;
       if (ri !== undefined) x[5] = x[5].slice(0, ri) + (o.z ? "o" : "x") + x[5].slice(ri + 1);
     }
