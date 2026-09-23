@@ -196,7 +196,7 @@ td.fno{font-weight:700;color:var(--red)}
 .trend.up{color:var(--ok);font-weight:700}
 .trend.down{color:var(--sub)}
 /* 制度枠（JALオンライン）。○×は一目で拾えることが最優先なので独立した列にする */
-.corpcol{text-align:center;width:52px}
+.corpcol{text-align:center;width:58px}
 .corpmark{display:inline-flex;align-items:center;justify-content:center;
   width:24px;height:24px;border-radius:50%;font-size:14px;font-weight:700;line-height:1}
 .corpmark.ok{background:var(--ok-bg);color:var(--ok)}
@@ -257,6 +257,38 @@ td.fno{font-weight:700;color:var(--red)}
 .rrow .sub{font-size:10.5px}
 .bar{flex:1;height:8px;border-radius:99px;background:var(--hair);overflow:hidden;min-width:60px}
 .bar i{display:block;height:100%;background:var(--ok);border-radius:99px}
+/* 便ごとの過去実績。一覧では○×の下に「普段NN%」を添える。色は4段階で、
+   ◎狙い目=緑 / ○まずまず=文字色 / △やや厳しい=橙 / ×取りにくい=赤。 */
+.corphist{display:block;margin-top:3px;font-size:9.5px;line-height:1.2;font-weight:700;
+  white-space:nowrap;font-variant-numeric:tabular-nums;text-align:center}
+.corphist.t3{color:var(--ok)}
+.corphist.t2{color:var(--ink)}
+.corphist.t1{color:var(--warn)}
+.corphist.t0{color:var(--full)}
+/* 詳細レポートの便別。1便=1行で、便名・時刻 / 横棒 / % / 内訳と直近の並び */
+.frow{display:grid;grid-template-columns:150px 1fr 38px;gap:1px 8px;align-items:center;
+  font-size:12px;padding:4px 0;border-bottom:1px dashed var(--hair)}
+.frow:last-child{border-bottom:none}
+.frow .fk{font-variant-numeric:tabular-nums;line-height:1.35;min-width:0}
+.frow .fk .fno{color:var(--red)}
+.frow .fk .sub{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow>b{text-align:right;font-variant-numeric:tabular-nums}
+.frow .fmeta{grid-column:1/-1;display:flex;gap:2px 10px;flex-wrap:wrap;align-items:center;font-size:10.5px}
+@media (max-width:480px){.frow{grid-template-columns:118px 1fr 36px}}
+.rpat{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;letter-spacing:1px;
+  color:var(--sub);white-space:nowrap}
+.rpat i{font-style:normal}
+.rpat .o{color:var(--ok);font-weight:700}
+.rpat .x{color:var(--full)}
+.tierlead{display:flex;gap:6px 10px;flex-wrap:wrap;margin:6px 0 4px}
+.tierlead span{padding:3px 9px;border-radius:99px;background:var(--bg);font-size:11.5px;white-space:nowrap}
+.tierlead span b{margin-left:4px}
+.tierlead .t3{color:var(--ok)} .tierlead .t1{color:var(--warn)} .tierlead .t0{color:var(--full)}
+.fltgroup{margin:2px 0}
+.fltgroup summary{cursor:pointer;font-size:12px;padding:5px 0;line-height:1.5}
+.fltgroup summary .sub{margin-left:4px}
+.fltgroup .rlist{margin:2px 0 8px 10px;gap:0}
+.fltall>summary{cursor:pointer;font-weight:700;font-size:12.5px;padding:6px 0}
 /* 普通席セルをクリックすると座席表の詳細が開く。座席の情報がある便だけ
    button にする。中身（バッジ等）の見た目は素のセルと変わらないようにする。 */
 .seatcell{display:block;width:100%;border:none;background:none;padding:0;margin:0;
@@ -853,6 +885,60 @@ const recSlot = (at) => {
 
 const HOUR_LABELS = ["早朝〜朝(〜9時)", "昼(9〜14時)", "夕方(14〜18時)", "夜(18時〜)"];
 
+/* ================= 便ごとの過去実績（一覧・サマリ用） =================
+   「結局どの便なら取れるのか」に、その日の便一覧の中で答えるための材料。
+   直近 FLT_DAYS 日ぶんの便別の通算を、ページを開いたときに1回だけ取る
+   （?action=corp-stats を1回・数十KB）。各日は「その便が最後に記録された時点」
+   ＝出発前の最終観測の○×で、取れた日の割合を出す。
+   詳細レポートの便別ランキングも同じ材料を、保持期間いっぱいで読み直して使う。 */
+const FLT_DAYS = 90;
+const FLT_MIN_DAYS = 5;   // これ未満の便は実績として出さない（1〜2日ではブレが大きすぎる）
+let FLT = null;           // {days, map: Map<"区間|便名", {n,ok,wn,wok,dep,recent}>, recentDates}
+
+const fltEntry = (v) => ({n: v[0], ok: v[1], wn: v[2], wok: v[3], dep: v[4] || "", recent: v[5] || ""});
+/* 4段階。閾値は「この便に賭けてよいか」の判断に使える粗さにしてある */
+const fltTier = (rate) => rate >= 0.8 ? 3 : rate >= 0.5 ? 2 : rate >= 0.2 ? 1 : 0;
+const FLT_TIER = [
+  {mark: "×", label: "取りにくい", range: "〜19%"},
+  {mark: "△", label: "やや厳しい", range: "20〜49%"},
+  {mark: "○", label: "まずまず", range: "50〜79%"},
+  {mark: "◎", label: "狙い目", range: "80%〜"},
+];
+const pct100 = (a, b) => b ? Math.round(a / b * 100) : 0;
+
+function fltStat(seg, no){
+  if (!FLT) return null;
+  const e = FLT.map.get(`${seg}|${no}`);
+  if (!e || e.n < FLT_MIN_DAYS) return null;
+  return {...e, rate: e.ok / e.n};
+}
+/** 直近の並び "o/x/-" を ○×· の色付きにする（古い→新しい）。 */
+const fltPattern = (recent) => /[ox]/.test(recent || "")
+  ? `<span class="rpat" title="直近の記録（古い→新しい）。○取れた ×取れなかった ·記録なし">`
+    + [...recent].map(c => c === "o" ? '<i class="o">○</i>' : c === "x" ? '<i class="x">×</i>' : "<i>·</i>").join("")
+    + `</span>`
+  : (recent ? `<span class="rpat sub">直近${recent.length}日は記録なし</span>` : "");
+const fltTip = (h) =>
+  `直近${FLT_DAYS}日で記録のある${h.n}日のうち${h.ok}日、制度で予約できました（各日はその便を最後に記録した時点）`
+  + (h.wn && h.n - h.wn ? `。平日${pct100(h.ok - h.wok, h.n - h.wn)}％／土日${pct100(h.wok, h.wn)}％` : "")
+  + (h.recent ? `。直近: ${h.recent.replace(/o/g, "○").replace(/x/g, "×").replace(/-/g, "·")}` : "");
+
+async function loadFlightStats(){
+  try {
+    const now = Date.now();
+    const from = jstDay(now - (FLT_DAYS - 1) * DAY_MS), to = jstDay(now);
+    const res = await fetch(`${REMOTE}?action=corp-stats&hub=JOH&from=${from}&to=${to}`, {cache: "no-store"});
+    if (!res.ok) return;
+    const body = await res.json();
+    if (!body || !body.flt) return;
+    const map = new Map();
+    for (const [k, v] of Object.entries(body.flt)) map.set(k, fltEntry(v));
+    if (!map.size) return;
+    FLT = {days: new Set((body.captures || []).map(c => c.date)).size, map, recentDates: body.recentDates || []};
+    if (DATA) render(); // 一覧が先に描かれていたら、実績の列を足して描き直す
+  } catch { /* 無くても一覧は出せる */ }
+}
+
 /* 天気（WMOコード→カテゴリ）。分析用に大づかみな区分にまとめる。
    https://open-meteo.com/en/docs の weathercode 表に基づく。 */
 const WX_CATS = [
@@ -914,6 +1000,8 @@ async function fetchCorpStats(onProgress){
   }
   const captures = [];
   const seg = new Map();
+  const flt = new Map();
+  let recentDates = [], lastFlt = {};
   for (let i = 0; i < ranges.length; i++) {
     const [from, to] = ranges[i];
     const res = await fetch(`${REMOTE}?action=corp-stats&hub=JOH&from=${from}&to=${to}`,
@@ -930,13 +1018,24 @@ async function fetchCorpStats(onProgress){
       for (let n = 0; n < 4; n++) cur[n] += v[n] || 0;
       seg.set(k, cur);
     }
+    /* 便別。件数は区切りをまたいで足し合わせる。直近の並びは、いちばん新しい区切り
+       （ranges は古い→新しい順）のものだけを使う（古い区切りの並びは「直近」ではない）。 */
+    for (const [k, v] of Object.entries(body.flt || {})) {
+      const e = fltEntry(v);
+      const cur = flt.get(k) || {n: 0, ok: 0, wn: 0, wok: 0, dep: "", recent: ""};
+      cur.n += e.n; cur.ok += e.ok; cur.wn += e.wn; cur.wok += e.wok;
+      if (e.dep) cur.dep = e.dep;
+      flt.set(k, cur);
+    }
+    if (i === ranges.length - 1) { lastFlt = body.flt || {}; recentDates = body.recentDates || []; }
     onProgress(new Set(captures.map(c => c.date)).size, i + 1, ranges.length);
   }
   captures.sort((a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at));
-  return {captures, seg};
+  for (const [k, cur] of flt) cur.recent = lastFlt[k] ? fltEntry(lastFlt[k]).recent : "";
+  return {captures, seg, flt, recentDates};
 }
 
-function buildReport({captures, seg}, wx = new Map()){
+function buildReport({captures, seg, flt = new Map(), recentDates = []}, wx = new Map()){
   // 同じ日の記録をまとめる。曜日/時期/月/区間/出発時間帯の比較は、
   // その日の最後の記録（＝いちばん解放が進んだ状態）だけを使う。
   const byDate = new Map();
@@ -992,6 +1091,17 @@ function buildReport({captures, seg}, wx = new Map()){
     wdN: n - wn, wdRate: (n - wn) ? (ok - wok) / (n - wn) : null,
   })).filter(x => x.n >= 3).sort((a, b) => b.rate - a.rate);
 
+  /* 便ごと。記録が FLT_MIN_DAYS 日未満の便は外す（1〜2日ではブレが大きすぎる）。
+     区間と違い、各日は「その便を最後に記録した時点」（Edge Function 側で集計済み）。 */
+  const fltRows = [...flt].map(([k, v]) => {
+    const [segk, no] = k.split("|");
+    const wdN = v.n - v.wn;
+    return {k, seg: segk, no, dep: v.dep, n: v.n, ok: v.ok, rate: v.n ? v.ok / v.n : 0,
+      wdN, wdRate: wdN ? (v.ok - v.wok) / wdN : null,
+      offN: v.wn, offRate: v.wn ? v.wok / v.wn : null, recent: v.recent || ""};
+  }).filter(x => x.n >= FLT_MIN_DAYS);
+  const fltThin = flt.size - fltRows.length;
+
   /* 記録した時刻。**ここだけは全記録をそのまま使う。** 1日3回でも減らさない。
      同じ日の朝・昼・晩を比べるのが目的そのものなので、代表1件に絞ると材料が消える。 */
   const byRec = new Map();
@@ -1019,7 +1129,7 @@ function buildReport({captures, seg}, wx = new Map()){
     byWind: group(r => (!r.wx || r.wx.wind == null) ? null
       : (r.wx.wind >= WX_WIND_STRONG ? `強風(${WX_WIND_STRONG}m/s以上)` : "平常")),
     wxDays: perDay.filter(r => r.wx).length,
-    hour, segRows, byRec,
+    hour, segRows, byRec, fltRows, fltThin, recentDates,
   };
 }
 
@@ -1076,6 +1186,62 @@ function renderCorpReport(stats, wx){
     return main + `<div class="sub" style="margin:-2px 0 4px 104px">${trail}</div>`;
   };
 
+  /* 便ごとの取れやすさ。ここが「結局どの便が取れるのか」への答えなので、
+     区分の比較より前（レポートの先頭）に置く。上位・下位のランキングと、
+     区間ごとの全便一覧（畳んでおく）の2段構え。 */
+  const segName = (sg) => { const [o, d] = sg.split("-"); return `${AP[o] || o}→${AP[d] || d}`; };
+  const fltLine = (x, showSeg) => `<div class="frow">
+      <span class="fk"><b class="fno">${x.no}</b> <span class="mono">${x.dep}</span>${showSeg
+        ? `<span class="sub">${segName(x.seg)}</span>` : ""}</span>
+      ${bar(x.rate)}<b>${Math.round(x.rate * 100)}%</b>
+      <span class="fmeta sub"><span>${x.ok}/${x.n}日${x.wdRate !== null && x.offRate !== null
+        ? `・平日${Math.round(x.wdRate * 100)}%／土日${Math.round(x.offRate * 100)}%` : ""}</span>${fltPattern(x.recent)}</span></div>`;
+  const fltSection = () => {
+    const rows = R.fltRows;
+    if (!rows.length) {
+      return `<h4>便ごとの取れやすさ</h4><div class="sub">記録が${FLT_MIN_DAYS}日以上ある便がまだありません。</div>`;
+    }
+    const byTier = [0, 0, 0, 0];
+    for (const x of rows) byTier[fltTier(x.rate)]++;
+    const byRate = (dir) => [...rows].sort((a, b) =>
+      dir * (b.rate - a.rate) || b.n - a.n || a.dep.localeCompare(b.dep));
+    const top = byRate(1).slice(0, 15);
+    const bottom = byRate(-1).slice(0, 15);
+    // 区間ごとの全便。一覧と同じ並び（北から・羽田発→羽田着）、区間の中は出発時刻順
+    const groups = new Map();
+    for (const x of rows) { const g = groups.get(x.seg) || []; g.push(x); groups.set(x.seg, g); }
+    const order = [...groups.keys()].sort((a, b) => {
+      const [ao, ad] = a.split("-"), [bo, bd] = b.split("-");
+      const ra = geoRank(ao === "HND" ? ad : ao), rb = geoRank(bo === "HND" ? bd : bo);
+      if (ra !== rb) return ra - rb;
+      return (ao === "HND" ? 0 : 1) - (bo === "HND" ? 0 : 1);
+    });
+    const groupHtml = order.map(sg => {
+      const g = groups.get(sg).sort((a, b) => a.dep.localeCompare(b.dep));
+      const n = g.reduce((t, x) => t + x.n, 0), ok = g.reduce((t, x) => t + x.ok, 0);
+      const best = g.reduce((m, x) => x.rate > m.rate ? x : m, g[0]);
+      return `<details class="fltgroup"><summary>${segName(sg)}<span class="sub">${g.length}便・平均${pct(ok, n)}%`
+        + `・いちばん取りやすいのは ${best.no} ${best.dep}（${Math.round(best.rate * 100)}%）</span></summary>`
+        + `<div class="rlist">${g.map(x => fltLine(x, false)).join("")}</div></details>`;
+    }).join("");
+    return `
+    <h4>便ごとの取れやすさ（結論）</h4>
+    <div class="sub">記録が${FLT_MIN_DAYS}日以上ある <b>${rows.length} 便</b>${R.fltThin
+      ? `（ほか ${R.fltThin} 便は記録が少ないため除外）` : ""}が対象。
+      各日、その便を最後に記録した時点（＝出発前の最終観測）で制度で予約できた日の割合です。</div>
+    <div class="tierlead">${[3, 2, 1, 0].map(i =>
+      `<span class="t${i}">${FLT_TIER[i].mark} ${FLT_TIER[i].label}（${FLT_TIER[i].range}）<b>${byTier[i]}便</b></span>`).join("")}</div>
+    <h4>狙い目の便（取れた日の割合が高い順・上位15）</h4>
+    <div class="rlist">${top.map(x => fltLine(x, true)).join("")}</div>
+    <h4>取りにくい便（低い順・下位15）</h4>
+    <div class="rlist">${bottom.map(x => fltLine(x, true)).join("")}</div>
+    <details class="fltall"><summary>全便を区間ごとに見る（${order.length}区間・${rows.length}便）
+      <span class="sub">クリックで開閉</span></summary>
+      <div class="sub" style="margin:6px 0">各区間を開くと出発時刻順に全便が並びます。
+        右端の ○×· は直近${R.recentDates.length || 14}日の並び（古い→新しい）。</div>
+      ${groupHtml}</details>`;
+  };
+
   const segLine = (x) => `<div class="rrow"><span class="rk">${x.k}</span>${bar(x.rate)}`
     + `<b>${Math.round(x.rate * 100)}%</b><span class="sub">${x.ok}/${x.n}`
     + (x.offRate !== null && x.wdRate !== null
@@ -1090,6 +1256,8 @@ function renderCorpReport(stats, wx){
       各日は最後の記録・のべ ${R.total} 便）。
       空席あり（残席9以上）だったのに制度では出ていない便は、
       のべ ${R.availOnly} 便（空席ありの ${R.avail} 便中 ${pct(R.availOnly, R.avail)}％）。</div>
+
+    ${fltSection()}
 
     <h4>平日と土日祝</h4>
     <div class="rlist">${compare(R.byOff, ["平日", "土日祝"])}</div>
@@ -1168,7 +1336,7 @@ function renderCorpSummary(){
   for (const r of CORP.routes) {
     for (const f of r.flights || []) {
       if (typeof f.zl !== "boolean") continue;
-      rows.push({seg: `${r.o}→${r.d}`, o: r.o, d: r.d, zl: f.zl, eco: f.eco, dep: f.dep});
+      rows.push({seg: `${r.o}→${r.d}`, o: r.o, d: r.d, no: f.no, zl: f.zl, eco: f.eco, dep: f.dep});
     }
   }
   if (!rows.length) { box.hidden = true; return; }
@@ -1215,6 +1383,26 @@ function renderCorpSummary(){
     lines.push(`<b>厳しい区間</b>（制度で取れた便数／対象便数）：`
       + `${hard.map(s => `${s.seg}（${s.ok}/${s.n}）`).join("、")}`);
   }
+  /* 過去の実績と突き合わせる。「今日はまだ×だが普段は取れる便」は解放待ちの候補、
+     「今日は○だが普段は取りにくい便」は珍しいので早めに押さえる価値がある。
+     ○×は記録した瞬間の断面でしかないので、この2行が断面と傾向の橋渡しになる。 */
+  if (FLT) {
+    const withHist = rows.map(x => ({...x, h: fltStat(`${x.o}-${x.d}`, x.no)})).filter(x => x.h);
+    const short = (c) => (AP[c] || c).replace(/\(.*?\)/, "");
+    const fmt = (x) => `${x.no} ${short(x.o)}→${short(x.d)} ${x.dep}（普段${Math.round(x.h.rate * 100)}%）`;
+    const later = withHist.filter(x => !x.zl && x.h.rate >= 0.7).sort((a, b) => b.h.rate - a.h.rate);
+    const rare = withHist.filter(x => x.zl && x.h.rate < 0.2).sort((a, b) => a.h.rate - b.h.rate);
+    const listOf = (arr) => arr.slice(0, 8).map(fmt).join("、") + (arr.length > 8 ? `、ほか${arr.length - 8}便` : "");
+    if (later.length) {
+      lines.push(`<b>普段は取れるのに今日はまだ×</b>（過去${FLT_DAYS}日で7割以上取れている便・${later.length}便）：`
+        + `${listOf(later)}。時間が経つと解放されることが多いので、待つ価値があります。`);
+    }
+    if (rare.length) {
+      lines.push(`<b>今日は○だが普段は取りにくい便</b>（普段2割未満・${rare.length}便）：`
+        + `${listOf(rare)}。めったに出ないので、使うなら早めに。`);
+    }
+  }
+
   /* 「ほぼ全便取れる区間」は数が多く、並べると長くなる。既定は畳んでおき、
      見たい人だけ開けるようにする（<details> はJS無しで開閉できる）。 */
   if (easyList.length) {
@@ -1251,7 +1439,8 @@ function renderCorpSummary(){
   box.innerHTML = `
     <h3>制度枠のサマリ（${hhmm(CORP.generatedAt)}時点）</h3>
     <div class="corplegend"><span><span class="corpmark ok">○</span>この時刻に予約できた</span>
-      <span><span class="corpmark ng">×</span>できなかった</span></div>
+      <span><span class="corpmark ng">×</span>できなかった</span>${FLT
+        ? `<span><span class="corphist t3" style="margin:0">普段NN%</span>過去${FLT_DAYS}日で制度が取れた日の割合（記録${FLT.days}日分）</span>` : ""}</div>
     <div class="lead">対象 ${rows.length} 便のうち <b>${ok} 便（${pct}％）</b> が予約できる状態でした。</div>
     ${hidden ? `<div class="sub"><span class="hint">うち注意</span>：`
       + `空席あり（残席9以上）なのに制度では出ていない便が <b>${hidden} 便</b>`
@@ -1276,13 +1465,20 @@ function renderCorpSummary(){
 
 /** 制度で取れるかどうかは○×の一目判断が要る情報なので、独立した列にする。
     JOHは当日ぶんしか記録できないので、表示中の日と合わないときは何も出さない。 */
-function corpCell(f){
-  if (!CORP || CORP.date !== DATA.date) return "";
-  if (!CORP.byNo.has(f.no)) return '<span class="corpmark na" title="記録に無い便">–</span>';
-  const ok = CORP.byNo.get(f.no);
-  return ok
-    ? `<span class="corpmark ok" title="${hhmm(CORP.generatedAt)}時点で制度で予約できました">○</span>`
-    : `<span class="corpmark ng" title="${hhmm(CORP.generatedAt)}時点では制度で予約できませんでした">×</span>`;
+function corpCell(route, f){
+  let mark = "";
+  if (CORP && CORP.date === DATA.date) {
+    mark = !CORP.byNo.has(f.no)
+      ? '<span class="corpmark na" title="記録に無い便">–</span>'
+      : CORP.byNo.get(f.no)
+      ? `<span class="corpmark ok" title="${hhmm(CORP.generatedAt)}時点で制度で予約できました">○</span>`
+      : `<span class="corpmark ng" title="${hhmm(CORP.generatedAt)}時点では制度で予約できませんでした">×</span>`;
+  }
+  /* 過去の実績（普段どれくらい取れているか）。今日の記録が無い日（明日の一覧など）でも出す。
+     「今日は×でも普段は取れる便」を一覧の中で見分けられるのが狙い。 */
+  const h = fltStat(`${route.o}-${route.d}`, f.no);
+  if (!h) return mark;
+  return mark + `<span class="corphist t${fltTier(h.rate)}" title="${fltTip(h)}">普段${Math.round(h.rate * 100)}%</span>`;
 }
 
 /** 前回の収集からどう動いたか。増えたぶんだけ目立たせる。 */
@@ -1462,6 +1658,11 @@ function render(){
   });
   const dayOver = isDayOver(DATA);
   const html = [];
+  /* 制度の列は、今日の○×があるか、便ごとの過去実績があれば出す */
+  const showCorp = hasCorp || !!FLT;
+  const corpTitle = "JALオンライン（制度利用）で予約できたか。"
+    + (hasCorp ? `${hhmm(CORP.generatedAt)}時点の記録。` : "")
+    + (FLT ? `「普段NN%」は過去${FLT_DAYS}日で制度が取れた日の割合。` : "");
 
   for (const route of visible){
     const flights = flightsOf(route);
@@ -1502,14 +1703,14 @@ function render(){
         <thead><tr><th>便名</th><th>出発 → 到着</th>${
           /* 制度の○×は一目で拾えることが価値なので、横スクロールで隠れない
              左寄り（便名・時刻のすぐ隣）に置く。機材や運賃より優先度が高い。 */
-          CORP && CORP.date === DATA.date ? `<th class="corpcol" title="JALオンライン（制度利用）で予約できたか。${hhmm(CORP.generatedAt)}時点の記録">制度</th>` : ""
+          showCorp ? `<th class="corpcol" title="${corpTitle}">制度</th>` : ""
         }<th>機材</th><th>普通席</th><th>クラスJ</th><th>ファースト</th><th>最安運賃</th></tr></thead><tbody>`);
       for (const f of flights){
         const fare = f.fare ? "¥" + f.fare.toLocaleString("ja-JP") : "—";
         html.push(`<tr class="${f.eco > 0 ? "" : "full"}">
           <td class="fno mono">${f.no}</td>
           <td class="mono">${f.dep} → ${f.arr}</td>
-          ${CORP && CORP.date === DATA.date ? `<td class="corpcol">${corpCell(f)}</td>` : ""}
+          ${showCorp ? `<td class="corpcol">${corpCell(route, f)}</td>` : ""}
           <td>${acLabel(f.ac)}${f.op && f.op !== "JL" ? " / " + (OPNAME[f.op] || f.op) : ""}</td>
           <td>${seatCell(route, f)}</td>
           <td>${badge(f.clsj)}${cabinSeatNote(f.sj)}</td>
@@ -1921,6 +2122,7 @@ loadHealth();
 /* 空席・制度枠のデータが後から届いたら、健康状態も出し直す
    （依頼より新しい保存があるかは、データが揃って初めて分かるため）。 */
 loadCorp().then(() => { if (CORP && DATA) render(); renderHealth(); });
+loadFlightStats(); // 便ごとの過去実績。届いたら一覧を描き直す
 
 // 路線見出しの天気タグは render() の中で WXNOW を直接参照する。
 // 空席より後に届くことが多いので、届いたら一覧を出し直す。

@@ -7,7 +7,8 @@
 //   GET  ?action=recent&n=8        → 直近の依頼をまとめて（成否の一覧表示用）
 //   GET  ?action=corp-stats&hub=JOH&from=&to=
 //                                  → 制度枠の記録ごとの要約（詳細レポート用。最大95日。
-//                                    同じ日の複数回もそのまま返す）
+//                                    同じ日の複数回もそのまま返す。区間別 seg と
+//                                    便別 flt の通算も同梱）
 //   GET  ?action=weather&airports=HND,CTS&from=&to=
 //                                  → 空港ごとの日次天気（詳細レポート用。過去の確定日のみ。
 //                                    Open-Meteoから取ってこのテーブルにキャッシュする）
@@ -310,7 +311,37 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    return json({ hub: "JOH", from, to, captures, seg });
+    /* 便ごとの通算（「結局どの便が取れるのか」に答えるための材料）。
+       日ごとの代表は「その便が最後に記録された時点」＝出発前の最終観測にする。
+       区間のように「その日の最後の記録」で切ると、朝の便は夕方の記録には
+       もう載っていない（出発済み）ため、丸ごと数えられなくなってしまう。
+       キーは「区間|便名」（同じ便名が経由地の違いで別区間に現れることがある）。
+       値: [記録日数, 取れた日数, 土日の日数, 土日で取れた日数, 出発時刻, 直近の並び]
+       直近の並びは古い→新しいの順で、o=取れた x=取れなかった -=その日の記録に無い、
+       を最大14日ぶん。表示側で「○○×○…」に直す。 */
+    const lastObs = new Map<string, { date: string; s: string; n: string; z: boolean; d: string }>();
+    for (const row of rows) { // rows は flight_date, captured_at の昇順なので、後勝ちで最終観測になる
+      for (const f of row.flights ?? []) {
+        lastObs.set(`${row.flight_date}|${f.s}|${f.n}`,
+          { date: row.flight_date, s: String(f.s), n: String(f.n), z: !!f.z, d: String(f.d ?? "") });
+      }
+    }
+    const flt: Record<string, [number, number, number, number, string, string]> = {};
+    const dates = [...new Set(rows.map((r) => r.flight_date as string))].sort();
+    const recentDates = dates.slice(-14);
+    const recentIdx = new Map(recentDates.map((d, i) => [d, i]));
+    for (const o of lastObs.values()) {
+      const we = isWeekend(o.date);
+      const ri = recentIdx.get(o.date);
+      const k = `${o.s}|${o.n}`;
+      const x = flt[k] ?? (flt[k] = [0, 0, 0, 0, o.d, "-".repeat(recentDates.length)]);
+      x[0]++; if (o.z) x[1]++;
+      if (we) { x[2]++; if (o.z) x[3]++; }
+      if (o.d && !x[4]) x[4] = o.d;
+      if (ri !== undefined) x[5] = x[5].slice(0, ri) + (o.z ? "o" : "x") + x[5].slice(ri + 1);
+    }
+
+    return json({ hub: "JOH", from, to, captures, seg, flt, recentDates });
   }
 
   /* ------------------------------------- 空港ごとの日次天気（公開・過去日のみ） */
@@ -360,7 +391,7 @@ Deno.serve(async (req: Request) => {
         `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}` +
         `&start_date=${from}&end_date=${pastTo}` +
         `&daily=precipitation_sum,windspeed_10m_max,weathercode,snowfall_sum,temperature_2m_max,temperature_2m_min` +
-        `&timezone=Asia%2FTokyo`,
+        `&timezone=Asia%2FTokyo&wind_speed_unit=ms`, // wind は m/s で保存する
       ).then((r) => (r.ok ? r.json() : null)).catch(() => null);
       // 地点が1つだけだと配列にならず単体オブジェクトで返るので揃える
       const list = missing.length === 1 ? [wx] : wx;
