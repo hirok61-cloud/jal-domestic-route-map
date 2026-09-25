@@ -18,3 +18,8 @@ extension
 docs
 scripts
 international/zed/data.json
+*.pem
+.env
+.env.*
+.dev.vars
+.dev.vars.*

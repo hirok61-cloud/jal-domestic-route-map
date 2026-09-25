@@ -2421,6 +2421,8 @@ $reportbtn.addEventListener("click", async () => {
    考え方（docs/JAL_ONLINE_CORP.md）。ハブごとに「最後に取れたのはいつか」
    だけを見る。件数が少ないので凝った集計はしない。 */
 const HUB_LABEL = {HND: "空席", JOH: "制度枠"};
+// 依頼APIから返る文字列を innerHTML に入れる前に必ず通す（2026-09-25 点検で追加）
+const escHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
 let HEALTH = null; // ?action=recent の結果（依頼ごとの成否）
 
 /* 表示中の日の時刻ではなく、実際に保存されているデータの時刻。
@@ -2446,7 +2448,7 @@ function renderHealth(){
 
   // ハブごとに最新の1件だけを見る（一覧は要らない。健康状態の一目判断だけが目的）
   const latest = new Map();
-  for (const r of HEALTH) if (!latest.has(r.hub)) latest.set(r.hub, r);
+  for (const r of HEALTH) if (HUB_LABEL[r.hub] && !latest.has(r.hub)) latest.set(r.hub, r);  // 既知のハブだけ
   // 依頼が1件も残っていなくても、データがあるハブは出す（スマホからだけ更新した場合）
   for (const hub of Object.keys(HUB_LABEL)) {
     if (!latest.has(hub) && lastSavedAt(hub)) latest.set(hub, null);
@@ -2456,7 +2458,7 @@ function renderHealth(){
   const items = [];   // {html, long}。long（失敗の理由）は折り返すので行を分ける
   let anyFailed = false;
   for (const [hub, r] of latest) {
-    const label = HUB_LABEL[hub] || hub;
+    const label = HUB_LABEL[hub] || escHtml(hub);
     const saved = lastSavedAt(hub);
     const busy = r && r.status !== "done" && r.status !== "failed";
 
@@ -2474,7 +2476,7 @@ function renderHealth(){
       anyFailed = true;
       // 理由は長い（URLが入ることもある）。折り返せるよう long を付けて別の行にする
       items.push({long: true, html: `<span class="hitem long">${label} `
-        + `<b>${whenLabel(r.updated_at)}</b> 失敗（${r.message || "理由不明"}）</span>`});
+        + `<b>${whenLabel(r.updated_at)}</b> 失敗（${escHtml(r.message || "理由不明")}）</span>`});
     }
   }
   box.className = "healthbar " + (anyFailed ? "warn" : "ok");

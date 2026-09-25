@@ -4,3 +4,8 @@ node_modules/
 .wrangler/
 international/zed/data.json
 __pycache__/
+*.pem
+.env
+.env.*
+.dev.vars
+.dev.vars.*

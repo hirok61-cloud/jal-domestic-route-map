@@ -187,6 +187,9 @@ Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
   const action = url.searchParams.get("action") ?? "";
   const hub = url.searchParams.get("hub") ?? "HND";
+  /* hub は許可リスト。以前は無検証のまま jal_seat_requests に入り、?action=recent 経由で
+     サイトの healthbar に未エスケープで描画されていた（格納型XSSの経路。2026-09-25 点検）。 */
+  if (hub !== "HND" && hub !== "JOH") return json({ error: "hub が不正です" }, 400);
   const authed = UPDATE_KEY !== "" && req.headers.get("x-update-key") === UPDATE_KEY;
 
   /* ---------------------------------------------------------- 依頼を積む */
@@ -204,13 +207,20 @@ Deno.serve(async (req: Request) => {
     let days: number[] = [0, 1];
     try {
       const body = (await req.json()) ?? {};
-      label = String(body.from ?? "").slice(0, 40);
+      // 表示に回る文字列なので、記号と制御文字を落として長さも絞る
+      label = String(body.from ?? "").replace(/[<>&"'\\\u0000-\u001f\u007f]/g, "").slice(0, 40);
       // 0=今日 / 1=翌日。座席表まで見ると1日8〜10分かかるので、要る日だけ選べるようにする
       if (Array.isArray(body.days)) {
         const picked = body.days.map(Number).filter((n: number) => n === 0 || n === 1);
         if (picked.length) days = [...new Set(picked)].sort();
       }
     } catch { /* bodyなしでもよい */ }
+
+    // 無認証で積める依頼なので、1日の上限を置く（本人の実績は多い日で十数件）
+    const since = new Date(Date.now() - 86_400_000).toISOString();
+    const recent24 = await db(`${REQUESTS}?requested_at=gte.${since}&select=id&limit=31`)
+      .then((r) => r.json()).catch(() => []);
+    if (Array.isArray(recent24) && recent24.length >= 30) return json({ error: "本日の依頼上限に達しました" }, 429);
 
     const res = await db(REQUESTS, {
       method: "POST",
@@ -272,6 +282,7 @@ Deno.serve(async (req: Request) => {
   if (req.method === "POST" && action === "progress") {
     if (!authed) return denied();
     const id = Number(url.searchParams.get("id"));
+    if (!Number.isFinite(id)) return json({ error: "id が不正です" }, 400);
     const body = await req.json().catch(() => ({}));
     await db(`${REQUESTS}?id=eq.${id}`, {
       method: "PATCH",
@@ -284,6 +295,7 @@ Deno.serve(async (req: Request) => {
   if (req.method === "POST" && action === "finish") {
     if (!authed) return denied();
     const id = Number(url.searchParams.get("id"));
+    if (!Number.isFinite(id)) return json({ error: "id が不正です" }, 400);
     const body = await req.json().catch(() => ({}));
     await db(`${REQUESTS}?id=eq.${id}`, {
       method: "PATCH",
@@ -562,6 +574,8 @@ Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return json({ error: "許可されていないメソッドです" }, 405);
   if (!authed) return denied();
 
+  const declared = Number(req.headers.get("content-length") || 0);
+  if (declared > MAX_BODY) return json({ error: "データが大きすぎます" }, 413);
   const raw = await req.text();
   if (raw.length > MAX_BODY) return json({ error: "データが大きすぎます" }, 413);
 
@@ -646,7 +660,7 @@ Deno.serve(async (req: Request) => {
       updated_at: new Date().toISOString(),
     }),
   });
-  if (!res.ok) return json({ error: "保存に失敗しました", detail: await res.text() }, 502);
+  if (!res.ok) { console.error("snapshot save failed", res.status, await res.text().catch(() => "")); return json({ error: "保存に失敗しました" }, 502); }
 
   const flights = payload.routes.reduce(
     (n: number, r: any) => n + (Array.isArray(r.flights) ? r.flights.length : 0),
