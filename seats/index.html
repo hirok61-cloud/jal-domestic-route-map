@@ -311,6 +311,29 @@ td.fno{font-weight:700;color:var(--red)}
   font-size:11.5px;font-weight:700;color:var(--full);cursor:pointer;font-variant-numeric:tabular-nums}
 .fcbusy button.on{background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff;border-color:transparent}
 .fccal summary{cursor:pointer;font-size:11.5px;color:var(--sub);margin:4px 0}
+/* 日帰りの判定。見出し行に「現地◯時間以上」の切り替えを置く */
+.dthead{display:flex;align-items:center;gap:6px 8px;flex-wrap:wrap;margin:4px 0 6px}
+.dthead .rthead{margin:0}
+.dthead .seg button{padding:4px 11px;font-size:11.5px}
+.dtsec{margin:10px 0 4px;font-size:12.5px;font-weight:700}
+.dtsec .sub{font-weight:400}
+/* 日帰りで狙える行き先のカード。スマホは1列、広い画面は並べる */
+.dtgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(250px,100%),1fr));gap:8px;margin:4px 0}
+.dtcard{background:var(--panel);border:1px solid var(--panel-edge);border-radius:10px;padding:8px 11px;min-width:0}
+.dtcard .dtt{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:3px}
+.dtcard .dtt b{font-size:13px}
+.dtcard .dtp{font-size:11px;color:var(--sub);white-space:nowrap}
+.dtcard .dtp b{font-size:14px;color:var(--ok)}
+.dtleg{display:grid;grid-template-columns:30px auto 1fr auto;gap:6px;align-items:baseline;font-size:12px;line-height:1.7}
+.dtleg .dir{color:var(--sub);font-size:11px}
+.dtleg .fno{color:var(--red);font-weight:700}
+.dtleg .tm{font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dtleg>b{font-variant-numeric:tabular-nums;text-align:right}
+.dtcard .dts{font-size:11px;color:var(--sub);margin-top:2px}
+.dtline{font-size:12px;line-height:1.75;margin:3px 0}
+.dtline .sub{font-size:11px}
+.dtline .dtpair{display:inline-block;margin-right:12px;white-space:nowrap}
+.dtline .lo{color:var(--warn)}
 /* 推定値（その時期の記録が足りず、平日/土日祝の実績に時期の係数を掛けたもの）は見た目で区別する */
 .bar.est i{opacity:.45;background:repeating-linear-gradient(90deg,var(--ok) 0 6px,transparent 6px 9px)}
 .esttag{display:inline-block;padding:0 5px;border-radius:4px;font-size:9.5px;font-weight:700;
@@ -322,6 +345,13 @@ td.fno{font-weight:700;color:var(--red)}
   .rrow .sub{flex:1 0 100%;margin:-1px 0 0 104px}
   .wxtag{white-space:normal;margin-left:0;flex-basis:100%;line-height:1.6}
   .corpcol{width:60px}
+  /* サマリ・予測・レポートの箱は、左右に main の余白(14px)＋自前の22pxが重なって、
+     375px幅で中身が240px程度まで痩せていた。一覧のカードと同じ端にそろえる。 */
+  .corpsum,.healthbar{margin-left:0;margin-right:0}
+  .corpsum{padding:12px 13px}
+  .corpsum .lead{font-size:14px}
+  .corpsum .lead b{font-size:16px}
+  .rtblock{padding:9px 10px}
 }
 /* 普通席セルをクリックすると座席表の詳細が開く。座席の情報がある便だけ
    button にする。中身（バッジ等）の見た目は素のセルと変わらないようにする。 */
@@ -812,6 +842,139 @@ async function loadCorp(){
    予測といっても過去の割合をそのまま当てはめるだけで、時期（繁忙期）や天候は見ていない。
    材料は loadFlightStats() が読む FLT（ページを開いたときの1回だけ）。 */
 let FC_DATE = null;
+
+/* ---------- 日帰りで行けるか ----------
+   「往復とも取れる便がある」だけでは、行き7:00発（8:00着）と帰り7:55発のように
+   実際には乗り継げない組み合わせまで「往復OK」に数えてしまう（2026-10-03 本人の指摘）。
+   そこで、行きの到着から帰りの出発まで現地に FC_STAY 時間以上いられる組み合わせだけで判定する。
+
+   **到着時刻の出どころ**: 制度枠の記録（jal_corp_log）は出発時刻しか持っていないので、
+   今日・明日の空席データ（DAYS）と制度枠の最新記録（CORP）から、便名ごとの出発・到着を引く。
+   載っていない便（今日・明日は運航しない便など）は、同じ区間の所要時間の中央値で到着を見積もる。
+   時刻は「いまのダイヤ」なので、ダイヤ改正（10月末・3月末）をまたぐ日は実際とずれることがある。 */
+const STAY_KEY = "jalSeatsStayH";
+const STAY_CHOICES = [3, 5, 7];
+let FC_STAY = (() => {
+  try { const v = Number(localStorage.getItem(STAY_KEY)); return STAY_CHOICES.includes(v) ? v : 5; }
+  catch { return 5; }
+})();
+const toMin = (hm) => { const m = /^(\d{1,2}):(\d{2})$/.exec(hm || ""); return m ? Number(m[1]) * 60 + Number(m[2]) : null; };
+const fromMin = (m) => `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+const fmtStay = (m) => m < 60 ? `${m}分` : `${Math.floor(m / 60)}時間${m % 60 ? `${m % 60}分` : ""}`;
+
+function buildTimetable(){
+  const byKey = new Map(), durs = new Map();
+  const add = (routes) => {
+    for (const r of routes || []) {
+      const seg = `${r.o}-${r.d}`;
+      for (const f of r.flights || []) {
+        const dm = toMin(f.dep), am = toMin(f.arr);
+        if (!f.no || dm === null || am === null) continue;
+        byKey.set(`${seg}|${f.no}`, {dep: f.dep, arr: f.arr});
+        const d = (am - dm + 1440) % 1440;
+        if (d > 0) { if (!durs.has(seg)) durs.set(seg, []); durs.get(seg).push(d); }
+      }
+    }
+  };
+  // 後から足したものが勝つ。今日の制度枠 → 今日の空席 → 明日の空席（先の日に近いダイヤを優先）
+  if (CORP) add(CORP.routes);
+  for (const d of Object.keys(DAYS).sort()) add(DAYS[d] && DAYS[d].routes);
+  const med = new Map([...durs].map(([k, a]) => { a.sort((x, y) => x - y); return [k, a[a.length >> 1]]; }));
+  return {byKey, med};
+}
+/** 便の出発・到着（分）。到着が見積もりなら arrEst=true。到着が分からなければ arr=null。 */
+function flightTimes(tt, seg, no, fallbackDep){
+  const hit = tt.byKey.get(`${seg}|${no}`);
+  if (hit) return {dep: toMin(hit.dep), arr: toMin(hit.arr), arrEst: false};
+  const dep = toMin(fallbackDep);
+  if (dep === null) return {dep: null, arr: null, arrEst: false};
+  const d = tt.med.get(seg);
+  return {dep, arr: d ? dep + d : null, arrEst: true};
+}
+/** 行き先ごとの日帰り判定。rows は forecastBody の便（b.rate を持つ）。 */
+function dayTripPlan(rows, stayH){
+  const tt = buildTimetable();
+  const STAY = stayH * 60;
+  const bySpoke = new Map();
+  for (const r of rows) {
+    const [o, d] = r.seg.split("-");
+    const spoke = o === "HND" ? d : o;
+    const t = flightTimes(tt, r.seg, r.no, r.dep);
+    if (t.dep === null) continue;
+    const sp = bySpoke.get(spoke) || {outs: [], rets: []};
+    (o === "HND" ? sp.outs : sp.rets).push({...r, t});
+    bySpoke.set(spoke, sp);
+  }
+  const good = [], weak = [], noFit = [], unknown = [];
+  for (const [spoke, sp] of bySpoke) {
+    if (!sp.outs.length || !sp.rets.length) continue;
+    let best = null, bestGood = null;
+    for (const o of sp.outs) {
+      if (o.t.arr === null) continue;
+      for (const r of sp.rets) {
+        const stay = r.t.dep - o.t.arr;
+        if (stay < STAY) continue;
+        const pr = {o, r, stay, p: o.b.rate * r.b.rate, min: Math.min(o.b.rate, r.b.rate)};
+        const better = (a, b) => !b || a.p > b.p + 1e-9 || (Math.abs(a.p - b.p) < 1e-9 && (a.min > b.min || (a.min === b.min && a.stay > b.stay)));
+        if (better(pr, best)) best = pr;
+        if (o.b.rate >= 0.5 && r.b.rate >= 0.5 && better(pr, bestGood)) bestGood = pr;
+      }
+    }
+    if (bestGood) good.push({spoke, pair: bestGood});
+    else if (best) weak.push({spoke, pair: best});
+    else if (sp.outs.every(o => o.t.arr === null)) unknown.push({spoke});
+    else {
+      // ダイヤ上、現地 stayH 時間をとれる組が無い。いちばん早く着く行きと、いちばん遅い帰りを添える
+      const firstArr = sp.outs.filter(o => o.t.arr !== null).reduce((m, o) => o.t.arr < m.t.arr ? o : m);
+      const lastDep = sp.rets.reduce((m, r) => r.t.dep > m.t.dep ? r : m);
+      noFit.push({spoke, firstArr, lastDep, gap: lastDep.t.dep - firstArr.t.arr});
+    }
+  }
+  const byP = (a, b) => b.pair.p - a.pair.p || b.pair.min - a.pair.min;
+  good.sort(byP); weak.sort(byP);
+  noFit.sort((a, b) => geoRank(a.spoke) - geoRank(b.spoke));
+  return {good, weak, noFit, unknown};
+}
+/** 日帰りの判定ブロック（予測の中に置く）。 */
+function dayTripHtml(rows, D){
+  const plan = dayTripPlan(rows, FC_STAY);
+  const name = (c) => AP[c] || c;
+  const pc = (x) => `${Math.round(x * 100)}%`;
+  const leg = (dir, x, showArr) => `<div class="dtleg"><span class="dir">${dir}</span><span class="fno">${x.no}</span>`
+    + `<span class="tm mono">${fromMin(x.t.dep)}→${x.t.arr !== null ? fromMin(x.t.arr) + (x.t.arrEst ? "頃" : "") : "?"}</span>`
+    + `<b>${x.b.est ? "≈" : ""}${pc(x.b.rate)}</b></div>`;
+  const card = ({spoke, pair}) => `<div class="dtcard">
+      <div class="dtt"><b>${name(spoke)}</b><span class="dtp">両方そろう目安 <b>${pc(pair.p)}</b></span></div>
+      ${leg("行き", pair.o)}${leg("帰り", pair.r)}
+      <div class="dts">現地 ${fmtStay(pair.stay)}（${fromMin(pair.o.t.arr)}着 → ${fromMin(pair.r.t.dep)}発）</div></div>`;
+  /* 5割に届かない側だけ色を変えて、どちらが足を引っぱっているかを一目で分かるようにする */
+  const rateTag = (x) => `<b class="${x.b.rate < 0.5 ? "lo" : ""}">${x.b.est ? "≈" : ""}${pc(x.b.rate)}</b>`;
+  const brief = ({spoke, pair}) => `<div class="dtline"><b>${name(spoke)}</b> <span class="sub">現地${fmtStay(pair.stay)}・目安${pc(pair.p)}</span><br>`
+    + `<span class="dtpair">行き ${pair.o.no} <span class="mono">${fromMin(pair.o.t.dep)}</span> ${rateTag(pair.o)}</span>`
+    + `<span class="dtpair">帰り ${pair.r.no} <span class="mono">${fromMin(pair.r.t.dep)}</span> ${rateTag(pair.r)}</span></div>`;
+  const SHOW = 8;
+  const good = plan.good.slice(0, SHOW).map(card).join("");
+  const goodRest = plan.good.slice(SHOW);
+  const stayBtns = STAY_CHOICES.map(h => `<button type="button" data-h="${h}" class="${h === FC_STAY ? "on" : ""}">${h}時間</button>`).join("");
+  return `
+    <div class="rthead">日帰りで行けるか${D.short ? `<span class="sub">（${D.label}の実績で）</span>` : ""}</div>
+    <div class="dthead"><span class="sub">現地にいる時間</span>
+      <div class="seg" id="fcstay" role="group" aria-label="現地にいる時間">${stayBtns}</div><span class="sub">以上</span></div>
+    <div class="sub">行きの到着から帰りの出発まで、現地に${FC_STAY}時間以上いられる便の組み合わせだけで見ます。
+      「両方そろう目安」は行きと帰りの割合を掛けたもの（別々に決まるとみなした目安）。行き先ごとに、この目安がいちばん高い組を出しています。</div>
+    <div class="dtsec"><span class="rtok">◎ 日帰りで狙える ${plan.good.length}</span>
+      <span class="sub">行き・帰りとも5割以上の組がある</span></div>
+    ${plan.good.length ? `<div class="dtgrid">${good}</div>` : `<div class="dtline sub">（該当なし）</div>`}
+    ${goodRest.length ? `<details><summary class="sub">ほか ${goodRest.length} 行き先を見る</summary><div class="dtgrid">${goodRest.map(card).join("")}</div></details>` : ""}
+    ${plan.weak.length ? `<div class="dtsec"><span class="hint">△ 日帰りの組はあるが、どちらかが5割未満 ${plan.weak.length}</span></div>
+      ${plan.weak.slice(0, 5).map(brief).join("")}
+      ${plan.weak.length > 5 ? `<details><summary class="sub">ほか ${plan.weak.length - 5} 行き先を見る</summary>${plan.weak.slice(5).map(brief).join("")}</details>` : ""}` : ""}
+    ${plan.noFit.length ? `<div class="dtsec">× ダイヤ上、現地${FC_STAY}時間の日帰りができない ${plan.noFit.length}</div>
+      <div class="dtline">${plan.noFit.map(x => `${name(x.spoke)}<span class="sub">（最も早い着 ${fromMin(x.firstArr.t.arr)}${x.firstArr.t.arrEst ? "頃" : ""}・最も遅い帰り ${fromMin(x.lastDep.t.dep)}発${x.gap > 0 ? `・最大${fmtStay(x.gap)}` : ""}）</span>`).join("、")}</div>` : ""}
+    ${plan.unknown.length ? `<div class="dtline sub">いまのダイヤ（今日・明日）に便が無く、時刻が分からないため判定できない：${plan.unknown.map(x => name(x.spoke)).join("、")}（季節運航など）</div>` : ""}
+    <div class="sub" style="margin-top:6px">時刻はいまのダイヤ（今日・明日の空席データ）で計算しています。「頃」は同じ区間の所要時間からの見積もり、
+      「≈」は推定の割合。ダイヤ改正をまたぐ日は時刻がずれることがあります。</div>`;
+}
 function fcChips(){
   const today = todayJST();
   return Array.from({length: 7}, (_, i) => {
@@ -872,6 +1035,17 @@ function renderForecast(){
   };
   box.querySelector(".fcchips").addEventListener("click", pick);
   box.querySelector(".fcbusy").addEventListener("click", pick);
+  box.querySelector("#fcstay")?.addEventListener("click", ev => {
+    const b = ev.target.closest("button");
+    if (!b) return;
+    FC_STAY = Number(b.dataset.h);
+    try { localStorage.setItem(STAY_KEY, String(FC_STAY)); } catch { /* 覚えられなくても動く */ }
+    const y = box.querySelector(".dthead")?.getBoundingClientRect().top;
+    renderForecast();
+    // 押した場所が画面上で動かないよう、描き直し後に同じ位置へ戻す
+    const y2 = box.querySelector(".dthead")?.getBoundingClientRect().top;
+    if (y !== undefined && y2 !== undefined) window.scrollBy(0, y2 - y);
+  });
   box.querySelector("#fcdate").addEventListener("change", ev => {
     if (!ev.target.value) return;
     FC_DATE = ev.target.value;
@@ -917,7 +1091,8 @@ function forecastBody(date){
     dir * (b.b.rate - a.b.rate) || b.b.n - a.b.n || a.dep.localeCompare(b.dep));
   const top = byRate(1).slice(0, 15), bottom = byRate(-1).slice(0, 15);
 
-  /* 往復で狙える行き先。行き・帰りそれぞれ、いちばん取りやすい便が5割以上なら候補 */
+  /* 泊まりも含めた往復（時刻を問わない）。行き・帰りそれぞれ、いちばん取りやすい便が5割以上なら候補。
+     日帰りの判定は dayTripHtml() が別にやる（時刻を見ないと乗り継げない組まで数えてしまうため） */
   const bySpoke = new Map();
   for (const r of rows) {
     const [o, d] = r.seg.split("-");
@@ -962,8 +1137,9 @@ function forecastBody(date){
       <b>${tiers[0]} 便</b>が取りにくい（2割未満）です。</div>
     <div class="tierlead">${[3, 2, 1, 0].map(i =>
       `<span class="t${i}">${FLT_TIER[i].mark} ${FLT_TIER[i].label}（${FLT_TIER[i].range}）<b>${tiers[i]}便</b></span>`).join("")}</div>
-    <div class="rtblock">
-      <div class="rthead">往復で狙える行き先（${D.short ? D.label + "の実績で" : ""}行き・帰りとも、5割以上取れる便がある）</div>
+    <div class="rtblock">${dayTripHtml(rows, D)}</div>
+    <details class="rtblock fcstay-any"><summary class="rthead" style="cursor:pointer">泊まりも含めて見る（時刻を問わず、行き・帰りとも5割以上の便がある行き先 ${both.length}）</summary>
+      <div class="sub" style="margin:4px 0">帰りを別の日にする場合の目安です。帰りの日も同じ区分（${kindLabelOf(date)}）とみなしています。</div>
       ${(() => {
         /* 行き先が多いと長くなるので、上位10件だけ見せて残りは畳む（順は行き・帰りの低いほう） */
         const row = (x) => `<div class="rtline"><b class="rtok">${spokeName(x.spoke)}</b>：`
@@ -975,7 +1151,7 @@ function forecastBody(date){
       })()}
       ${oneWay.length ? `<div class="rtline"><span class="hint">片道だけ5割以上</span>：`
         + oneWay.map(x => `${spokeName(x.spoke)}（${x.out ? "行きのみ" : "帰りのみ"}）`).join("、") + `</div>` : ""}
-    </div>
+    </details>
     <h4>狙い目の便（${D.short ? D.label : kind}の実績が高い順・上位15）</h4>
     <div class="rlist">${top.map(x => line(x, true)).join("")}</div>
     <h4>取りにくい便（${D.short ? D.label : kind}の実績が低い順・下位15）</h4>
