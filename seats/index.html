@@ -935,6 +935,65 @@ function dayTripPlan(rows, stayH){
   noFit.sort((a, b) => geoRank(a.spoke) - geoRank(b.spoke));
   return {good, weak, noFit, unknown};
 }
+/** 今日の日帰り（サマリ用）。制度で○だった便どうしで、現地 stayH 時間以上いられる組があるか。
+    今日の記録なら、いまの時刻（nowMin）より前に出る便はもう乗れないので除く。
+    行き先ごとの代表は「現地にいちばん長くいられる組」（予定の幅がいちばん広い）。 */
+function todayTripPlan(rows, stayH, nowMin){
+  const tt = buildTimetable();
+  const STAY = stayH * 60;
+  const bySpoke = new Map();
+  for (const x of rows) {
+    const seg = `${x.o}-${x.d}`, spoke = x.o === "HND" ? x.d : x.o, out = x.o === "HND";
+    const sp = bySpoke.get(spoke) || {outs: [], rets: [], hadOk: false};
+    if (x.zl) {
+      sp.hadOk = true;
+      const t = flightTimes(tt, seg, x.no, x.dep);
+      if (t.dep !== null && t.dep > nowMin) (out ? sp.outs : sp.rets).push({...x, t});
+    }
+    bySpoke.set(spoke, sp);
+  }
+  const good = [], noFit = [], outOnly = [], retOnly = [], gone = [];
+  for (const [spoke, sp] of bySpoke) {
+    const outs = sp.outs.filter(o => o.t.arr !== null);
+    let best = null, n = 0;
+    for (const o of outs) for (const r of sp.rets) {
+      const stay = r.t.dep - o.t.arr;
+      if (stay < STAY) continue;
+      n++;
+      if (!best || stay > best.stay) best = {o, r, stay};
+    }
+    if (best) good.push({spoke, pair: best, n});
+    else if (outs.length && sp.rets.length) {
+      const firstArr = outs.reduce((m, o) => o.t.arr < m.t.arr ? o : m);
+      const lastDep = sp.rets.reduce((m, r) => r.t.dep > m.t.dep ? r : m);
+      noFit.push({spoke, firstArr, lastDep});
+    }
+    else if (sp.outs.length) outOnly.push(spoke);
+    else if (sp.rets.length) retOnly.push(spoke);
+    else if (sp.hadOk) gone.push(spoke); // ○の便はあったが、もう出発した
+  }
+  const geo = (a, b) => geoRank(a.spoke ?? a) - geoRank(b.spoke ?? b);
+  [good, noFit, outOnly, retOnly, gone].forEach(a => a.sort(geo));
+  return {good, noFit, outOnly, retOnly, gone};
+}
+/** 現地にいる時間の切り替え（サマリと予測で共通。どちらで押しても両方描き直す）。 */
+function stayButtons(){
+  return STAY_CHOICES.map(h => `<button type="button" data-h="${h}" class="${h === FC_STAY ? "on" : ""}">${h}時間</button>`).join("");
+}
+function bindStaySeg(root, anchorSel){
+  root.querySelector(".stayseg")?.addEventListener("click", ev => {
+    const b = ev.target.closest("button");
+    if (!b) return;
+    FC_STAY = Number(b.dataset.h);
+    try { localStorage.setItem(STAY_KEY, String(FC_STAY)); } catch { /* 覚えられなくても動く */ }
+    const y = root.querySelector(anchorSel)?.getBoundingClientRect().top;
+    renderCorpSummary();
+    renderForecast();
+    // 押した場所が画面上で動かないよう、描き直し後に同じ位置へ戻す
+    const y2 = root.querySelector(anchorSel)?.getBoundingClientRect().top;
+    if (y !== undefined && y2 !== undefined) window.scrollBy(0, y2 - y);
+  });
+}
 /** 日帰りの判定ブロック（予測の中に置く）。 */
 function dayTripHtml(rows, D){
   const plan = dayTripPlan(rows, FC_STAY);
@@ -955,11 +1014,10 @@ function dayTripHtml(rows, D){
   const SHOW = 8;
   const good = plan.good.slice(0, SHOW).map(card).join("");
   const goodRest = plan.good.slice(SHOW);
-  const stayBtns = STAY_CHOICES.map(h => `<button type="button" data-h="${h}" class="${h === FC_STAY ? "on" : ""}">${h}時間</button>`).join("");
   return `
     <div class="rthead">日帰りで行けるか${D.short ? `<span class="sub">（${D.label}の実績で）</span>` : ""}</div>
     <div class="dthead"><span class="sub">現地にいる時間</span>
-      <div class="seg" id="fcstay" role="group" aria-label="現地にいる時間">${stayBtns}</div><span class="sub">以上</span></div>
+      <div class="seg stayseg" role="group" aria-label="現地にいる時間">${stayButtons()}</div><span class="sub">以上</span></div>
     <div class="sub">行きの到着から帰りの出発まで、現地に${FC_STAY}時間以上いられる便の組み合わせだけで見ます。
       「両方そろう目安」は行きと帰りの割合を掛けたもの（別々に決まるとみなした目安）。行き先ごとに、この目安がいちばん高い組を出しています。</div>
     <div class="dtsec"><span class="rtok">◎ 日帰りで狙える ${plan.good.length}</span>
@@ -1035,17 +1093,7 @@ function renderForecast(){
   };
   box.querySelector(".fcchips").addEventListener("click", pick);
   box.querySelector(".fcbusy").addEventListener("click", pick);
-  box.querySelector("#fcstay")?.addEventListener("click", ev => {
-    const b = ev.target.closest("button");
-    if (!b) return;
-    FC_STAY = Number(b.dataset.h);
-    try { localStorage.setItem(STAY_KEY, String(FC_STAY)); } catch { /* 覚えられなくても動く */ }
-    const y = box.querySelector(".dthead")?.getBoundingClientRect().top;
-    renderForecast();
-    // 押した場所が画面上で動かないよう、描き直し後に同じ位置へ戻す
-    const y2 = box.querySelector(".dthead")?.getBoundingClientRect().top;
-    if (y !== undefined && y2 !== undefined) window.scrollBy(0, y2 - y);
-  });
+  bindStaySeg(box, ".dthead");
   box.querySelector("#fcdate").addEventListener("change", ev => {
     if (!ev.target.value) return;
     FC_DATE = ev.target.value;
@@ -1968,25 +2016,23 @@ function renderCorpSummary(){
   const availN = rows.filter(x => x.eco >= 9).length;
   const hiddenPct = availN ? Math.round(hidden / availN * 100) : 0;
 
-  /* 往復セットで見る。片道が取れても帰りが取れなければ旅程として成立しない
-     （実際に方向差が大きく出ており、行きは取れても帰りが全滅の行き先がある）。
-     行き先（HNDでないほうの空港）ごとに、行き・帰りそれぞれに
-     制度で取れる便が1本でもあるかを見る。 */
-  const bySpoke = new Map();
-  for (const x of rows) {
-    const spoke = x.o === "HND" ? x.d : x.o;
-    const s = bySpoke.get(spoke) || {out: false, ret: false};
-    if (x.zl) { if (x.o === "HND") s.out = true; else s.ret = true; }
-    bySpoke.set(spoke, s);
-  }
+  /* 日帰りで見る。片道が取れても帰りが取れなければ旅程として成立しない。
+     さらに、行き・帰りに○の便が1本ずつあっても、時刻が合わなければ日帰りできない
+     （行き7:00発8:00着と帰り7:55発、など。2026-10-03 本人の指摘で、それまでの
+     「行き・帰りそれぞれに○が1本以上あるか」から、時刻を見た判定に変えた）。
+     ○の便どうしで、現地に FC_STAY 時間以上いられる組があるかを見る。 */
   const spokeName = (c) => (typeof AP !== "undefined" && AP[c]) || c;
-  const roundOk = [], outOnly = [], retOnly = [];
-  for (const [spoke, s] of bySpoke) {
-    if (s.out && s.ret) roundOk.push(spoke);
-    else if (s.out) outOnly.push(spoke);
-    else if (s.ret) retOnly.push(spoke);
-  }
-  roundOk.sort(); outOnly.sort(); retOnly.sort();
+  const nowMin = (() => {
+    if (CORP.date !== todayJST()) return -1;
+    const now = new Date();
+    const jst = new Date(now.getTime() + (now.getTimezoneOffset() + 540) * 60000);
+    return jst.getHours() * 60 + jst.getMinutes();
+  })();
+  const trip = todayTripPlan(rows, FC_STAY, nowMin);
+  const tripPair = ({spoke, pair, n}) => `<div class="dtline"><b>${spokeName(spoke)}</b> <span class="sub">現地${fmtStay(pair.stay)}`
+    + `${n > 1 ? `・ほか${n - 1}組` : ""}</span><br>`
+    + `<span class="dtpair">行き ${pair.o.no} <span class="mono">${fromMin(pair.o.t.dep)}→${fromMin(pair.o.t.arr)}${pair.o.t.arrEst ? "頃" : ""}</span></span>`
+    + `<span class="dtpair">帰り ${pair.r.no} <span class="mono">${fromMin(pair.r.t.dep)}</span>発</span></div>`;
 
   box.innerHTML = `
     <h3>制度枠のサマリ（${hhmm(CORP.generatedAt)}時点）</h3>
@@ -1999,20 +2045,33 @@ function renderCorpSummary(){
       + `（空席ありの ${availN} 便中 <b>${hiddenPct}％</b>）あります。`
       + `空席＝制度で取れる、ではありません。</div>` : ""}
     <div class="rtblock">
-      <div class="rthead">往復（当日中）で見ると</div>
-      <div class="sub">片道が取れても、帰りが取れなければ旅程として成立しません。
-        行き先ごとに、行き・帰りそれぞれに制度で取れる便が1本以上あるかで見ています。</div>
-      <div class="rtline"><b class="rtok">往復とも取れる行き先 ${roundOk.length}</b>
-        ${roundOk.length ? `：${roundOk.map(spokeName).join("、")}` : "（今日は無し）"}</div>
-      ${outOnly.length ? `<div class="rtline"><span class="hint">行きだけ取れる（帰りが取れない）</span>：`
-        + `${outOnly.map(spokeName).join("、")}</div>` : ""}
-      ${retOnly.length ? `<div class="rtline"><span class="hint">帰りだけ取れる（行きが取れない）</span>：`
-        + `${retOnly.map(spokeName).join("、")}</div>` : ""}
+      <div class="rthead">今日、日帰りで行けるか</div>
+      <div class="dthead"><span class="sub">現地にいる時間</span>
+        <div class="seg stayseg" role="group" aria-label="現地にいる時間">${stayButtons()}</div><span class="sub">以上</span></div>
+      <div class="sub">制度で○だった便どうしで、行きの到着から帰りの出発まで現地に${FC_STAY}時間以上いられる組があるかで見ています。
+        ${nowMin >= 0 ? `いま（${fromMin(nowMin)}）より前に出る便は、もう乗れないので除いています。` : ""}</div>
+      <div class="rtline"><b class="rtok">◎ 日帰りできる行き先 ${trip.good.length}</b>
+        ${trip.good.length ? `：${trip.good.map(x => spokeName(x.spoke)).join("、")}` : "（今日は無し）"}</div>
+      ${trip.good.length ? `<details><summary class="sub">便の組み合わせを見る（現地にいちばん長くいられる組）</summary>`
+        + `${trip.good.map(tripPair).join("")}</details>` : ""}
+      ${trip.noFit.length ? `<div class="rtline"><span class="hint">△ 往復とも○の便はあるが、時刻が合わず日帰りできない</span>：`
+        + `${trip.noFit.map(x => spokeName(x.spoke)).join("、")}</div>`
+        + `<details><summary class="sub">時刻を見る（いちばん早く着く行きと、いちばん遅い帰り）</summary>`
+        + trip.noFit.map(x => `<div class="dtline"><b>${spokeName(x.spoke)}</b> <span class="sub">`
+          + `行き ${x.firstArr.no} ${fromMin(x.firstArr.t.arr)}${x.firstArr.t.arrEst ? "頃" : ""}着・帰り ${x.lastDep.no} ${fromMin(x.lastDep.t.dep)}発`
+          + `${x.lastDep.t.dep - x.firstArr.t.arr > 0 ? `（現地は最大${fmtStay(x.lastDep.t.dep - x.firstArr.t.arr)}）` : "（帰りの方が先に出る）"}</span></div>`).join("")
+        + `</details>` : ""}
+      ${trip.outOnly.length ? `<div class="rtline"><span class="hint">行きだけ取れる</span><span class="sub">（帰りの○便が${nowMin >= 0 ? "残って" : ""}いない）</span>：`
+        + `${trip.outOnly.map(spokeName).join("、")}</div>` : ""}
+      ${trip.retOnly.length ? `<div class="rtline"><span class="hint">帰りだけ取れる</span><span class="sub">（行きの○便が${nowMin >= 0 ? "残って" : ""}いない）</span>：`
+        + `${trip.retOnly.map(spokeName).join("、")}</div>` : ""}
+      ${trip.gone.length ? `<div class="rtline sub">○の便がもう全部出発した行き先：${trip.gone.map(spokeName).join("、")}</div>` : ""}
     </div>
     ${lines.length ? `<ul>${lines.map(l => `<li>${l}</li>`).join("")}</ul>` : ""}
     <div class="sub" style="margin-top:8px">これは記録した瞬間の断面です。搭乗数時間前から
       徐々に解放される便があるため、その後に取れるようになることがあります。</div>`;
   box.hidden = false;
+  bindStaySeg(box, ".rtblock .dthead");
 }
 
 /** 制度で取れるかどうかは○×の一目判断が要る情報なので、独立した列にする。
