@@ -60,6 +60,7 @@ npx wrangler@latest kv key get "zed:data.json" \
 
 → 2026-08-30 に全263社を照合し、変更が見つかった11社
 （XZ・AR・UX・AF・MX・BA・DL・HX・XE・LX・VN）を下の手順で再収録済み。
+2026-10-19 に13社（AC・B4・HX・B6・XE・LO・MH・8P・BI・SA・JX・LX・TJ）を再収録し、以後は自動更新。
 
 ## 再収録の手順（原文が更新された社を最新版にする）
 
@@ -77,5 +78,27 @@ npx wrangler@latest kv key get "zed:data.json" \
    ページの「◯月◯日再収録」表示は `updated` フィールドから自動で出る。
 5. **確認**: もう一度 `fingerprint.py --data <新data.json>` を回して changed=0 を確認。
 
-翻訳を挟むため完全自動にはできない。Claudeに「ZEDの原文更新チェックして、
-変わってたら再収録して」と頼めばこの手順を通しで実行できる。
+## 自動更新(2026-10-19〜)
+
+上の手順は毎週月曜の朝、Claudeデスクトップの定期タスク `zed-auto-update`
+(`~/.claude/scheduled-tasks/zed-auto-update/SKILL.md`、月曜6:40頃)が自動で回す。
+機械的な部分は `scripts/zed_auto.sh` にまとめてあり、Claudeは和訳だけを担当する。
+
+```
+bash scripts/zed_auto.sh check      # KV取得→全社照合→ジョブ生成(~/.zed-auto/work/fp)
+bash scripts/zed_auto.sh show <CODE>   # 新原文と旧訳を並べて表示
+# → Claude が ~/.zed-auto/work/fp/out/<CODE>.json を書く
+bash scripts/zed_auto.sh publish    # マージ→バックアップ→KV put→読み戻し一致→再照合
+```
+
+- 反映前の data.json は `~/.zed-auto/backup/data-YYYYMMDD-HHMMSS.json`(直近30件)。
+  戻すときはそのファイルを上の `kv key put` で入れ直す。
+- 変更が40社を超えたら正規化の破損かサイト改修を疑い、自動翻訳せず止めてMac通知だけ出す。
+- KV取得失敗・検証NG・読み戻し不一致もMac通知(タイトル「ZED運賃条件」)。
+  wranglerの認証が切れたら `npx wrangler login` をやり直す。
+- 無人実行用の許可ルール(`~/.claude/settings.json`): `Bash(bash <repo>/scripts/zed_auto.sh *)`、
+  `Read(<repo>/**)`、`Read/Edit(~/.zed-auto/**)`。**スクリプトの呼び方を変えたら許可ルールも直すこと**
+  (未許可のコマンドがあると無人実行が承認待ちで固まる)。
+
+手動で今すぐ回したいときは、Claudeに「ZEDの原文更新チェックして」と頼むか、
+定期タスクを「今すぐ実行」する。
