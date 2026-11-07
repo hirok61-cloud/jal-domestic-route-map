@@ -203,16 +203,15 @@ const CORP_LOGIN_URL =
   "https://booking.jal.co.jp/jl/corp-john/login/member-login-user-before-process?lang=ja";
 const CORP_ID = "G0000001"; // ＬＴ００＿ＪＡＬＩ（G0000002 のＬＴＺＬではない）
 const CORP_ALARM = "corpauto";
-/* 制度枠の記録時刻。0時の一斉解放のあと／朝／昼前／夕方（搭乗4時間前からの
-   追加解放を拾う）。空席(HND)の 7:00・12:00 と重ならないよう少しずらしてある。 */
+/* 制度枠の記録時刻（2026-11-07 本人指定）。0時の一斉解放のあと／朝／昼前。
+   空席(HND)の 7:00・12:00 と重ならないよう少しずらしてある。 */
 const CORP_SCHEDULE = [
-  { hour: 0, minute: 10 },
-  { hour: 6, minute: 30 },
+  { hour: 0, minute: 5 },
+  { hour: 6, minute: 0 },
   { hour: 11, minute: 30 },
-  { hour: 17, minute: 0 },
 ];
-/* Macが寝ていて予定より大きく遅れて発火した回は捨てる（遅れた17時の回が
-   0時10分の回とくっつくのを防ぐ）。 */
+/* Macが寝ていて予定より大きく遅れて発火した回は捨てる（遅れた回が
+   次の回とくっつくのを防ぐ）。 */
 const CORP_LATE_LIMIT_MS = 60 * 60 * 1000;
 const AUTO_LOGIN_DAILY_MAX = 8;
 
