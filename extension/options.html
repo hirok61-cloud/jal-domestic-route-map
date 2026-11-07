@@ -32,6 +32,7 @@ pre{margin:0;padding:10px;border:1px solid var(--edge);background:var(--panel);b
 select{width:100%;margin-top:4px;padding:7px 9px;border-radius:8px;
   border:1px solid var(--edge,#d9d9d9);background:inherit;color:inherit;font:inherit}
 .check{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:13px;cursor:pointer}
+code{font-family:ui-monospace,Menlo,monospace;font-size:11px;word-break:break-all}
 .check input{width:16px;height:16px;cursor:pointer}
 </style>
 </head>
@@ -64,6 +65,22 @@ select{width:100%;margin-top:4px;padding:7px 9px;border-radius:8px;
 <div class="note" id="autonote">
   <b>朝7時・昼12時に今日分／夜22時に明日分</b>を取り直します（22時には今日の便がほぼ終わっているため）。
   Chromeが動いているときだけ実行され、Macが寝ていた場合は起きたあとに1回だけ動きます。
+</div>
+
+<h2>制度枠の自動記録（自動ログイン）</h2>
+<label class="check"><input type="checkbox" id="corpauto"> 決まった時刻に自動でログインして制度枠を記録する</label>
+<div class="note" id="corpnote">
+  <b>0:10・6:30・11:30・17:00</b>に、JALオンラインにログイン → ＬＴ００を選択 → 記録 → ログアウトします。
+  パスワードはMacのキーチェーンから読みます。
+</div>
+<div class="state" id="corpstate">状態を確認しています…</div>
+<div class="row">
+  <button id="corptest">いま1回だけ試す</button>
+  <button id="corpreset" hidden>停止を解除する</button>
+</div>
+<div class="note">
+  ログインに1回でも失敗すると、アカウントのロックを防ぐため自動ログインを止めます。
+  原因（パスワードの変更など）を直してから「停止を解除する」を押してください。
 </div>
 
 <h2>実行ログ</h2>

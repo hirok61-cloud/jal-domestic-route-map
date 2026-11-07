@@ -19,11 +19,8 @@ const AUTO_ALARM = "auto";
 
 /* 自動更新の時刻（ローカル時間）。Macが起きているときだけ動くので回数は絞る。
    朝・昼は今日分、夜は翌日分を取る（22時には今日の便がほぼ終わっているため）。 */
-/* 制度枠(JOH)の自動枠は置いていない。**JALオンラインにログイン済みのタブが
-   必須**で、無操作セッションは約1時間で切れるため、深夜に自動で走らせても
-   ほぼ失敗するだけになる（2026-08-15、本人判断で自動化は見送り）。
-   制度枠はサイトのボタンかスマホのブックマークレットから手動で記録する。
-   ハブ別の見送りガード（lastAutoBy）は、将来また足すときのために残してある。 */
+/* 制度枠(JOH)の自動枠はここには置かない。別の時刻表 CORP_SCHEDULE と
+   自動ログイン（下の「自動ログイン」の節）で動かす（2026-11-07）。 */
 const AUTO_SCHEDULE = [
   { hour: 7, minute: 0, days: [0] },
   { hour: 12, minute: 0, days: [0] },
@@ -38,22 +35,43 @@ const AUTO_MIN_GAP_MS = 4 * 60 * 60 * 1000;
    トップページで少し待ってからでないと、空席APIが429(cpr_chlge)で弾かれる。 */
 const MATURE_MS = 30000;
 const NAV_TIMEOUT_MS = 60000;
-/* 収集の上限時間。座席表まで見るので1日分で8〜10分かかる。
-   余裕をみて1日あたり20分とる。 */
-const COLLECT_MS_PER_DAY = 20 * 60 * 1000;
+/* 収集の打ち切り方。**所要時間で切ってはいけない**（2026-09-01に特定）。
+   1日分の所要は便数しだいで伸びる。座席表を全便ぶん取れるようになった
+   2026-08-28以降、丸1日ぶん（朝7時＝今日 / 夜22時＝翌日、380〜390便・
+   座席表300〜345便）は 17〜20分かかるようになり、固定20分の上限に
+   ちょうど当たるようになった。実データ: 8/25〜9/1の丸1日ぶん12回のうち
+   5回が「収集が時間内に終わりませんでした」。しかも**保存は間に合っていて
+   データは正しく更新されている**（9/1の朝は開始19分19秒で最終保存まで
+   終わり、その1分半後に打ち切りが発火した）ため、原因が見えにくかった。
+
+   代わりに「進捗が途絶えたら打ち切る」で見る。collect.js は最長60秒に1回は
+   必ず進捗を送る（tools/collect-extension.js の due()）ので、無音が続くのは
+   明確に異常。所要が伸びただけの生きている収集は殺さない。
+   HARD は暴走よけの保険（進捗を出しながら永久に終わらない場合）。 */
+const COLLECT_SILENCE_MS = 6 * 60 * 1000;
+const COLLECT_HARD_MS_PER_DAY = 45 * 60 * 1000;
 
 /* 収集中かどうかは storage に置く。Service Worker は数十秒で止められるので、
    メモリ上のフラグだと再起動後に「動いていない」と誤認して二重に走ってしまう。 */
 async function beginRun() {
   const { runningSince = 0 } = await chrome.storage.local.get("runningSince");
-  // 上限時間を大きく超えていたら、前回が異常終了したとみなして引き継ぐ
-  if (runningSince && Date.now() - runningSince < 2 * COLLECT_MS_PER_DAY + 10 * 60 * 1000) {
+  /* 上限を大きく超えていたら、前回が異常終了したとみなして引き継ぐ。
+     ふつうは poll() の watchdog() が先に片付けるので、ここは最後の受け皿。 */
+  if (runningSince && Date.now() - runningSince < 2 * COLLECT_HARD_MS_PER_DAY + 10 * 60 * 1000) {
     return false;
   }
   await chrome.storage.local.set({ runningSince: Date.now() });
   return true;
 }
 const endRun = () => chrome.storage.local.remove("runningSince").catch(() => {});
+
+/* 収集から最後に進捗が届いた時刻。runJob（同じService Worker内）は変数を見て、
+   watchdog（別の起動でも動く）は storage を見る。両方に書いておく。 */
+let lastProgressAt = 0;
+function markProgress() {
+  lastProgressAt = Date.now();
+  chrome.storage.local.set({ lastProgressAt }).catch(() => {});
+}
 
 /* ------------------------------------------------------------------ 小道具 */
 
@@ -165,31 +183,303 @@ async function findCorpTab() {
   return fallback;
 }
 
+/* ------------------------------------------------- 自動ログイン（制度枠） */
+
+/* 2026-11-07 追加。JALオンラインは無操作だと約1時間でログインが切れるので、
+   「ログインしっぱなしのタブ」に頼らず、記録のたびにログイン → 記録 → ログアウトする。
+
+   パスワードは拡張に持たせない。macOS のキーチェーンに置き、補助プログラム
+   （native-host/host.py、Native Messaging）から記録の直前にだけ受け取る。
+
+   **ロック対策（JALはパスワードを一定回数まちがえるとWebサイト全体をロックする）**
+   - 1回の記録でログインを試すのは1回だけ。再試行しない
+   - パスワードを送ったあとの失敗は、理由を問わずブレーカーを落とす。
+     落ちたら設定画面で手で解除するまで二度と試さない
+     （保存したパスワードが古くなったとき、毎回1回ずつ失敗を積み上げてロックするのを防ぐ）
+   - パスワードを送る前の失敗（画面が開かない・形が違う等）はブレーカーを落とさない
+   - 1日に試す回数にも上限を置く（サイトの依頼ボタンは誰でも押せるため） */
+const NATIVE_HOST = "com.hirok61.jal_autologin";
+const CORP_LOGIN_URL =
+  "https://booking.jal.co.jp/jl/corp-john/login/member-login-user-before-process?lang=ja";
+const CORP_ID = "G0000001"; // ＬＴ００＿ＪＡＬＩ（G0000002 のＬＴＺＬではない）
+const CORP_ALARM = "corpauto";
+/* 制度枠の記録時刻。0時の一斉解放のあと／朝／昼前／夕方（搭乗4時間前からの
+   追加解放を拾う）。空席(HND)の 7:00・12:00 と重ならないよう少しずらしてある。 */
+const CORP_SCHEDULE = [
+  { hour: 0, minute: 10 },
+  { hour: 6, minute: 30 },
+  { hour: 11, minute: 30 },
+  { hour: 17, minute: 0 },
+];
+/* Macが寝ていて予定より大きく遅れて発火した回は捨てる（遅れた17時の回が
+   0時10分の回とくっつくのを防ぐ）。 */
+const CORP_LATE_LIMIT_MS = 60 * 60 * 1000;
+const AUTO_LOGIN_DAILY_MAX = 8;
+
+function native(msg) {
+  return new Promise((resolve) => {
+    try {
+      chrome.runtime.sendNativeMessage(NATIVE_HOST, msg, (res) => {
+        if (chrome.runtime.lastError) {
+          resolve({ ok: false, error: `補助プログラムを呼べません（${chrome.runtime.lastError.message}）` });
+        } else {
+          resolve(res || { ok: false, error: "補助プログラムから応答がありません" });
+        }
+      });
+    } catch (e) {
+      resolve({ ok: false, error: `補助プログラムを呼べません（${e?.message || e}）` });
+    }
+  });
+}
+
+const notifyMac = (message) =>
+  native({ cmd: "notify", title: "JAL空席コレクタ", message }).catch(() => {});
+
+const localDate = () => new Date().toLocaleDateString("sv-SE"); // YYYY-MM-DD（ローカル）
+
+async function loginState() {
+  const s = await chrome.storage.local.get(["autoLogin", "autoLoginTrip", "autoLoginCount"]);
+  const count = s.autoLoginCount?.date === localDate() ? s.autoLoginCount.n : 0;
+  return { enabled: !!s.autoLogin, trip: s.autoLoginTrip || null, count };
+}
+
+async function tripBreaker(reason) {
+  await chrome.storage.local.set({ autoLoginTrip: { at: Date.now(), reason } });
+  await log(`自動ログインを停止しました: ${reason}`);
+  await notifyMac(`自動ログインを停止しました。設定画面で確認してください（${reason}）`);
+}
+
+/* ページに注入する関数（シリアライズされて送られるので外の変数は使えない）。
+   入力欄はReact等で作られている前提で、ネイティブのsetter＋inputイベントで入れる。 */
+function fillAndSubmit(id, pw) {
+  const idEl = document.querySelector("#LB_input-jmbnumber-1")
+    || document.querySelector('input[autocomplete="username"]');
+  const pwEl = document.querySelector("#LB_input-password")
+    || document.querySelector('input[type="password"]');
+  if (!idEl || !pwEl) return "入力欄が見つかりません";
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+  for (const [el, v] of [[idEl, id], [pwEl, pw]]) {
+    el.focus();
+    setter.call(el, v);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+    el.dispatchEvent(new Event("blur", { bubbles: true }));
+  }
+  if (idEl.value !== id || pwEl.value.length !== pw.length) return "入力欄に値が入りません";
+  /* パスワード欄にいちばん近い「ログイン」ボタンを押す。
+     同じ画面にパスキー用の「ログイン」ボタンもあるので、近い順に探す。 */
+  let box = pwEl.parentElement;
+  let btn = null;
+  while (box && !btn) {
+    btn = [...box.querySelectorAll("button, input[type=submit]")].find((b) =>
+      (b.innerText || b.value || "").trim() === "ログイン" && b.offsetParent !== null && !b.disabled);
+    box = box.parentElement;
+  }
+  if (!btn) return "ログインボタンが見つかりません";
+  btn.click();
+  return "sent";
+}
+
+/** 送信後の行き先を見て、成功か失敗かを決める。 */
+async function waitLoginResult(tabId) {
+  const until = Date.now() + 45000;
+  while (Date.now() < until) {
+    await sleep(1500);
+    const tab = await chrome.tabs.get(tabId).catch(() => null);
+    if (!tab) return { ok: false, reason: "ログイン中にウィンドウが閉じられました" };
+    const url = tab.url || "";
+    if (/^https:\/\/booking\.jal\.co\.jp\/jl\/(corp-john\/login\/login-company-list|dom-corp\/)/.test(url)) {
+      return { ok: true };
+    }
+    if (/jallogin\.jal\.co\.jp/.test(url) && tab.status === "complete") {
+      const [{ result: text } = {}] = await chrome.scripting.executeScript({
+        target: { tabId }, func: () => document.body?.innerText || "",
+      }).catch(() => [{}]);
+      if (/ワンタイムパスワードを入力|認証コード|確認コード/.test(text || "")) {
+        return { ok: false, reason: "ワンタイムパスワードを求められました" };
+      }
+    }
+  }
+  // 時間切れ。画面に出ている注意書きを拾って理由にする（入力欄の値は innerText に出ない）
+  const [{ result: msg } = {}] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => {
+      const el = [...document.querySelectorAll('[class*="error" i], [role="alert"], .alert')]
+        .find((e) => e.offsetParent !== null && e.innerText.trim());
+      return (el?.innerText || "").trim().replace(/\s+/g, " ").slice(0, 80);
+    },
+  }).catch(() => [{}]);
+  return { ok: false, reason: msg ? `ログインできませんでした（画面の表示: ${msg}）` : "ログイン後の画面に進みませんでした" };
+}
+
+/** ログインして企業ＬＴ００を選び、JALオンラインのトップでトークンが入るまで進める。
+ *  成功したら { win, tabId } を返す。失敗は Error を投げる（ウィンドウは閉じる）。 */
+async function autoLogin({ visible = false } = {}) {
+  const st = await loginState();
+  if (st.trip) throw new Error(`自動ログインは停止中です（${st.trip.reason}）。拡張の設定画面で解除してください`);
+  if (st.count >= AUTO_LOGIN_DAILY_MAX) {
+    throw new Error(`自動ログインは1日${AUTO_LOGIN_DAILY_MAX}回までです。今日はもう試しません`);
+  }
+  const ping = await native({ cmd: "ping" });
+  if (!ping.ok) throw new Error(ping.error);
+  if (!ping.hasItem) throw new Error("キーチェーンにJALオンラインのログイン情報がありません");
+
+  const win = await chrome.windows.create({
+    url: CORP_LOGIN_URL, focused: visible, width: 1000, height: 760,
+  });
+  const tabId = win.tabs[0].id;
+  let passedLogin = false;
+  try {
+    const first = await waitForUrl(tabId,
+      /^https:\/\/(jallogin\.jal\.co\.jp\/|booking\.jal\.co\.jp\/jl\/(corp-john\/login\/login-company-list|dom-corp\/))/,
+      NAV_TIMEOUT_MS);
+
+    if (/jallogin\.jal\.co\.jp/.test(first.url)) {
+      await sleep(4000); // 画面の組み立て待ち
+      const [{ result: ready } = {}] = await chrome.scripting.executeScript({
+        target: { tabId },
+        func: () => !!document.querySelector('input[type="password"]'),
+      });
+      if (!ready) throw new Error("ログイン画面の形が変わっています（パスワード欄が見つかりません）");
+
+      const cred = await native({ cmd: "get" });
+      if (!cred.ok) throw new Error(cred.error);
+      await chrome.storage.local.set({ autoLoginCount: { date: localDate(), n: st.count + 1 } });
+      await log("自動ログイン: ログイン画面に入力して送信します");
+      const [{ result: sent } = {}] = await chrome.scripting.executeScript({
+        target: { tabId }, func: fillAndSubmit, args: [cred.id, cred.password],
+      });
+      cred.password = null;
+      // 送れていなければパスワードはJALに届いていない＝ロックの心配はないのでブレーカーは落とさない
+      if (sent !== "sent") throw new Error(`ログイン画面に入力できませんでした（${sent || "不明"}）`);
+
+      // ここから先の失敗は、パスワードを送ったあと → 理由を問わずブレーカーを落とす
+      const res = await waitLoginResult(tabId);
+      if (!res.ok) {
+        await tripBreaker(res.reason);
+        throw new Error(`自動ログインに失敗しました: ${res.reason}`);
+      }
+    }
+    passedLogin = true;
+
+    // 企業の選択（ログイン後に企業一覧が出たとき）
+    const now = await chrome.tabs.get(tabId);
+    if (/login-company-list/.test(now.url || "")) {
+      await waitForUrl(tabId, /login-company-list/, NAV_TIMEOUT_MS);
+      await sleep(1500);
+      const [{ result: picked } = {}] = await chrome.scripting.executeScript({
+        target: { tabId }, args: [CORP_ID],
+        func: (corpId) => {
+          const sel = document.querySelector('select[name="corpId"]');
+          if (!sel) return "企業の選択欄が見つかりません";
+          if (![...sel.options].some((o) => o.value === corpId)) return `企業 ${corpId} が一覧にありません`;
+          sel.value = corpId;
+          sel.dispatchEvent(new Event("change", { bubbles: true }));
+          const b = document.querySelector('button[name="nextbutton"]');
+          if (!b) return "企業選択の「次へ」ボタンが見つかりません";
+          b.click();
+          return "ok";
+        },
+      });
+      if (picked !== "ok") throw new Error(picked || "企業を選べませんでした");
+    }
+
+    await waitForUrl(tabId, /^https:\/\/booking\.jal\.co\.jp\/jl\/dom-corp\//, NAV_TIMEOUT_MS);
+    // トークンが入るのを待つ（ふつうは数百ms）
+    for (let i = 0; i < 20; i++) {
+      const [{ result: has } = {}] = await chrome.scripting.executeScript({
+        target: { tabId },
+        func: () => {
+          try {
+            const c = JSON.parse(sessionStorage.getItem("apiAuthCreds") || "{}");
+            return typeof c.authToken === "string" && c.authToken.length > 10;
+          } catch { return false; }
+        },
+      }).catch(() => [{}]);
+      if (has) {
+        await log("自動ログイン: ＬＴ００でログインしました");
+        return { win, tabId };
+      }
+      await sleep(1000);
+    }
+    throw new Error("ログインはできましたが、JALオンラインの準備が終わりませんでした");
+  } catch (e) {
+    // 試験（見ている前で実行）のときは、何が起きたか見えるようウィンドウを残す
+    if (!visible) {
+      if (passedLogin) await autoLogout(tabId);
+      chrome.windows.remove(win.id).catch(() => {});
+    }
+    throw e;
+  }
+}
+
+/** 自分でログインした回は、終わったらログアウトしてから閉じる。
+ *  ボタンが見つからなければ閉じるだけ（無操作で約1時間後に切れる）。 */
+async function autoLogout(tabId) {
+  const click = (labels) => chrome.scripting.executeScript({
+    target: { tabId }, args: [labels],
+    func: (labels) => {
+      const el = [...document.querySelectorAll("a, button")].find((e) =>
+        e.offsetParent !== null && labels.includes((e.innerText || "").trim()));
+      if (!el) return false;
+      el.click();
+      return true;
+    },
+  }).then(([{ result } = {}]) => !!result).catch(() => false);
+
+  if (!(await click(["ログアウト"]))) {
+    await log("自動ログイン: ログアウトのボタンが見つからないため、ウィンドウを閉じるだけにしました");
+    return false;
+  }
+  await sleep(2500);
+  await click(["はい", "OK", "ログアウトする"]); // 確認が出る場合
+  await sleep(2500);
+  await log("自動ログイン: ログアウトしました");
+  return true;
+}
+
 async function runJob(job) {
   if (!(await beginRun())) return;
   setBadge("…");
   const corporate = job?.hub === CORP_HUB;
   const days = Array.isArray(job?.days) && job.days.length ? job.days.length : 2;
-  const collectTimeoutMs = COLLECT_MS_PER_DAY * days;
 
   let win = null;
   let tabId = null;
+  let stopWait = () => {};
+  let loggedInByUs = false;
   try {
     await log(`開始（依頼#${job?.id ?? "-"}）`);
 
     if (corporate) {
       tabId = await findCorpTab();
-      if (tabId == null) {
-        throw new Error(
-          "JALオンラインにログインしたタブが見つかりません。"
-          + "サイトの「JALオンライン ↗」からログインし、企業（ＬＴ００）を選んだ状態で、"
-          + "もう一度実行してください。",
-        );
+      if (tabId != null) {
+        await api(`?action=progress&id=${job.id}`, {
+          method: "POST",
+          body: JSON.stringify({ message: "見つかったJALオンラインのタブで収集します" }),
+        }).catch(() => {});
+      } else {
+        const st = await loginState();
+        // 設定画面の「いま1回だけ試す」から10分以内なら、定時記録を有効にしていなくても試す
+        const { autoLoginVisible = 0 } = await chrome.storage.local.get("autoLoginVisible");
+        const testing = Date.now() - autoLoginVisible < 10 * 60 * 1000;
+        if (!st.enabled && !testing) {
+          throw new Error(
+            "JALオンラインにログインしたタブが見つかりません。"
+            + "サイトの「JALオンライン ↗」からログインし、企業（ＬＴ００）を選んだ状態で、"
+            + "もう一度実行してください。",
+          );
+        }
+        await api(`?action=progress&id=${job.id}`, {
+          method: "POST",
+          body: JSON.stringify({ message: "JALオンラインに自動でログインしています" }),
+        }).catch(() => {});
+        await chrome.storage.local.remove("autoLoginVisible");
+        const r = await autoLogin({ visible: testing }); // 試験のときはウィンドウを前面に出す
+        win = r.win;
+        tabId = r.tabId;
+        loggedInByUs = true;
       }
-      await api(`?action=progress&id=${job.id}`, {
-        method: "POST",
-        body: JSON.stringify({ message: "見つかったJALオンラインのタブで収集します" }),
-      }).catch(() => {});
     } else {
       // 別ウィンドウで開く。前面は奪わないが、最小化はしない
       // （完全に隠れたタブはタイマーが絞られて収集が終わらないため）
@@ -215,37 +505,45 @@ async function runJob(job) {
     // 注入したスクリプトは storage.session を読めない（TRUSTED_CONTEXTS 限定）ので
     // 受け渡しは storage.local を使う。
     await chrome.storage.local.set({ job });
+    markProgress(); // 注入の直前を起点にする（前回の残りを引きずらない）
+
+    /* 見張りとキープアライブを兼ねた1本のタイマー。
+       【2026-08-15に特定した重大バグの名残】ここは最大で数十分かかる待ちなのに、
+       chrome.*のAPI呼び出しを一切挟んでいなかった時期があり、Service Worker ごと
+       落ちて進捗もエラーも残らずに消えていた（直近48時間の12回中11回）。
+       15秒ごとの storage 参照でService Workerを起こしたままにする。 */
+    const startedAt = Date.now();
+    const hardMs = COLLECT_HARD_MS_PER_DAY * days;
     const done = new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
+      stopWait = () => stop();
+      const timer = setInterval(() => {
+        chrome.storage.local.get("runningSince").catch(() => {}); // keep-alive
+        const silent = Date.now() - lastProgressAt;
+        if (silent > COLLECT_SILENCE_MS) {
+          stop();
+          reject(new Error(`収集からの連絡が${Math.round(silent / 60000)}分途絶えました`));
+        } else if (Date.now() - startedAt > hardMs) {
+          stop();
+          reject(new Error("収集が時間内に終わりませんでした"));
+        }
+      }, 15000);
+      function stop() {
+        clearInterval(timer);
         chrome.runtime.onMessage.removeListener(onMsg);
-        reject(new Error("収集が時間内に終わりませんでした"));
-      }, collectTimeoutMs);
+      }
       function onMsg(msg) {
         if (msg?.type !== "collect-finished") return;
-        clearTimeout(timer);
-        chrome.runtime.onMessage.removeListener(onMsg);
+        stop();
         msg.ok ? resolve(msg) : reject(new Error(msg.error || "収集に失敗しました"));
       }
       chrome.runtime.onMessage.addListener(onMsg);
     });
+    /* 注入に失敗しても done が宙に浮かないよう、無視用のcatchを先に付けておく
+       （15秒ごとのタイマーが誰にも止められず走り続けるのを防ぐ。止めるのは finally）。 */
+    done.catch(() => {});
     await chrome.scripting.executeScript({ target: { tabId }, files: ["collect.js"] });
 
-    /* 【2026-08-15に特定した重大バグの修正】ここが最大10〜20分かかる待ちなのに、
-       chrome.*のAPI呼び出しを一切挟んでいなかった。sleep()には8/10の教訓から
-       キープアライブが入っているのに、いちばん長く待つここには入っていなかった。
-       実データで確認: 直近48時間のHND収集12回のうち11回が、この待ちの最中に
-       Service Workerごと落ち、25分後に無応答監視だけが後始末していた
-       （runJob自身のcatchが一度も発火していなかった＝setTimeoutごと消えていた）。
-       sleep()と同じ間隔でpingし、doneの決着で確実に止める。 */
-    const keepAlive = setInterval(() => {
-      chrome.storage.local.get("runningSince").catch(() => {});
-    }, 15000);
-    let result;
-    try {
-      result = await done;
-    } finally {
-      clearInterval(keepAlive);
-    }
+    const result = await done;
     await log(`完了: ${result.summary}`);
     setBadge("");
   } catch (err) {
@@ -259,6 +557,8 @@ async function runJob(job) {
       }).catch(() => {});
     }
   } finally {
+    stopWait();
+    if (loggedInByUs && tabId != null) await autoLogout(tabId).catch(() => {});
     if (win?.id != null) chrome.windows.remove(win.id).catch(() => {});
     await chrome.storage.local.remove("job").catch(() => {});
     await endRun();
@@ -324,6 +624,51 @@ async function runAuto() {
   } catch { /* オフライン等。次の枠で拾い直す */ }
 }
 
+/* ------------------------------------------------- 制度枠の定時記録 */
+
+function nextCorpAt(now = new Date()) {
+  let best = null;
+  for (const slot of CORP_SCHEDULE) {
+    for (const addDay of [0, 1]) {
+      const t = new Date(now);
+      t.setDate(t.getDate() + addDay);
+      t.setHours(slot.hour, slot.minute, 0, 0);
+      if (t > now && (!best || t < best)) best = t;
+    }
+  }
+  return best;
+}
+
+async function scheduleCorpAuto() {
+  const { autoLogin } = await chrome.storage.local.get("autoLogin");
+  if (!autoLogin) return chrome.alarms.clear(CORP_ALARM);
+  chrome.alarms.create(CORP_ALARM, { when: nextCorpAt().getTime() });
+}
+
+async function runCorpAuto(alarm) {
+  await scheduleCorpAuto(); // まず次回を仕掛け直す
+  const st = await loginState();
+  if (!st.enabled || !(await getKey())) return;
+  const late = Date.now() - (alarm?.scheduledTime || Date.now());
+  if (late > CORP_LATE_LIMIT_MS) {
+    await log(`制度枠の定時記録: 予定より${Math.round(late / 60000)}分遅れたため見送り（Macが寝ていた等）`);
+    return;
+  }
+  if (st.trip) {
+    await log(`制度枠の定時記録: 自動ログインが停止中のため見送り（${st.trip.reason}）`);
+    return;
+  }
+  try {
+    const res = await api(`?action=request&hub=${CORP_HUB}`, {
+      method: "POST",
+      body: JSON.stringify({ from: "自動（制度枠）", days: [0] }),
+    });
+    if (!res.ok) return;
+    await log("制度枠の定時記録を開始");
+    await poll();
+  } catch { /* オフライン等。次の枠で */ }
+}
+
 /* ------------------------------------------------------------ 依頼を拾う */
 
 /* sleep() を keep-alive にしても、Service Worker が本当に落ちることはありうる
@@ -332,11 +677,17 @@ async function runAuto() {
    みなして自分で片付け、次の周期ですぐ拾い直す。50分固定だった旧実装だと、
    1日分（20分程度）のジョブが落ちても最大50分も次を拾えなかった。 */
 async function watchdog() {
-  const { runningSince = 0, job = null } = await chrome.storage.local.get(["runningSince", "job"]);
+  const store = await chrome.storage.local.get(["runningSince", "job", "lastProgressAt"]);
+  const { runningSince = 0, job = null } = store;
   if (!runningSince) return false;
   const days = Array.isArray(job?.days) && job.days.length ? job.days.length : 2;
-  const maxMs = COLLECT_MS_PER_DAY * days + 5 * 60 * 1000; // 収集の上限＋余裕5分
-  if (Date.now() - runningSince < maxMs) return true; // まだ動いていておかしくない
+  /* こちらも所要時間ではなく無音で見る（runJob と同じ理由）。ただし runJob 自身の
+     見張りが先に決着をつけるべきなので、少し長めに待つ。準備中（ウィンドウを開いて
+     30秒待つ間など）はまだ進捗が出ないので、起点は runningSince との遅いほう。 */
+  const quiet = Date.now() - Math.max(runningSince, store.lastProgressAt || 0);
+  const overall = Date.now() - runningSince;
+  if (quiet < COLLECT_SILENCE_MS + 3 * 60 * 1000
+    && overall < COLLECT_HARD_MS_PER_DAY * days + 5 * 60 * 1000) return true;
 
   await log(`自動復旧: 前回の収集が無応答のため中断扱いにしました（依頼#${job?.id ?? "-"}）`);
   if (job?.id) {
@@ -369,16 +720,19 @@ function ensureAlarm() {
 }
 ensureAlarm();
 scheduleAuto();
+scheduleCorpAuto();
 poll();
 
-chrome.runtime.onInstalled.addListener(() => { ensureAlarm(); scheduleAuto(); poll(); });
-chrome.runtime.onStartup.addListener(() => { ensureAlarm(); scheduleAuto(); poll(); });
+chrome.runtime.onInstalled.addListener(() => { ensureAlarm(); scheduleAuto(); scheduleCorpAuto(); poll(); });
+chrome.runtime.onStartup.addListener(() => { ensureAlarm(); scheduleAuto(); scheduleCorpAuto(); poll(); });
 chrome.alarms.onAlarm.addListener((a) => {
   if (a.name === ALARM) poll();
   if (a.name === AUTO_ALARM) runAuto();
+  if (a.name === CORP_ALARM) runCorpAuto(a);
 });
 chrome.storage.onChanged.addListener((changes) => {
   if (changes.autoUpdate) scheduleAuto();
+  if (changes.autoLogin) scheduleCorpAuto();
 });
 
 // サイトのボタンから「いま来た」と知らせが届いたら、次の周期を待たずに拾う
@@ -398,10 +752,41 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       });
     return true;
   }
-  if (msg?.type === "collect-progress" && msg.job?.id) {
-    api(`?action=progress&id=${msg.job.id}`, {
-      method: "POST",
-      body: JSON.stringify({ message: msg.message }),
-    }).catch(() => {});
+  if (msg?.type === "autologin-status") {
+    Promise.all([loginState(), native({ cmd: "ping" })]).then(([st, host]) => {
+      const next = st.enabled ? nextCorpAt().toLocaleString("ja-JP", {
+        month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit",
+      }) : null;
+      sendResponse({ ...st, next, host, dailyMax: AUTO_LOGIN_DAILY_MAX });
+    });
+    return true;
+  }
+  if (msg?.type === "autologin-reset") {
+    chrome.storage.local.remove("autoLoginTrip")
+      .then(() => log("自動ログインの停止を手で解除しました"))
+      .then(() => sendResponse({ ok: true }));
+    return true;
+  }
+  if (msg?.type === "autologin-test") {
+    // 見ている前で1回だけ試す。ログインのウィンドウを前面に出す
+    (async () => {
+      await chrome.storage.local.set({ autoLoginVisible: Date.now() });
+      const res = await api(`?action=request&hub=${CORP_HUB}`, {
+        method: "POST",
+        body: JSON.stringify({ from: "拡張（自動ログインの試験）", days: [0] }),
+      }).catch(() => null);
+      sendResponse({ ok: !!res?.ok });
+      if (res?.ok) poll();
+    })();
+    return true;
+  }
+  if (msg?.type === "collect-progress") {
+    markProgress(); // 生きている証。打ち切りの判定はこれだけを見ている
+    if (msg.job?.id) {
+      api(`?action=progress&id=${msg.job.id}`, {
+        method: "POST",
+        body: JSON.stringify({ message: msg.message }),
+      }).catch(() => {});
+    }
   }
 });

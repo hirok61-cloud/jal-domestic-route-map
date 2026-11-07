@@ -82,3 +82,74 @@ document.getElementById("clear").addEventListener("click", async () => {
   await chrome.storage.local.set({ runLog: [] });
   refreshLog();
 });
+
+/* --- 制度枠の自動記録（自動ログイン） --- */
+const $corpauto = document.getElementById("corpauto");
+const $corpstate = document.getElementById("corpstate");
+const $corptest = document.getElementById("corptest");
+const $corpreset = document.getElementById("corpreset");
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function showCorp() {
+  chrome.runtime.sendMessage({ type: "autologin-status" }, (st) => {
+    if (!st) return;
+    $corpauto.checked = st.enabled;
+    const lines = [];
+    if (!st.host?.ok) {
+      lines.push(`<span class="warn">補助プログラムが動いていません。</span> ${esc(st.host?.error || "")}`
+        + "<br>native-host/install.sh を実行してください。");
+    } else if (!st.host.hasItem) {
+      lines.push('<span class="warn">キーチェーンにログイン情報がありません。</span>'
+        + "<br>ターミナルで <code>security add-generic-password -s jal-online-autologin -a お得意様番号 -w</code>");
+    } else {
+      lines.push(`<span class="ok">キーチェーン: 登録あり（番号の末尾 ${esc(st.host.idTail || "?")}）</span>`);
+    }
+    if (st.trip) {
+      lines.push(`<span class="warn">停止中: ${esc(st.trip.reason)}</span>`
+        + `（${new Date(st.trip.at).toLocaleString("ja-JP")}）`);
+    } else if (st.enabled && st.next) {
+      lines.push(`次は <b>${esc(st.next)}</b> に記録します。`);
+    }
+    lines.push(`今日の自動ログイン: ${st.count} / ${st.dailyMax} 回`);
+    $corpstate.innerHTML = lines.join("<br>");
+    $corpreset.hidden = !st.trip;
+    $corptest.disabled = !st.host?.ok || !st.host?.hasItem || !!st.trip || !$key.value.trim();
+  });
+}
+showCorp();
+
+$corpauto.addEventListener("change", async () => {
+  await chrome.storage.local.set({ autoLogin: $corpauto.checked });
+  setTimeout(showCorp, 200);
+});
+/* 拡張アイコンから開く小窓では confirm() を出すと小窓ごと閉じてしまうため、
+   「1回目で確認の文言に変わり、2回目で実行」にしている。 */
+function twoStep(btn, confirmLabel, action) {
+  const label = btn.textContent;
+  let armed = 0;
+  btn.addEventListener("click", () => {
+    if (Date.now() - armed > 5000) {
+      armed = Date.now();
+      btn.textContent = confirmLabel;
+      setTimeout(() => { if (armed && Date.now() - armed >= 5000) { btn.textContent = label; armed = 0; } }, 5100);
+      return;
+    }
+    armed = 0;
+    btn.textContent = label;
+    action();
+  });
+}
+twoStep($corpreset, "もう一度押すと解除します", () => {
+  chrome.runtime.sendMessage({ type: "autologin-reset" }, showCorp);
+});
+twoStep($corptest, "もう一度押すと開始します", () => {
+  $corptest.disabled = true;
+  chrome.runtime.sendMessage({ type: "autologin-test" }, (res) => {
+    $corpstate.insertAdjacentHTML("beforeend", res?.ok
+      ? "<br><b>試験を開始しました。</b>前面に開くウィンドウには触らず、結果は下の実行ログで確認してください。"
+      : '<br><span class="warn">依頼を送れませんでした。</span>');
+  });
+});
+chrome.storage.onChanged.addListener((c) => {
+  if (c.autoLoginTrip || c.autoLoginCount || c.autoLogin) showCorp();
+});
