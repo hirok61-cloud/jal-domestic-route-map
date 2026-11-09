@@ -1937,6 +1937,7 @@ async function fetchCorpTiming(){
     Object.assign(dates, b.dates || {});
     for (const [k, v] of Object.entries(b.flt || {})) {
       const c = flt[k] || (flt[k] = [v[0], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+      if (v[0]) c[0] = v[0]; // 区切りは古い順なので、最新のダイヤの時刻を残す
       for (let i = 1; i <= 10; i++) c[i] += v[i];
     }
   }
@@ -2116,6 +2117,7 @@ function renderCorpReport(stats, wx, timing){
   const pctAll = Math.round(rate0(R.ok, R.total) * 100);
   const toRows = (m, order) => (order ? order.filter(k => m.has(k)) : [...m.keys()])
     .map(k => { const g = m.get(k); return {label: k, r: rate0(g.ok, g.n), thin: g.days < 3}; });
+  if (timing) for (const x of R.fltRows) x.dep = timing.flt[x.k]?.[0] || x.dep; // 時刻は最新のダイヤに合わせる
   const route = routeRows(R);
   const season = seasonBlock(timing) || null;
   const seasons = toRows(R.bySeason, SEASON_ORDER);

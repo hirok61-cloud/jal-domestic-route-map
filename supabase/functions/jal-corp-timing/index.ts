@@ -71,6 +71,7 @@ Deno.serve(async (req) => {
     const d = { p: [[0, 0, 0, 0], [0, 0, 0, 0]], seq: [0, 0, 0, 0, 0] };
     for (const [k, e] of day) {
       const x = flt[k] ?? (flt[k] = [e.dep, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+      if (e.dep) x[0] = e.dep; // 日付の昇順なので最新のダイヤの時刻が残る
       e.st.forEach((v, i) => {
         if (v === null) return;
         (x[1 + i * 2] as number)++;
