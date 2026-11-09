@@ -113,27 +113,41 @@ function setBadge(text, color = "#b7001e") {
   if (text) chrome.action.setBadgeBackgroundColor({ color });
 }
 
-/** タブが指定URLになるまで待つ。 */
+/** URLを理由の文に入れるときの形（クエリは落とす。番号などが入りうるため）。 */
+const shortUrl = (u) => {
+  try { const x = new URL(u); return x.host + x.pathname; } catch { return String(u || "不明").slice(0, 80); }
+};
+
+/** タブが指定URLになるまで待つ。
+ *  【2026-11-08 0:05 の失敗】以前は setTimeout とイベント待ちだけだったため、
+ *  画面が予想外のURLで止まると chrome.* の呼び出しが30秒以上途絶え、
+ *  Service Worker ごと止められて時間切れの処理も走らず、何も報告されずに消えた。
+ *  2秒ごとに tabs.get で様子を見ることで、起こしたままにしつつ取りこぼしも拾う。 */
 function waitForUrl(tabId, re, timeoutMs) {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
+    const until = Date.now() + timeoutMs;
+    let lastUrl = "";
+    let finished = false;
+    const finish = (fn) => {
+      if (finished) return;
+      finished = true;
+      clearInterval(timer);
       chrome.tabs.onUpdated.removeListener(onUpdated);
-      reject(new Error("ページの遷移が終わりませんでした"));
-    }, timeoutMs);
-
-    function done(tab) {
-      clearTimeout(timer);
-      chrome.tabs.onUpdated.removeListener(onUpdated);
-      resolve(tab);
-    }
+      fn();
+    };
+    const check = () => chrome.tabs.get(tabId).then((tab) => {
+      lastUrl = tab.url || tab.pendingUrl || lastUrl;
+      if (tab.url && re.test(tab.url) && tab.status === "complete") finish(() => resolve(tab));
+      else if (Date.now() > until) {
+        finish(() => reject(new Error(`ページの遷移が終わりませんでした（止まった画面: ${shortUrl(lastUrl)}）`)));
+      }
+    }).catch(() => finish(() => reject(new Error("ページを開いたウィンドウが閉じられました"))));
+    const timer = setInterval(check, 2000);
     function onUpdated(id, info, tab) {
-      if (id === tabId && tab.url && re.test(tab.url) && info.status === "complete") done(tab);
+      if (id === tabId && tab.url && re.test(tab.url) && info.status === "complete") finish(() => resolve(tab));
     }
     chrome.tabs.onUpdated.addListener(onUpdated);
-    // すでに条件を満たしていることもある
-    chrome.tabs.get(tabId).then((tab) => {
-      if (tab.url && re.test(tab.url) && tab.status === "complete") done(tab);
-    }).catch(() => {});
+    check(); // すでに条件を満たしていることもある
   });
 }
 
@@ -214,6 +228,7 @@ const CORP_SCHEDULE = [
    次の回とくっつくのを防ぐ）。 */
 const CORP_LATE_LIMIT_MS = 60 * 60 * 1000;
 const AUTO_LOGIN_DAILY_MAX = 8;
+const AUTO_LOGIN_LIMIT_MS = 5 * 60 * 1000;
 
 function native(msg) {
   return new Promise((resolve) => {
@@ -327,11 +342,14 @@ async function autoLogin({ visible = false } = {}) {
     url: CORP_LOGIN_URL, focused: visible, width: 1000, height: 760,
   });
   const tabId = win.tabs[0].id;
+  // 途中で Service Worker が止められても、次の起動の watchdog が閉じられるよう覚えておく
+  await chrome.storage.local.set({ autoWinId: win.id });
   let passedLogin = false;
   try {
     const first = await waitForUrl(tabId,
       /^https:\/\/(jallogin\.jal\.co\.jp\/|booking\.jal\.co\.jp\/jl\/(corp-john\/login\/login-company-list|dom-corp\/))/,
       NAV_TIMEOUT_MS);
+    await log(`自動ログイン: 最初の画面 ${shortUrl(first.url)}`);
 
     if (/jallogin\.jal\.co\.jp/.test(first.url)) {
       await sleep(4000); // 画面の組み立て待ち
@@ -407,6 +425,7 @@ async function autoLogin({ visible = false } = {}) {
     if (!visible) {
       if (passedLogin) await autoLogout(tabId);
       chrome.windows.remove(win.id).catch(() => {});
+      chrome.storage.local.remove("autoWinId").catch(() => {});
     }
     throw e;
   }
@@ -447,7 +466,15 @@ async function runJob(job) {
   let tabId = null;
   let stopWait = () => {};
   let loggedInByUs = false;
+  let triedAutoLogin = false;
+  let visibleTest = false;
+  /* 収集が始まるまで（ログイン・画面の準備）にも長い待ちがある。待ちの種類によらず
+     Service Worker を起こしたままにするため、実行中はずっと10秒ごとに軽く呼ぶ。 */
+  const keepAlive = setInterval(() => chrome.storage.local.get("runningSince").catch(() => {}), 10000);
   try {
+    // watchdog が依頼番号を知れるよう、最初に置く（以前はログイン後だったので、
+    // ログイン中に止まると依頼が宙に浮き、サーバー側の10分切れまで誰も片付けなかった）
+    await chrome.storage.local.set({ job });
     await log(`開始（依頼#${job?.id ?? "-"}）`);
 
     if (corporate) {
@@ -474,7 +501,14 @@ async function runJob(job) {
           body: JSON.stringify({ message: "JALオンラインに自動でログインしています" }),
         }).catch(() => {});
         await chrome.storage.local.remove("autoLoginVisible");
-        const r = await autoLogin({ visible: testing }); // 試験のときはウィンドウを前面に出す
+        triedAutoLogin = true;
+        visibleTest = testing;
+        // ふつうは1分前後。どこかで想定外に止まっても、必ず理由つきで失敗として返す
+        let limit;
+        const r = await Promise.race([
+          autoLogin({ visible: testing }), // 試験のときはウィンドウを前面に出す
+          new Promise((_, rej) => { limit = setTimeout(() => rej(new Error("自動ログインが5分以内に終わりませんでした")), AUTO_LOGIN_LIMIT_MS); }),
+        ]).finally(() => clearTimeout(limit));
         win = r.win;
         tabId = r.tabId;
         loggedInByUs = true;
@@ -549,6 +583,8 @@ async function runJob(job) {
     const message = String(err?.message || err);
     await log(`失敗: ${message}`);
     setBadge("!", "#8c0017");
+    // 自動ログインで記録しようとした回は、夜中でも気づけるようMacに知らせる
+    if (corporate && triedAutoLogin) await notifyMac(`制度枠の記録に失敗しました（${message}）`);
     if (job?.id) {
       await api(`?action=finish&id=${job.id}`, {
         method: "POST",
@@ -556,10 +592,16 @@ async function runJob(job) {
       }).catch(() => {});
     }
   } finally {
+    clearInterval(keepAlive);
     stopWait();
     if (loggedInByUs && tabId != null) await autoLogout(tabId).catch(() => {});
     if (win?.id != null) chrome.windows.remove(win.id).catch(() => {});
-    await chrome.storage.local.remove("job").catch(() => {});
+    // 時間切れで autoLogin を置き去りにした場合も、開いたウィンドウは閉じる
+    const { autoWinId } = await chrome.storage.local.get("autoWinId");
+    if (autoWinId != null && autoWinId !== win?.id && !visibleTest) {
+      chrome.windows.remove(autoWinId).catch(() => {});
+    }
+    await chrome.storage.local.remove(["job", "autoWinId"]).catch(() => {});
     await endRun();
   }
 }
@@ -689,13 +731,16 @@ async function watchdog() {
     && overall < COLLECT_HARD_MS_PER_DAY * days + 5 * 60 * 1000) return true;
 
   await log(`自動復旧: 前回の収集が無応答のため中断扱いにしました（依頼#${job?.id ?? "-"}）`);
+  const { autoWinId } = await chrome.storage.local.get("autoWinId");
+  if (autoWinId != null) chrome.windows.remove(autoWinId).catch(() => {});
+  if (job?.hub === CORP_HUB) await notifyMac("制度枠の記録が途中で止まったため中断しました");
   if (job?.id) {
     await api(`?action=finish&id=${job.id}`, {
       method: "POST",
       body: JSON.stringify({ ok: false, message: "拡張のバックグラウンド処理が途中で止まりました" }),
     }).catch(() => {});
   }
-  await chrome.storage.local.remove(["runningSince", "job"]).catch(() => {});
+  await chrome.storage.local.remove(["runningSince", "job", "autoWinId"]).catch(() => {});
   setBadge("");
   return false;
 }
