@@ -249,6 +249,23 @@ function native(msg) {
 const notifyMac = (message) =>
   native({ cmd: "notify", title: "JAL空席コレクタ", message }).catch(() => {});
 
+/* 収集のあいだMacを眠らせない（2026-11-10 追加）。無人のMacでは定時の発火が
+   短いメンテナンス起床(DarkWake)に当たるだけなので、1分ほどで眠り直して収集が凍り、
+   「連絡が途絶えました」で失敗していた。時間切れつきなので、解き忘れても残らない。 */
+async function holdAwake(seconds) {
+  const res = await native({ cmd: "keep-awake", seconds });
+  if (!res?.ok) await log(`スリープ防止を開始できません（${res?.error || "不明"}）`);
+}
+const releaseAwake = () => native({ cmd: "release-awake" });
+
+/* 定時の発火直後に呼ぶ。起床の残り時間が短いので、依頼を積む前に確保する。
+   別の収集が動いているときは、その長い保持を短いもので上書きしない。 */
+const AWAKE_START_SECONDS = 5 * 60;
+async function holdAwakeForStart() {
+  const { runningSince = 0 } = await chrome.storage.local.get("runningSince");
+  if (!runningSince) await holdAwake(AWAKE_START_SECONDS);
+}
+
 const localDate = () => new Date().toLocaleDateString("sv-SE"); // YYYY-MM-DD（ローカル）
 
 async function loginState() {
@@ -461,6 +478,7 @@ async function runJob(job) {
   setBadge("…");
   const corporate = job?.hub === CORP_HUB;
   const days = Array.isArray(job?.days) && job.days.length ? job.days.length : 2;
+  await holdAwake((COLLECT_HARD_MS_PER_DAY * days + AUTO_LOGIN_LIMIT_MS) / 1000);
 
   let win = null;
   let tabId = null;
@@ -547,14 +565,18 @@ async function runJob(job) {
        15秒ごとの storage 参照でService Workerを起こしたままにする。 */
     const startedAt = Date.now();
     const hardMs = COLLECT_HARD_MS_PER_DAY * days;
+    let lastTick = Date.now();
+    let macSlept = false; // 15秒おきのタイマーに1分以上の穴があけばMacが眠っていた
     const done = new Promise((resolve, reject) => {
       stopWait = () => stop();
       const timer = setInterval(() => {
         chrome.storage.local.get("runningSince").catch(() => {}); // keep-alive
+        if (Date.now() - lastTick > 60000) macSlept = true;
+        lastTick = Date.now();
         const silent = Date.now() - lastProgressAt;
         if (silent > COLLECT_SILENCE_MS) {
           stop();
-          reject(new Error(`収集からの連絡が${Math.round(silent / 60000)}分途絶えました`));
+          reject(new Error(`収集からの連絡が${Math.round(silent / 60000)}分途絶えました${macSlept ? "（途中でMacがスリープしました）" : ""}`));
         } else if (Date.now() - startedAt > hardMs) {
           stop();
           reject(new Error("収集が時間内に終わりませんでした"));
@@ -602,6 +624,7 @@ async function runJob(job) {
       chrome.windows.remove(autoWinId).catch(() => {});
     }
     await chrome.storage.local.remove(["job", "autoWinId"]).catch(() => {});
+    await releaseAwake();
     await endRun();
   }
 }
@@ -653,6 +676,7 @@ async function runAuto() {
   }
 
   try {
+    await holdAwakeForStart();
     const res = await api(`?action=request&hub=${hub}`, {
       method: "POST",
       body: JSON.stringify({ from: "自動更新", days: slot.days }),
@@ -700,6 +724,7 @@ async function runCorpAuto(alarm) {
     return;
   }
   try {
+    await holdAwakeForStart();
     const res = await api(`?action=request&hub=${CORP_HUB}`, {
       method: "POST",
       body: JSON.stringify({ from: "自動（制度枠）", days: [0] }),
@@ -741,6 +766,7 @@ async function watchdog() {
     }).catch(() => {});
   }
   await chrome.storage.local.remove(["runningSince", "job", "autoWinId"]).catch(() => {});
+  await releaseAwake();
   setBadge("");
   return false;
 }

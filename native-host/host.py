@@ -6,6 +6,8 @@
   {"cmd": "ping"}            → キーチェーンに項目があるか（パスワードは返さない）
   {"cmd": "get"}             → JALオンラインのお得意様番号とパスワードを返す
   {"cmd": "notify", ...}     → Macの通知センターに知らせを出す
+  {"cmd": "keep-awake", "seconds": N} → 収集のあいだMacをスリープさせない
+  {"cmd": "release-awake"}   → 上の保持を解く
 
 パスワードはファイルにもログにも書かない。置き場所は macOS のキーチェーンだけで、
 登録は利用者本人がターミナルで行う（docs/AUTO_LOGIN.md）:
@@ -16,7 +18,9 @@ Chrome から起動されるときの PATH は最小限なので、外部コマ�
 """
 
 import json
+import os
 import re
+import signal
 import struct
 import subprocess
 import sys
@@ -24,6 +28,10 @@ import sys
 SERVICE = "jal-online-autologin"
 SECURITY = "/usr/bin/security"
 OSASCRIPT = "/usr/bin/osascript"
+CAFFEINATE = "/usr/bin/caffeinate"
+PS = "/bin/ps"
+AWAKE_PIDFILE = os.path.expanduser("~/Library/Application Support/jal-autologin/caffeinate.pid")
+AWAKE_MAX_SECONDS = 2 * 60 * 60
 
 
 def read_message():
@@ -68,6 +76,39 @@ def notify(title, message):
     subprocess.run([OSASCRIPT, "-e", script], capture_output=True, timeout=15)
 
 
+def release_awake():
+    try:
+        with open(AWAKE_PIDFILE) as f:
+            pid = int(f.read().strip())
+    except (OSError, ValueError):
+        return
+    # PIDは使い回されるので、本当に caffeinate のときだけ止める
+    r = subprocess.run([PS, "-p", str(pid), "-o", "comm="],
+                       capture_output=True, text=True, timeout=15)
+    if r.stdout.strip().endswith("caffeinate"):
+        os.kill(pid, signal.SIGTERM)
+    try:
+        os.unlink(AWAKE_PIDFILE)
+    except OSError:
+        pass
+
+
+def keep_awake(seconds):
+    """-s は「電源接続中はシステムを眠らせない」。
+
+    -i（アイドルスリープ防止）では足りない。Macが一度眠ったあとのメンテナンス起床
+    (DarkWake)中は -i 相当の保持があっても1分ほどで眠り直すのを実測した（2026-11-10）。
+    この補助プログラムはすぐ終わるので別セッションで起動し、-t で必ず時間切れにする。
+    """
+    release_awake()
+    seconds = max(30, min(int(seconds), AWAKE_MAX_SECONDS))
+    p = subprocess.Popen([CAFFEINATE, "-s", "-t", str(seconds)],
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, start_new_session=True)
+    with open(AWAKE_PIDFILE, "w") as f:
+        f.write(str(p.pid))
+
+
 def handle(msg):
     cmd = (msg or {}).get("cmd")
     if cmd == "ping":
@@ -86,6 +127,12 @@ def handle(msg):
         return {"ok": True, "id": acct, "password": pw}
     if cmd == "notify":
         notify(msg.get("title", "JAL空席コレクタ"), msg.get("message", ""))
+        return {"ok": True}
+    if cmd == "keep-awake":
+        keep_awake(msg.get("seconds", 0))
+        return {"ok": True}
+    if cmd == "release-awake":
+        release_awake()
         return {"ok": True}
     return {"ok": False, "error": "unknown command"}
 

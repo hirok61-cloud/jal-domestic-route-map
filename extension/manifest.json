@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAkLjYNCyyZelW3p879XRVuyJsrwTiCfLo7mIYdWTDB84wJz7jgumMeqCNW04hn4SjRGDxPqufholW+ArKM5vrj1fvGeRQWi8rNTZ0wsyR+CU4J4GQKVBoIOISuY5rh0e1QqGONh0kDVgollDbPaH6zQ0CPLaICxnZq4HPgNjWkay3EqKdkmh6/b84x+NVj2M+1Uz2nWrJcb+3rmERTgrQRgUEoiLVq+8ykiw7M1OiYclD052srbiidN+0Gf6vmKvMbGbHTiiT7SN2r1lYSvNvs8PGzVO9gpZwMCxKYc0I1AmowZjq2HpoCCWHAvEI863ii+5xSBxONUf4GzClLKEIXwIDAQAB",
   "name": "JAL国内線 本日の空席 コレクタ",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "JALの空席照会を裏で実行して、国内線ルートマップの「本日の空席」を更新します。",
   "permissions": [
     "storage",
