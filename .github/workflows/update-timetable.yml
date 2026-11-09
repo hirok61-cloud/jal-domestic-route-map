@@ -1,0 +1,38 @@
+# JALグループ国内線の時刻表を週1回確認し、変わっていたら data/ だけをコミットする。
+# main への push で Workers Builds が本番へ反映する。詳細は docs/TIMETABLE_AUTO.md。
+name: 国内線ダイヤの自動更新
+
+on:
+  schedule:
+    - cron: "30 18 * * 0"   # 毎週月曜 03:30 JST
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-timetable
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 時刻表を取得して data/ を更新
+        run: python3 -I scripts/update_timetable.py
+
+      - name: 変更があればコミットして push
+        run: |
+          if git diff --quiet -- data/domestic-timetable.js data/domestic-aircraft.json; then
+            echo "便データに変更なし（コミットしません）"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/domestic-timetable.js data/domestic-aircraft.json
+          git commit -m "国内線ダイヤを自動更新（$(TZ=Asia/Tokyo date +%F)）"
+          git pull --rebase origin main
+          git push origin HEAD:main

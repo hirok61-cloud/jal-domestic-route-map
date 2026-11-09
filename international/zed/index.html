@@ -442,7 +442,7 @@ footer a{color:var(--hover)}
   </div>
   <div class="filters" id="filters"></div>
   <button id="bulkbtn" title="表示中の航空会社について flyzed.info の原文が更新されていないか確認します">原文をまとめて確認</button>
-  <button id="alliancebtn" title="oneworld / SkyTeam の加盟社一覧を各公式サイトから取得し直します">アライアンス情報を更新</button>
+  <button id="alliancebtn" title="oneworld / SkyTeam / Star Alliance の加盟社一覧を取得し直します（週1回は自動で更新されます）">アライアンス情報を更新</button>
   <button id="printbtn" title="表示中の航空会社の条件を印刷、または「PDFとして保存」で出力します">PDFで出力</button>
 </div>
 <div class="chgbanner" id="alliancemsg" style="display:none" role="status"></div>
@@ -569,12 +569,9 @@ const ALIASES = {
 };
 
 // ---- アライアンス(oneworld / SkyTeam / Star Alliance) ---------------------
-// Bundled snapshot so alliance badges render on first paint with no extra
-// network round trip. "更新" button below re-fetches oneworld/SkyTeam live
-// from /api/alliances (both are plain server-rendered pages, so the endpoint
-// scrapes them directly); Star Alliance's own member page is a JS-rendered
-// Liferay portlet with no static HTML fallback, so its list stays a manually
-// reviewed static snapshot even after "updating" — see api/alliances.js.
+// 同梱の控えを初回描画に使い、週1回だけ裏で /api/alliances から取り直す。
+// oneworld / SkyTeam は各公式サイト、Star Alliance は Wikipedia の表を公式の社数と
+// 照合したもの。取得に失敗した連合は前回の一覧のまま残す（worker/index.js 参照）。
 const ALLIANCE_LS_KEY = "zed-alliances-v1";
 const ALLIANCE_LABEL = { oneworld: "oneworld", skyteam: "SkyTeam", staralliance: "Star Alliance" };
 const ALLIANCE_CLASS = { oneworld: "al-ow", skyteam: "al-st", staralliance: "al-sa" };
@@ -590,8 +587,7 @@ const ALLIANCE_DEFAULT = {
   fetchedAt: null,
   oneworld: { live: false, codes: ["AS","AA","BA","CX","FJ","AY","IB","JL","MH","WY","PR","QF","QR","AT","RJ","UL"] },
   skyteam: { live: false, codes: ["AR","AM","UX","AF","CI","MU","DL","GA","KQ","KL","KE","ME","SK","SV","RO","VN","VS","MF"] },
-  staralliance: { live: false, codes: ["A3","AC","AI","NZ","NH","OZ","OS","AV","SN","CM","OU","MS","ET","BR","AZ","LO","LH","ZH","SQ","SA","LX","TP","TG","TK","UA"],
-    note: "Star Alliance公式サイトはJS認証必須のポータル形式のため自動取得できません。手動確認済みの固定リストです。" },
+  staralliance: { live: false, codes: ["A3","AC","CA","AI","NZ","NH","OZ","OS","AV","SN","CM","OU","MS","ET","BR","AZ","LO","LH","ZH","SQ","SA","LX","TP","TG","TK","UA"] },
 };
 let ALLIANCES = ALLIANCE_DEFAULT;
 try {
@@ -617,26 +613,40 @@ function allianceBadgeHTML(d){
   </span>`;
 }
 
+/** 取得できた連合だけ差し替える。失敗した連合は手元の一覧を残す（空で上書きしない）。 */
+function mergeAlliances(j){
+  const next = { fetchedAt: j.fetchedAt };
+  for (const k of ["oneworld", "skyteam", "staralliance"]) {
+    next[k] = j[k] && j[k].live && j[k].codes.length ? j[k] : { ...ALLIANCES[k], live: false };
+  }
+  return next;
+}
+
+async function fetchAlliances(){
+  const res = await fetch("/api/alliances", { cache: "no-store" });
+  const ct = res.headers.get("content-type") || "";
+  if (!ct.includes("application/json")) throw new Error("NOAPI");
+  const j = await res.json();
+  if (!res.ok) throw new Error(j.error || "failed");
+  const merged = mergeAlliances(j);
+  const changed = JSON.stringify(["oneworld","skyteam","staralliance"].map(k => [...merged[k].codes].sort()))
+    !== JSON.stringify(["oneworld","skyteam","staralliance"].map(k => [...ALLIANCES[k].codes].sort()));
+  ALLIANCES = merged;
+  try { localStorage.setItem(ALLIANCE_LS_KEY, JSON.stringify(merged)); } catch (e) {}
+  return { merged, changed };
+}
+
 async function refreshAlliances(){
   const btn = document.getElementById("alliancebtn");
   const msg = document.getElementById("alliancemsg");
   btn.disabled = true;
   btn.textContent = "更新中…";
   try {
-    const res = await fetch("/api/alliances", { cache: "no-store" });
-    const ct = res.headers.get("content-type") || "";
-    if (!ct.includes("application/json")) throw new Error("NOAPI");
-    const j = await res.json();
-    if (!res.ok) throw new Error(j.error || "failed");
-    ALLIANCES = j;
-    try { localStorage.setItem(ALLIANCE_LS_KEY, JSON.stringify(j)); } catch (e) {}
+    const { merged: j } = await fetchAlliances();
     renderPreservingState();
     const when = new Date(j.fetchedAt).toLocaleString("ja-JP", { month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" });
-    const parts = [
-      `oneworld ${j.oneworld.live ? `✓最新(${j.oneworld.codes.length}社)` : "取得失敗のため前回値を保持"}`,
-      `SkyTeam ${j.skyteam.live ? `✓最新(${j.skyteam.codes.length}社)` : "取得失敗のため前回値を保持"}`,
-      `Star Alliance: ${j.staralliance.note}`,
-    ];
+    const part = (name, a) => `${name} ${a.live ? `✓最新(${a.codes.length}社)` : "取得失敗のため前回値を保持"}`;
+    const parts = [part("oneworld", j.oneworld), part("SkyTeam", j.skyteam), part("Star Alliance", j.staralliance)];
     msg.style.display = "flex";
     msg.innerHTML = `<span>✈ ${when} 更新 — ${esc(parts.join(" / "))}</span>`;
     showToast("アライアンス情報を更新しました");
@@ -648,6 +658,14 @@ async function refreshAlliances(){
   }
   btn.disabled = false;
   btn.textContent = "アライアンス情報を更新";
+}
+
+/** 加盟社はめったに変わらないので、前回から7日たっていたら開いたときに裏で取り直す。 */
+const ALLIANCE_MAX_AGE_MS = 7 * 86400000;
+function autoRefreshAlliances(){
+  const last = ALLIANCES.fetchedAt ? Date.parse(ALLIANCES.fetchedAt) : 0;
+  if (Date.now() - last < ALLIANCE_MAX_AGE_MS) return;
+  fetchAlliances().then(({ changed }) => { if (changed) renderPreservingState(); }).catch(() => { /* 控えのまま */ });
 }
 
 // ---- 国・地域(フィルタなし、一目で分かるようにするだけの表示用) ------------
@@ -1534,6 +1552,7 @@ aboutEl.open = window.innerWidth > 640;
 renderKwChips();
 syncStickyOffset();
 document.getElementById("alliancebtn").addEventListener("click", refreshAlliances);
+autoRefreshAlliances();
 
 // ---- 印刷 / PDF出力 --------------------------------------------------------
 // window.print() + the @media print rules above does the actual work; this

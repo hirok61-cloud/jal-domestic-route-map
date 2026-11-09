@@ -1,0 +1,43 @@
+# JALグループ国際線の時刻表を週1回確認し、変わっていたら data/ だけをコミットする。
+# main への push で Workers Builds が本番へ反映する。詳細は docs/INTERNATIONAL_AUTO.md。
+# JAL公式ページ自体はここからは取得しない（jal.co.jp は機械取得を受け付けないため）。
+name: 国際線ダイヤの自動更新
+
+on:
+  schedule:
+    - cron: "30 19 * * 0"   # 毎週月曜 04:30 JST（国内線の1時間後）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-international
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 時刻表を取得して data/ を更新
+        run: python3 -I scripts/update_international.py
+
+      - name: 変更があればコミットして push
+        run: |
+          if git diff --quiet -- data/international-timetable.js data/international-state.json; then
+            echo "便データに変更なし（コミットしません）"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/international-timetable.js data/international-state.json
+          git commit -m "国際線ダイヤを自動更新（$(TZ=Asia/Tokyo date +%F)）"
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      # 期間切れは上の更新を止めずに、最後に失敗させてメールで知らせる
+      - name: JAL便の運航計画の期間切れを確認
+        run: python3 -I scripts/update_international.py --check-plan

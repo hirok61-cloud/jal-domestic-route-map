@@ -61,6 +61,7 @@
   --area-okinawa:#3b231c;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0}
 body{background:var(--bg);color:var(--ink);
   font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP",-apple-system,sans-serif;
@@ -90,11 +91,6 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
 .navtab:last-child{border-radius:0 999px 999px 0}
 .navtab.active{background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff;border-color:var(--red)}
 .navtab:not(.active):hover{color:var(--red);border-color:var(--red)}
-.stats{margin-left:14px;display:flex;gap:8px}
-.stat{background:var(--panel);border:1px solid var(--panel-edge);border-radius:12px;
-  padding:5px 14px;text-align:center;line-height:1.25;box-shadow:var(--card-shadow)}
-.stat b{display:block;font-size:17px;color:var(--red);font-variant-numeric:tabular-nums}
-.stat span{font-size:9.5px;color:var(--sub);letter-spacing:.14em}
 /* ---------- サブタブ ---------- */
 .subtabs{display:flex;gap:22px;padding:0 22px;border-bottom:1px solid var(--hair);background:var(--bg)}
 .subtab{position:relative;text-decoration:none;color:var(--sub);font-size:13px;font-weight:700;
@@ -103,28 +99,11 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
 .subtab.active{color:var(--red);border-bottom-color:var(--red)}
 .subtab.ext{font-weight:600;opacity:.85}
 .subtab .extmark{font-size:10px;margin-left:3px;vertical-align:1px}
-/* ---------- フィルタバー ---------- */
-.filterbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px 14px;padding:10px 22px;
-  border-bottom:1px solid var(--hair);background:var(--panel)}
-/* ラベルと選択肢を1つの塊にする。素の flex-wrap だとラベルだけが前の行の
-   余白に収まり、選択肢だけ次の行に送られて「ラベルが右に浮く」ことがあった。
-   塊ごと改行させれば、狭い画面でも「搭乗日」の行のようにラベル→選択肢が
-   常にひとまとまりで左に揃う。 */
-.field{display:flex;align-items:center;gap:10px;flex-wrap:nowrap}
-.filterbar .lbl{font-size:10.5px;letter-spacing:.16em;color:var(--sub);font-weight:700;white-space:nowrap}
 .seg{display:flex;border:1px solid var(--panel-edge);border-radius:999px;overflow:hidden;background:var(--bg)}
 .seg button{border:none;background:transparent;cursor:pointer;font-size:12px;font-weight:700;
   padding:6px 14px;color:var(--sub);transition:all .15s;white-space:nowrap}
 .seg button.on{background:linear-gradient(135deg,var(--red),var(--red-deep));color:#fff}
 .seg button:not(.on):hover{color:var(--red)}
-.filterbar input[type=search]{background:var(--bg);border:1px solid var(--panel-edge);border-radius:999px;
-  padding:6px 14px;font-size:12.5px;width:180px;outline:none}
-.filterbar input[type=search]:focus{border-color:var(--red)}
-.filterbar input[type=number]{background:var(--bg);border:1px solid var(--panel-edge);border-radius:999px;
-  padding:6px 12px;font-size:12.5px;width:64px;outline:none;font-variant-numeric:tabular-nums}
-.filterbar input[type=number]:focus{border-color:var(--red)}
-.asof{margin-left:auto;font-size:11.5px;color:var(--sub);letter-spacing:.04em}
-.asof b{color:var(--ink);font-variant-numeric:tabular-nums}
 .updatelink{font-size:11.5px;color:var(--sub);text-decoration:none;border-bottom:1px dotted var(--sub);white-space:nowrap}
 .updatelink:hover{color:var(--red);border-bottom-color:var(--red)}
 .refresh{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;cursor:pointer;border:none;
@@ -150,36 +129,6 @@ main{padding:18px 22px 40px;max-width:1180px;margin:0 auto}
   padding:11px 15px;font-size:12px;color:var(--sub);line-height:1.7;margin-bottom:16px;box-shadow:var(--card-shadow)}
 .notice b{color:var(--ink)}
 .stale{border-color:color-mix(in srgb,var(--red) 45%,var(--panel-edge));background:var(--red-soft);color:var(--ink)}
-.route{border:1px solid var(--panel-edge);background:var(--panel);border-radius:14px;
-  margin-bottom:12px;overflow:hidden;box-shadow:var(--card-shadow)}
-.route-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
-  padding:11px 16px;border-bottom:1px solid var(--hair);background:linear-gradient(180deg,var(--chipbg),var(--panel))}
-.route-head h2{margin:0;font-size:15px;font-weight:700;letter-spacing:.03em}
-/* 3レターは日本語のあとに小さく添えるだけ。主役は日本語のまま、
-   見ているうちにコードを覚えられるようにする */
-.route-head h2 .iata{margin-left:4px;font-size:10.5px;font-weight:600;color:var(--sub);
-  font-family:ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.06em;vertical-align:1px}
-.route-head h2 .apicon{margin-left:7px;font-size:15px;vertical-align:-1px}
-/* 地域ごとの淡い色。相手先の空港で決める。空席バッジの色（緑/橙/灰）と
-   競合しないよう、あくまで淡い背景にとどめる */
-.route-head.area-hokkaido{background:var(--area-hokkaido)}
-.route-head.area-tohoku{background:var(--area-tohoku)}
-.route-head.area-kanto{background:var(--area-kanto)}
-.route-head.area-chubu{background:var(--area-chubu)}
-.route-head.area-kansai{background:var(--area-kansai)}
-.route-head.area-chugoku{background:var(--area-chugoku)}
-.route-head.area-shikoku{background:var(--area-shikoku)}
-.route-head.area-kyushu{background:var(--area-kyushu)}
-.route-head.area-okinawa{background:var(--area-okinawa)}
-.route-head h2 .arrow{color:var(--red);margin:0 7px}
-.route-head .meta{font-size:11.5px;color:var(--sub);font-variant-numeric:tabular-nums}
-.tablewrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:12.5px}
-th,td{padding:7px 12px;text-align:left;border-bottom:1px solid var(--hair);white-space:nowrap}
-th{font-size:10.5px;letter-spacing:.1em;color:var(--sub);font-weight:700;background:var(--bg)}
-tr:last-child td{border-bottom:none}
-tbody tr.full{opacity:.5}
-td.fno{font-weight:700;color:var(--red)}
 .badge{display:inline-block;border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:700;
   font-variant-numeric:tabular-nums;letter-spacing:.02em}
 .badge.b-ok{background:var(--ok-bg);color:var(--ok)}
@@ -344,7 +293,6 @@ td.fno{font-weight:700;color:var(--red)}
   .rrow{flex-wrap:wrap}
   .rrow .sub{flex:1 0 100%;margin:-1px 0 0 104px}
   .wxtag{white-space:normal;margin-left:0;flex-basis:100%;line-height:1.6}
-  .corpcol{width:60px}
   /* サマリ・予測・レポートの箱は、左右に main の余白(14px)＋自前の22pxが重なって、
      375px幅で中身が240px程度まで痩せていた。一覧のカードと同じ端にそろえる。 */
   .corpsum,.healthbar{margin-left:0;margin-right:0}
@@ -355,10 +303,6 @@ td.fno{font-weight:700;color:var(--red)}
 }
 /* 普通席セルをクリックすると座席表の詳細が開く。座席の情報がある便だけ
    button にする。中身（バッジ等）の見た目は素のセルと変わらないようにする。 */
-.seatcell{display:block;width:100%;border:none;background:none;padding:0;margin:0;
-  text-align:left;font:inherit;color:inherit;cursor:pointer;border-radius:6px}
-.seatcell:hover{background:var(--chipbg)}
-.seatcell:focus-visible{outline:2px solid var(--red);outline-offset:2px}
 /* ---------- 座席表の詳細（モーダル） ---------- */
 .seatmodal{position:fixed;inset:0;z-index:200;background:rgba(10,8,6,.5);
   display:flex;align-items:flex-end;justify-content:center}
@@ -419,17 +363,6 @@ td.fno{font-weight:700;color:var(--red)}
 .seatchip.ghost{border-style:dashed;border-color:var(--panel-edge);color:var(--sub);
   opacity:.4;background:transparent}
 .seatmodal-empty{margin:0 18px 18px;font-size:12.5px;color:var(--sub)}
-/* 前回から空席が出た便のお知らせ */
-.newseats{border:1px solid var(--ok);background:var(--ok-bg);border-radius:12px;
-  padding:11px 15px;font-size:12.5px;line-height:1.8;margin-bottom:16px}
-.newseats b{color:var(--ok)}
-.newseats ul{margin:6px 0 0;padding-left:1.2em;columns:2;column-gap:24px}
-@media (max-width:700px){.newseats ul{columns:1}}
-/* 狭い画面でも表のまま（横スクロール）にしている。
-   2026-08-15、一度カード表示（1便1カード）に切り替えたが、
-   **縦に長くなりすぎて70区間を見渡しづらい**とのことで元に戻した。
-   横スクロールは残るが、便を上下に追えることのほうが優先。
-   カード版は git 履歴（「スマホでは便一覧をカード表示にした」）にある。 */
 .empty{padding:12px 16px;font-size:12.5px;color:var(--sub)}
 .loading{padding:40px 0;text-align:center;color:var(--sub)}
 footer{padding:12px 22px 22px;color:var(--sub);font-size:11px;border-top:1px solid var(--hair);line-height:1.75;background:var(--bg)}
@@ -443,15 +376,200 @@ footer a{color:var(--hover)}
   .titlebox h1{font-size:16px}
   .eyebrow{font-size:8.5px;letter-spacing:.24em}
   .navtabs{order:2;margin-left:0}
-  .stats{order:3;margin-left:auto;gap:6px}
-  .stat{padding:5px 10px}
-  .subtabs,.filterbar{padding-left:14px;padding-right:14px}
+  .subtabs{padding-left:14px;padding-right:14px}
   /* 座席の絞り込みは5つあるので、狭い画面では詰めて1行に収める */
   .seg button{padding:6px 10px}
   main{padding:14px}
-  .asof{margin-left:auto}
-  .route-head h2{font-size:14px}
 }
+/* ---------- 2026-11 再設計 ----------
+   文章で説明するのをやめ、「色の目盛り → タップで数字」の2段にした。
+   ・便一覧を最初に見せ、制度サマリ/予測/レポートはタブの奥へ
+   ・行き先1つ=1行（35行）に畳み、1日の便の空きを目盛りで一覧する
+     （1便1カードは縦に伸びて不評だったので、一覧性を最優先にしている） */
+main{padding:14px 22px 40px;max-width:1120px;margin:0 auto}
+.topline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.statusline{display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap;margin-top:10px}
+.healthbar{margin:0;padding:0;background:none!important;border:0!important;flex:1 1 auto;min-width:0}
+.healthbar.warn{padding:8px 10px;background:var(--warn-bg)!important;border-radius:10px}
+.links{display:flex;gap:14px;align-items:center;margin-left:auto}
+.linkbtn{border:0;background:none;padding:0;font:inherit;font-size:12px;color:var(--sub);cursor:pointer;
+  text-decoration:underline dotted;text-underline-offset:3px;white-space:nowrap}
+.linkbtn:hover{color:var(--red)}
+.notice{margin:10px 0 0;padding:9px 13px;box-shadow:none}
+.glance{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0}
+.tile{display:block;border:1px solid var(--panel-edge);background:var(--panel);border-radius:14px;padding:10px 13px;
+  text-align:left;font:inherit;color:inherit;cursor:pointer;min-width:0;transition:transform .1s ease-out,border-color .15s}
+.tile:active{transform:scale(.97)}
+.tile:hover{border-color:color-mix(in srgb,var(--red) 45%,var(--panel-edge))}
+.tile span{display:block;font-size:11.5px;color:var(--sub);white-space:nowrap}
+.tile b{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.2;font-variant-numeric:tabular-nums}
+.tile b.okc{color:var(--ok)}
+.tile small{font-size:12px;color:var(--sub);margin-left:3px;font-variant-numeric:tabular-nums}
+.tile .mini{display:block;height:4px;margin-top:6px;border-radius:9px;background:var(--hair);overflow:hidden}
+.tile .mini i{display:block;height:100%;background:var(--ok);border-radius:9px}
+.seg button{min-height:34px}
+.seg button:active{opacity:.7}
+.viewseg{display:grid;grid-template-columns:repeat(4,1fr);margin-bottom:6px}
+.viewseg button{min-height:40px;font-size:13px}
+.viewpanel{min-width:0}
+.panel-empty{display:none;padding:26px 16px;text-align:center;color:var(--sub);font-size:13px}
+.corpsum[hidden]+.panel-empty{display:block}
+.corpsum{margin:10px 0}
+.reporthead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:12px 2px;font-size:13px;color:var(--sub)}
+/* 一覧の操作。一覧をスクロールしても手元に残るよう、半透明の層にして浮かせる */
+.listtools{position:sticky;top:0;z-index:30;margin:0 -22px;padding:8px 22px;
+  background:color-mix(in srgb,var(--bg) 80%,transparent);
+  -webkit-backdrop-filter:blur(18px) saturate(170%);backdrop-filter:blur(18px) saturate(170%)}
+@media (prefers-reduced-transparency:reduce){.listtools{background:var(--bg);-webkit-backdrop-filter:none;backdrop-filter:none}}
+.tb-row{display:flex;align-items:center;gap:8px}
+.tb-row input[type=search]{flex:1 1 90px;min-width:60px;max-width:240px;height:36px;padding:0 12px;border-radius:999px;
+  border:1px solid var(--panel-edge);background:var(--panel);font-size:13px;outline:none}
+.tb-row input[type=search]:focus{border-color:var(--red)}
+.filterbtn{height:36px;padding:0 13px;border-radius:999px;border:1px solid var(--panel-edge);background:var(--panel);
+  font-size:12.5px;font-weight:700;color:var(--sub);cursor:pointer;white-space:nowrap;margin-left:auto}
+.filterbtn[aria-expanded=true]{color:var(--red);border-color:var(--red)}
+.fcount{display:inline-block;margin-left:5px;min-width:17px;padding:0 4px;border-radius:9px;background:var(--red);color:#fff;font-size:11px;line-height:17px;text-align:center}
+.tb-more{display:flex;flex-wrap:wrap;gap:10px 18px;padding:10px 0 2px}
+.field{display:flex;align-items:center;gap:8px}
+.lbl{font-size:11.5px;color:var(--sub);font-weight:700;white-space:nowrap}
+.tb-more input[type=number]{width:62px;height:34px;padding:0 10px;border-radius:999px;border:1px solid var(--panel-edge);background:var(--bg);font-size:13px;outline:none}
+.legend{display:flex;align-items:center;flex-wrap:wrap;gap:4px 13px;margin:2px 2px 8px;font-size:11.5px;color:var(--sub)}
+.legend>span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.legend .lg{display:inline-block;width:5px;height:12px;border-radius:2px}
+.lg.ok{background:var(--ok)}.lg.low{background:var(--warn)}.lg.full{background:var(--full);opacity:.55}
+.lg.dot{width:5px;height:5px;border-radius:50%;background:var(--hover)}
+.legend .axis{opacity:.8}
+.legend .linkbtn{margin-left:auto}
+.area{margin:14px 2px 5px;font-size:11.5px;font-weight:700;color:var(--sub);letter-spacing:.08em}
+.dest{border:1px solid var(--panel-edge);background:var(--panel);border-radius:12px;margin-bottom:5px;overflow:hidden}
+.dest-head{display:grid;grid-template-columns:minmax(120px,172px) 92px minmax(0,1fr) 16px;align-items:center;gap:6px 12px;
+  width:100%;min-height:48px;padding:6px 12px;border:0;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.dest-head:hover{background:var(--chipbg)}
+.dest-head:focus-visible,.fl:focus-visible,.tile:focus-visible{outline:2px solid var(--red);outline-offset:-2px}
+.dname{font-size:14.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dname i{font-style:normal;font-size:10.5px;font-weight:600;color:var(--sub);margin-left:4px;font-family:ui-monospace,"SF Mono",Menlo,monospace}
+.dname u{text-decoration:none;font-size:14px;margin-left:4px}
+.dwx{font-size:12px;color:var(--sub);white-space:nowrap;font-variant-numeric:tabular-nums}
+.dwx .strong{color:var(--warn);font-weight:700}
+.ddirs{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:4px 16px;min-width:0}
+.ds{display:grid;grid-template-columns:24px minmax(0,1fr) 74px;align-items:center;gap:6px}
+.ds em{font-style:normal;font-size:11px;color:var(--sub)}
+.dc{font-size:12px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--sub)}
+.dc b{color:var(--ink);font-size:13px}
+.dc u{text-decoration:none;color:var(--hover);font-weight:700;margin-left:4px}
+.strip{position:relative;display:block;height:20px;
+  background:linear-gradient(90deg,transparent calc(35.3% - .5px),var(--hair) 0,var(--hair) calc(35.3% + .5px),transparent 0,transparent calc(70.6% - .5px),var(--hair) 0,var(--hair) calc(70.6% + .5px),transparent 0),
+    linear-gradient(var(--hair),var(--hair)) 0 15px/100% 1px no-repeat}
+.tk{position:absolute;top:2px;width:4px;height:12px;margin-left:-2px;border-radius:2px;background:var(--ok)}
+.tk.low{background:var(--warn)}
+.tk.full{background:var(--full);opacity:.45}
+.tk.na{background:var(--hair)}
+.tk.dim{opacity:.28}
+.tk.c::after{content:"";position:absolute;left:.5px;top:14px;width:3px;height:3px;border-radius:50%;background:var(--hover)}
+.nowl{position:absolute;top:0;bottom:0;width:1px;background:var(--red);opacity:.55}
+.chev{width:7px;height:7px;border-right:1.5px solid var(--sub);border-bottom:1.5px solid var(--sub);transform:rotate(45deg);
+  justify-self:end;transition:transform .22s cubic-bezier(.3,.7,.3,1)}
+.dest.open .chev{transform:rotate(225deg)}
+.dest-fold{display:grid;grid-template-rows:0fr;transition:grid-template-rows .24s cubic-bezier(.3,.7,.3,1)}
+.dest.open .dest-fold{grid-template-rows:1fr}
+.dest-inner{overflow:hidden;min-height:0}
+.dcols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));border-top:1px solid var(--hair)}
+.dcol{min-width:0}
+.dcol+.dcol{border-left:1px solid var(--hair)}
+.dcol h3{margin:0;padding:7px 12px;font-size:12px;font-weight:700;color:var(--sub);background:var(--bg)}
+.wxfull{padding:6px 12px;font-size:11.5px;color:var(--sub);border-top:1px solid var(--hair);line-height:1.7}
+.fl{display:grid;grid-template-columns:54px 62px 36px minmax(0,1fr) 28px;align-items:center;gap:6px;
+  width:100%;min-height:50px;padding:5px 12px;border:0;border-top:1px solid var(--hair);background:none;
+  font:inherit;color:inherit;text-align:left;cursor:pointer}
+.fl:hover{background:var(--chipbg)}
+.fl:active{background:var(--hair)}
+.fl.full{opacity:.5}
+.fl b,.fl small{display:block;white-space:nowrap}
+.fl small{font-size:11px;color:var(--sub);font-weight:400;line-height:1.35;font-variant-numeric:tabular-nums}
+.fl-time b{font-size:15.5px;font-weight:700;letter-spacing:-.01em;font-variant-numeric:tabular-nums;line-height:1.3}
+.fl-no b{font-size:13px;color:var(--red);font-weight:700;line-height:1.3}
+.fl-corp{text-align:center}
+.fl-corp .corpmark{width:21px;height:21px;font-size:12px}
+.fl-corp small.t3{color:var(--ok);font-weight:700}
+.fl-corp small.t1{color:var(--warn)}
+.fl-corp small.t0{color:var(--full)}
+.fl-seat small{margin-top:2px}
+.fl-seat small em{font-style:normal;color:var(--warn);font-weight:700}
+.tr{margin-left:3px;font-weight:700}
+.tr.up{color:var(--ok)}.tr.down{color:var(--sub)}
+.cab{display:flex;flex-direction:column;gap:2px;align-items:flex-end}
+.cab i{display:block;width:20px;height:16px;border-radius:4px;font-style:normal;font-size:10px;font-weight:700;line-height:16px;text-align:center}
+.cab i.ok{background:var(--ok-bg);color:var(--ok)}
+.cab i.low{background:var(--warn-bg);color:var(--warn)}
+.cab i.full{background:var(--full-bg);color:var(--full);text-decoration:line-through}
+.fl-fare{display:none;font-size:12px;color:var(--sub);text-align:right;font-variant-numeric:tabular-nums}
+@media (min-width:700px){.fl{grid-template-columns:58px 66px 38px minmax(0,1fr) 62px 24px}.fl-fare{display:block;order:4}.fl-cab{order:5}}
+.empty{padding:10px 12px;border-top:1px solid var(--hair)}
+/* 便の詳細シート：数字はここにまとめる */
+.facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:12px 18px}
+.fact{background:var(--bg);border-radius:10px;padding:8px 10px;min-width:0}
+.fact span{display:block;font-size:11px;color:var(--sub)}
+.fact b{font-size:15px;font-variant-numeric:tabular-nums}
+.fact small{display:block;font-size:11px;color:var(--sub);margin-top:1px}
+.factbar{display:flex;height:8px;border-radius:9px;overflow:hidden;background:var(--hair);margin:6px 18px 3px}
+.factbar i{display:block;height:100%}
+.factbar .w{background:var(--hover)}.factbar .a{background:var(--gold)}.factbar .c{background:var(--full)}
+.factkey{display:flex;gap:14px;flex-wrap:wrap;margin:0 18px 10px;font-size:11.5px;color:var(--sub)}
+.factkey b{color:var(--ink);font-variant-numeric:tabular-nums}
+.helplist{margin:12px 18px 18px;padding:0;list-style:none;font-size:13px;line-height:1.7}
+.helplist li{padding:8px 0;border-top:1px solid var(--hair)}
+.helplist li:first-child{border-top:0}
+.helplist b{display:block}
+/* 制度サマリ */
+.chero{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.ring{--p:0;flex:none;width:92px;height:92px;border-radius:50%;display:grid;place-items:center;
+  background:conic-gradient(var(--ok) calc(var(--p)*1%),var(--hair) 0)}
+.ring>span{width:72px;height:72px;border-radius:50%;background:var(--panel);display:grid;place-items:center;font-size:21px;font-weight:700;letter-spacing:-.02em}
+.chero-t{flex:1 1 200px;min-width:0}
+.chero-t b.big{display:block;font-size:17px;line-height:1.35}
+.chero-t .sub{display:block}
+.meters{display:grid;gap:5px;flex:1 1 230px;min-width:0}
+.mt{display:grid;grid-template-columns:96px 1fr 40px;gap:8px;align-items:center;font-size:12.5px}
+.mt b{text-align:right;font-variant-numeric:tabular-nums}
+.cblock{margin-top:14px;padding-top:12px;border-top:1px solid var(--hair)}
+.cblock h4{margin:0 0 6px;color:var(--ink);font-size:13px;letter-spacing:0}
+.tg{display:grid;grid-template-columns:104px minmax(0,1fr);gap:6px 10px;margin-top:6px;font-size:12.5px;align-items:baseline}
+.tg>span:first-child{color:var(--sub);font-size:12px}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.apchip{padding:2px 9px;border-radius:99px;background:var(--bg);font-size:12px;white-space:nowrap}
+.apchip.good{background:var(--ok-bg);color:var(--ok);font-weight:700}
+.apchip.hard{background:var(--warn-bg);color:var(--warn)}
+.fr{display:grid;grid-template-columns:62px minmax(0,1fr) 44px minmax(40px,90px) 36px;gap:8px;align-items:center;font-size:12.5px;padding:4px 0}
+.fr .fno{color:var(--red);font-weight:700}
+.fr .rt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fr b{text-align:right;font-variant-numeric:tabular-nums}
+.fr .tm{color:var(--sub);font-variant-numeric:tabular-nums}
+@media (max-width:640px){
+  .mt{grid-template-columns:84px 1fr 40px}
+  .tg{grid-template-columns:1fr}
+  .fr{grid-template-columns:58px minmax(0,1fr) 42px 34px}
+  .fr .bar{display:none}
+}
+@media (max-width:900px){
+  main{padding:12px 14px 32px}
+  .listtools{margin:0 -14px;padding:8px 14px}
+  .actions{margin-left:0}
+  .actions .refresh{padding:8px 13px}
+}
+@media (max-width:760px){
+  .dest-head{grid-template-columns:minmax(0,1fr) auto 12px}
+  .ddirs{grid-column:1/-1;grid-auto-flow:row}
+  .chev{grid-row:1;grid-column:3}
+  .dcol+.dcol{border-left:0}
+  .tile{padding:9px 10px}
+  .tile b{font-size:21px}
+  .tile span{font-size:11px}
+  .tile small{display:block;margin-left:0;font-size:11px}
+  .glance{gap:6px}
+  .links{margin-left:0}
+}
+
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 </head>
@@ -468,11 +586,6 @@ footer a{color:var(--hover)}
     <a class="navtab active" href="../" aria-current="page">国内線</a>
     <a class="navtab" href="../international/">国際線</a>
   </nav>
-  <div class="stats">
-    <div class="stat"><b id="st-seat">–</b><span>空席あり便</span></div>
-    <div class="stat"><b id="st-full">–</b><span>満席便</span></div>
-    <div class="stat"><b id="st-rt">–</b><span>区間</span></div>
-  </div>
 </header>
 <nav class="subtabs" aria-label="国内線コンテンツ切替">
   <a class="subtab" href="../">ルートマップ</a>
@@ -480,78 +593,104 @@ footer a{color:var(--hover)}
   <a class="subtab ext" href="https://www.jal.co.jp/jp/ja/jalonline/" target="_blank" rel="noopener"
      title="JALオンラインにログインする">JALオンライン<span class="extmark" aria-hidden="true">↗</span></a>
 </nav>
-<div class="filterbar">
-  <div class="field">
-    <span class="lbl">搭乗日</span>
-    <div class="seg" id="dayseg"></div>
-  </div>
-  <div class="field">
-    <span class="lbl">方向</span>
-    <div class="seg" id="dirseg">
-      <button data-dir="all" class="on">すべて</button>
-      <button data-dir="out">羽田発</button>
-      <button data-dir="in">羽田着</button>
-    </div>
-  </div>
-  <div class="field">
-    <span class="lbl">表示</span>
-    <div class="seg" id="seatseg">
-      <button data-seats="avail" class="on">空席あり</button>
-      <button data-seats="full">満席のみ</button>
-      <button data-seats="all">全便</button>
-    </div>
-  </div>
-  <!-- 制度枠の記録がある日だけ出す（無い日は判断材料が無く、絞り込む意味がない） -->
-  <div class="field" id="corpfield" hidden>
-    <span class="lbl">制度</span>
-    <div class="seg" id="corpseg">
-      <button data-corp="all" class="on">指定なし</button>
-      <button data-corp="ok">取れる便</button>
-      <button data-corp="ng">取れない便</button>
-    </div>
-  </div>
-  <!-- 座席（窓側/通路側/非常口/足元ゆったり）の絞り込みは、使わないとのことで
-       2026-08-15 に外した。各便の「座席表 N席（窓2・通路6…）」の内訳表示は残してある。
-       戻すときは、この位置に seg#kindseg を置き、bindSeg("kindseg","kind") を呼ぶ。
-       絞り込みのロジック（state.kind と flightsOf）はそのまま残してある。 -->
-  <div class="field">
-    <span class="lbl">当日搭乗の目安</span>
-    <input type="number" id="minok" min="1" inputmode="numeric" placeholder="座席数&gt;"
-      title="「空席あり」（運賃残席9以上）か、座席表の実際の空きがこの数より多い便だけ表示します。運賃残席は9が上限のため、実数はこちらのほうが当てになります。"
-      aria-label="座席表の空きがこの数より多い便だけ表示（空席ありは常に含む）">
-    <div class="seg" id="minokpresets" aria-label="よく使う座席数のショートカット">
-      <button type="button" data-min="5">5</button>
-      <button type="button" data-min="10">10</button>
-      <button type="button" data-min="20">20</button>
-      <button type="button" data-min="30">30</button>
-    </div>
-  </div>
-  <input type="search" id="apsearch" placeholder="空港名で絞り込み" aria-label="空港名で絞り込み">
-  <div class="asof" id="asof"></div>
-  <button class="refresh" id="refresh" title="JALから最新の空席を取り直します">
-    <span class="spin" aria-hidden="true"></span><span id="refreshlabel">最新に更新</span>
-  </button>
-  <button class="refresh corp" id="corpbtn"
-    title="JALオンライン（制度利用）で予約できる便を記録します。先にJALオンラインにログインし、企業（ＬＴ００）を選んでおいてください（検索は不要です）">
-    <span class="spin" aria-hidden="true"></span><span id="corplabel">制度枠を記録</span>
-  </button>
-  <button class="refresh corp" id="reportbtn"
-    title="これまでに記録した制度枠のデータをすべて読み込み、傾向をまとめます">
-    <span class="spin" aria-hidden="true"></span><span id="reportlabel">詳細レポート</span>
-  </button>
-  <a class="updatelink" href="https://www.jal.co.jp/ja-jp/" target="_blank" rel="noopener">JAL公式サイト</a>
-  <a class="updatelink" href="update.html">更新のやり方</a>
-</div>
 <div class="runbar" id="runbar" hidden></div>
 <main>
-  <div class="healthbar" id="healthbar" hidden></div>
-  <div class="notice" id="notice"></div>
-  <div class="corpsum" id="corpsum" hidden></div>
-  <!-- この先の日の予測（便ごとの過去実績を、選んだ日の区分＝平日/土日祝で当てはめる） -->
-  <div class="corpsum" id="corpforecast" hidden></div>
-  <div class="corpsum" id="corpreport" hidden></div>
-  <div id="newseats"></div>
-  <div id="list" class="loading">読み込み中…</div>
+  <div class="topline">
+    <div class="seg" id="dayseg" aria-label="搭乗日"></div>
+    <div class="actions">
+      <button class="refresh" id="refresh" title="JALから最新の空席を取り直します">
+        <span class="spin" aria-hidden="true"></span><span id="refreshlabel">最新に更新</span>
+      </button>
+      <button class="refresh corp" id="corpbtn"
+        title="JALオンライン（制度利用）で予約できる便を記録します。先にJALオンラインにログインし、企業（ＬＴ００）を選んでおいてください（検索は不要です）">
+        <span class="spin" aria-hidden="true"></span><span id="corplabel">制度枠を記録</span>
+      </button>
+    </div>
+  </div>
+  <div class="statusline">
+    <div class="healthbar" id="healthbar" hidden></div>
+    <div class="links">
+      <button type="button" class="linkbtn" id="helpbtn">見方</button>
+      <a class="updatelink" href="https://www.jal.co.jp/ja-jp/" target="_blank" rel="noopener">JAL公式</a>
+      <a class="updatelink" href="update.html">更新のやり方</a>
+    </div>
+  </div>
+  <div class="notice" id="notice" hidden></div>
+  <div class="glance" id="glance"></div>
+
+  <div class="seg viewseg" id="viewseg" role="tablist" aria-label="表示の切り替え">
+    <button type="button" data-view="list" class="on">便一覧</button>
+    <button type="button" data-view="corp">制度サマリ</button>
+    <button type="button" data-view="forecast">予測</button>
+    <button type="button" data-view="report">レポート</button>
+  </div>
+
+  <section class="viewpanel" data-panel="list">
+    <div class="listtools">
+      <div class="tb-row">
+        <div class="seg" id="dirseg" aria-label="方向">
+          <button data-dir="all" class="on">すべて</button>
+          <button data-dir="out">羽田発</button>
+          <button data-dir="in">羽田着</button>
+        </div>
+        <input type="search" id="apsearch" placeholder="空港名" aria-label="空港名で絞り込み">
+        <button type="button" class="filterbtn" id="filtertoggle" aria-expanded="false" aria-controls="tbmore">絞り込み<span id="filtercount" class="fcount" hidden></span></button>
+      </div>
+      <div class="tb-more" id="tbmore" hidden>
+        <div class="field"><span class="lbl">表示</span>
+          <div class="seg" id="seatseg">
+            <button data-seats="avail" class="on">空席あり</button>
+            <button data-seats="full">満席のみ</button>
+            <button data-seats="all">全便</button>
+          </div>
+        </div>
+        <!-- 制度枠の記録がある日だけ出す（無い日は判断材料が無く、絞り込む意味がない） -->
+        <div class="field" id="corpfield" hidden><span class="lbl">制度</span>
+          <div class="seg" id="corpseg">
+            <button data-corp="all" class="on">指定なし</button>
+            <button data-corp="ok">取れる便</button>
+            <button data-corp="ng">取れない便</button>
+          </div>
+        </div>
+        <div class="field"><span class="lbl">座席表の空き</span>
+          <input type="number" id="minok" min="1" inputmode="numeric" placeholder="席数"
+            title="「空席あり」（運賃残席9以上）か、座席表の実際の空きがこの数より多い便だけ表示します。"
+            aria-label="座席表の空きがこの数より多い便だけ表示（空席ありは常に含む）">
+          <div class="seg" id="minokpresets" aria-label="よく使う座席数のショートカット">
+            <button type="button" data-min="5">5</button>
+            <button type="button" data-min="10">10</button>
+            <button type="button" data-min="20">20</button>
+            <button type="button" data-min="30">30</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i class="lg ok"></i>空席あり</span><span><i class="lg low"></i>残り3席以下</span><span><i class="lg full"></i>満席</span><span><i class="lg dot"></i>制度○</span>
+      <span class="axis">横軸は6時〜23時</span>
+      <button type="button" class="linkbtn" id="expandall">すべて開く</button>
+    </div>
+    <div id="list" class="loading">読み込み中…</div>
+  </section>
+
+  <section class="viewpanel" data-panel="corp" hidden>
+    <div class="corpsum" id="corpsum" hidden></div>
+    <div class="panel-empty">この日の制度枠の記録はまだありません。JALオンラインにログインして「制度枠を記録」を押すと表示されます。</div>
+  </section>
+  <section class="viewpanel" data-panel="forecast" hidden>
+    <!-- この先の日の予測（便ごとの過去実績を、選んだ日の区分＝平日/土日祝で当てはめる） -->
+    <div class="corpsum" id="corpforecast" hidden></div>
+    <div class="panel-empty">過去の実績を読み込んでいます…</div>
+  </section>
+  <section class="viewpanel" data-panel="report" hidden>
+    <div class="reporthead">
+      <span>記録した制度枠をすべて集計して、傾向を出します。</span>
+      <button class="refresh corp" id="reportbtn" title="これまでに記録した制度枠のデータをすべて読み込み、傾向をまとめます">
+        <span class="spin" aria-hidden="true"></span><span id="reportlabel">レポートを作成</span>
+      </button>
+    </div>
+    <div class="corpsum" id="corpreport" hidden></div>
+  </section>
 </main>
 <footer>
   普通席（エコノミー）の残席をJAL公式の空席照会（大人1名・当日搭乗）で取得した参考データです。
@@ -1069,14 +1208,12 @@ function renderForecast(){
   const recorded = [0, 1, 2, 3].filter(i => dm[i] && dm[i].days)
     .map(i => `${DEMAND[i].label} ${dm[i].days}日（${dateRanges(dm[i].dates)}）`).join("、");
   box.innerHTML = `<h3>この先の日を予測する</h3>
-    <div class="sub">日付を選ぶと、その日と同じ区分（<b>平日／土日祝</b> × <b>繁忙期・連休／準繁忙／通常／閑散期</b>）での
-      便ごとの実績を並べます（直近${FLT_DAYS}日・平日${FLT.wdDays}日／土日祝${FLT.offDays}日の記録）。
-      その時期の記録がまだ無い便は、平日／土日祝の実績に時期の係数を掛けた<b>推定</b>で出します。天候は見ていません。</div>
+    <details class="fccal"><summary>この予測の見方</summary><div class="sub">選んだ日と同じ区分（平日／土日祝 × 繁忙期・連休／準繁忙／通常／閑散期）での便ごとの実績です（直近${FLT_DAYS}日・平日${FLT.wdDays}日／土日祝${FLT.offDays}日の記録）。その時期の記録がまだ無い便は、平日／土日祝の実績に時期の係数を掛けた<b>推定</b>で出します。天候は見ていません。</div></details>
     <div class="fcpick"><div class="fcchips" role="group" aria-label="日付">${chips}</div>
       <label for="fcdate">それより先の日：</label>
       <input type="date" id="fcdate" min="${today}" value="${FC_DATE || ""}" aria-label="それより先の日付"></div>
     <div class="fcbusy"><span>混みそうな日：</span>${busy}</div>
-    <details class="fccal"><summary>時期の区分（どの日が繁忙期・連休あつかいか）と、記録のある時期</summary>
+    <details class="fccal"><summary>時期の区分と、記録のある時期</summary>
       <div class="sub">${DEMAND.map(D => `<b>${D.label}</b>＝${D.note}`).join("。")}。<br>
         記録のある時期：${recorded || "まだありません"}。
         ${[0, 1, 3].filter(i => !dm[i] || dm[i].days < FLT_KIND_MIN).length
@@ -1920,156 +2057,101 @@ function renderCorpReport(stats, wx){
 /* 取得時点の結論を先に出すサマリ。「で、何割いけるのか」に即答することを優先し、
    そのあとに傾向（どこが厳しいか）と、判断を誤りやすい点（空席はあるのに
    制度では出ていない便）を添える。長文にはしない。 */
+/** その日の制度枠の記録を1便1行に。一覧の数字とサマリで共用する。 */
+function corpRows(){
+  if (!CORP || !DATA || CORP.date !== DATA.date) return [];
+  const rows = [];
+  for (const r of CORP.routes) for (const f of r.flights || []) {
+    if (typeof f.zl === "boolean") rows.push({seg: `${r.o}→${r.d}`, o: r.o, d: r.d, no: f.no, zl: f.zl, eco: f.eco, dep: f.dep});
+  }
+  return rows;
+}
+
 function renderCorpSummary(){
   const box = document.getElementById("corpsum");
-  if (!CORP || CORP.date !== DATA.date) { box.hidden = true; return; }
-
-  const rows = [];
-  for (const r of CORP.routes) {
-    for (const f of r.flights || []) {
-      if (typeof f.zl !== "boolean") continue;
-      rows.push({seg: `${r.o}→${r.d}`, o: r.o, d: r.d, no: f.no, zl: f.zl, eco: f.eco, dep: f.dep});
-    }
-  }
+  const rows = corpRows();
   if (!rows.length) { box.hidden = true; return; }
 
   const ok = rows.filter(x => x.zl).length;
   const pct = Math.round(ok / rows.length * 100);
-  /* 「空席はありそうなのに制度では出ていない」便。運賃在庫が9（＝空席あり）
-     なのに制度枠が出ていないもので、いちばん誤解を生みやすいので必ず出す。 */
-  const hidden = rows.filter(x => !x.zl && x.eco >= 9).length;
+  const availN = rows.filter(x => x.eco >= 9).length;
+  const hidden = rows.filter(x => !x.zl && x.eco >= 9).length; // 空席ありなのに制度では出ていない便
 
-  // 路線別。取れる率が低い順に、厳しいところだけ名指しする
+  const rate = (a) => a.length ? Math.round(a.filter(x => x.zl).length / a.length * 100) : null;
+  const meter = (label, v) => v === null ? ""
+    : `<div class="mt"><span>${label}</span><span class="bar"><i style="width:${v}%"></i></span><b>${v}%</b></div>`;
+
   const bySeg = new Map();
   for (const x of rows) {
     const s = bySeg.get(x.seg) || {n: 0, ok: 0};
     s.n++; if (x.zl) s.ok++;
     bySeg.set(x.seg, s);
   }
-  const segs = [...bySeg].map(([seg, s]) => ({seg, ...s, rate: s.ok / s.n}))
-    .filter(s => s.n >= 2).sort((a, b) => a.rate - b.rate);
-  const hard = segs.filter(s => s.rate <= 0.34).slice(0, 5);
-  const easyList = segs.filter(s => s.rate >= 0.9);
+  const segs = [...bySeg].map(([seg, s]) => ({seg, ...s, rate: s.ok / s.n})).filter(s => s.n >= 2).sort((a, b) => a.rate - b.rate);
+  const hard = segs.filter(s => s.rate <= 0.34).slice(0, 8);
+  const easy = segs.filter(s => s.rate >= 0.9);
+  const short = (c) => (AP[c] || c).replace(/\(.*?\)/, "");
+  const segName = (seg) => seg.split("→").map(short).join("→");
 
-  // 方向。羽田発と羽田着で傾向が割れることが多い
-  const dep = rows.filter(x => x.o === "HND");
-  const arr = rows.filter(x => x.o !== "HND");
-  const rate = (a) => a.length ? Math.round(a.filter(x => x.zl).length / a.length * 100) : null;
-  const depR = rate(dep), arrR = rate(arr);
-
-  // 時間帯。混雑方向では早朝だけ取れることがある
-  const early = rows.filter(x => x.dep && x.dep < "09:00");
-  const late = rows.filter(x => x.dep && x.dep >= "17:00");
-  const earlyR = rate(early), lateR = rate(late);
-
-  const lines = [];
-  if (depR !== null && arrR !== null && Math.abs(depR - arrR) >= 15) {
-    lines.push(`<b>方向差が大きい</b>：羽田発 ${depR}％ に対して羽田着 ${arrR}％。`
-      + `${depR > arrR ? "戻り便" : "行き便"}が取りにくい状況です。`);
-  }
-  if (earlyR !== null && lateR !== null && Math.abs(earlyR - lateR) >= 15) {
-    lines.push(`<b>時間帯差</b>：早朝（9時前）${earlyR}％／夕方以降（17時以降）${lateR}％。`);
-  }
-  if (hard.length) {
-    // (0/4) が何を指すか分からないと読めないので、必ず単位を添える
-    lines.push(`<b>厳しい区間</b>（制度で取れた便数／対象便数）：`
-      + `${hard.map(s => `${s.seg}（${s.ok}/${s.n}）`).join("、")}`);
-  }
-  /* 過去の実績と突き合わせる。「今日はまだ×だが普段は取れる便」は解放待ちの候補、
-     「今日は○だが普段は取りにくい便」は珍しいので早めに押さえる価値がある。
-     ○×は記録した瞬間の断面でしかないので、この2行が断面と傾向の橋渡しになる。 */
+  /* 過去の実績との突き合わせ。「今日は×だが普段は取れる便」は解放待ちの候補、
+     「今日は○だが普段は取りにくい便」は珍しいので早めに押さえる価値がある。 */
+  let later = [], rare = [], kindLabel = "";
   if (FLT) {
-    /* 今日と同じ区分（平日/土日祝）の実績で見る。区分の記録が足りない便は全体の割合で代用 */
-    const kindLabel = (() => { const dm = demandOf(CORP.date), kl = isOffDay(CORP.date) ? "土日祝" : "平日";
+    kindLabel = (() => { const dm = demandOf(CORP.date), kl = isOffDay(CORP.date) ? "土日祝" : "平日";
       return dm === 2 ? kl : `${DEMAND[dm].label}の${kl}`; })();
     const withHist = rows.map(x => {
       const h = fltStat(`${x.o}-${x.d}`, x.no);
-      if (!h) return null;
-      const k = fltForDate(h, CORP.date) || {label: "普段", rate: h.rate};
-      return {...x, h, k};
+      return h ? {...x, k: fltForDate(h, CORP.date) || {label: "普段", rate: h.rate}} : null;
     }).filter(Boolean);
-    const short = (c) => (AP[c] || c).replace(/\(.*?\)/, "");
-    const fmt = (x) => `${x.no} ${short(x.o)}→${short(x.d)} ${x.dep}（${x.k.label}${Math.round(x.k.rate * 100)}%）`;
-    const later = withHist.filter(x => !x.zl && x.k.rate >= 0.7).sort((a, b) => b.k.rate - a.k.rate);
-    const rare = withHist.filter(x => x.zl && x.k.rate < 0.2).sort((a, b) => a.k.rate - b.k.rate);
-    const listOf = (arr) => arr.slice(0, 8).map(fmt).join("、") + (arr.length > 8 ? `、ほか${arr.length - 8}便` : "");
-    if (later.length) {
-      lines.push(`<b>普段は取れるのに今日はまだ×</b>（今日と同じ区分＝${kindLabel}の実績で7割以上取れている便・${later.length}便）：`
-        + `${listOf(later)}。時間が経つと解放されることが多いので、待つ価値があります。`);
-    }
-    if (rare.length) {
-      lines.push(`<b>今日は○だが普段は取りにくい便</b>（${kindLabel}の実績で2割未満・${rare.length}便）：`
-        + `${listOf(rare)}。めったに出ないので、使うなら早めに。`);
-    }
+    later = withHist.filter(x => !x.zl && x.k.rate >= 0.7).sort((a, b) => b.k.rate - a.k.rate);
+    rare = withHist.filter(x => x.zl && x.k.rate < 0.2).sort((a, b) => a.k.rate - b.k.rate);
   }
+  const fr = (x) => `<div class="fr"><span class="fno">${x.no}</span><span class="rt">${short(x.o)}→${short(x.d)}</span>`
+    + `<span class="tm">${x.dep}</span><span class="bar"><i style="width:${Math.round(x.k.rate * 100)}%"></i></span><b>${Math.round(x.k.rate * 100)}%</b></div>`;
+  const frList = (arr) => arr.slice(0, 5).map(fr).join("")
+    + (arr.length > 5 ? `<details><summary class="sub">ほか${arr.length - 5}便</summary>${arr.slice(5).map(fr).join("")}</details>` : "");
 
-  /* 「ほぼ全便取れる区間」は数が多く、並べると長くなる。既定は畳んでおき、
-     見たい人だけ開けるようにする（<details> はJS無しで開閉できる）。 */
-  if (easyList.length) {
-    lines.push(`<details><summary>ほぼ全便取れる区間が ${easyList.length} 区間あります`
-      + `<span class="sub">（クリックで一覧）</span></summary>`
-      + `<div class="seglist">${easyList.map(s => s.seg).join("、")}</div></details>`);
-  }
-
-  /* 「空席なのに制度では出ていない」は、母数（空席ありの便）に対する割合まで
-     出さないと多いのか少ないのか判断できない。 */
-  const availN = rows.filter(x => x.eco >= 9).length;
-  const hiddenPct = availN ? Math.round(hidden / availN * 100) : 0;
-
-  /* 日帰りで見る。片道が取れても帰りが取れなければ旅程として成立しない。
-     さらに、行き・帰りに○の便が1本ずつあっても、時刻が合わなければ日帰りできない
-     （行き7:00発8:00着と帰り7:55発、など。2026-10-03 本人の指摘で、それまでの
-     「行き・帰りそれぞれに○が1本以上あるか」から、時刻を見た判定に変えた）。
-     ○の便どうしで、現地に FC_STAY 時間以上いられる組があるかを見る。 */
-  const spokeName = (c) => (typeof AP !== "undefined" && AP[c]) || c;
-  const nowMin = (() => {
-    if (CORP.date !== todayJST()) return -1;
-    const now = new Date();
-    const jst = new Date(now.getTime() + (now.getTimezoneOffset() + 540) * 60000);
-    return jst.getHours() * 60 + jst.getMinutes();
-  })();
+  const spokeName = (c) => AP[c] || c;
+  const chips = (arr, cls = "") => `<div class="chips">${arr.map(c => `<span class="apchip ${cls}">${c}</span>`).join("")}</div>`;
+  const nowMin = CORP.date === todayJST() ? nowJstMin() : -1;
   const trip = todayTripPlan(rows, FC_STAY, nowMin);
   const tripPair = ({spoke, pair, n}) => `<div class="dtline"><b>${spokeName(spoke)}</b> <span class="sub">現地${fmtStay(pair.stay)}`
     + `${n > 1 ? `・ほか${n - 1}組` : ""}</span><br>`
     + `<span class="dtpair">行き ${pair.o.no} <span class="mono">${fromMin(pair.o.t.dep)}→${fromMin(pair.o.t.arr)}${pair.o.t.arrEst ? "頃" : ""}</span></span>`
     + `<span class="dtpair">帰り ${pair.r.no} <span class="mono">${fromMin(pair.r.t.dep)}</span>発</span></div>`;
+  const tg = (label, body) => `<div class="tg"><span>${label}</span><div>${body}</div></div>`;
+  const dep = rows.filter(x => x.o === "HND"), arr = rows.filter(x => x.o !== "HND");
+  const early = rows.filter(x => x.dep && x.dep < "09:00"), late = rows.filter(x => x.dep && x.dep >= "17:00");
 
   box.innerHTML = `
-    <h3>制度枠のサマリ（${hhmm(CORP.generatedAt)}時点）</h3>
-    <div class="corplegend"><span><span class="corpmark ok">○</span>この時刻に予約できた</span>
-      <span><span class="corpmark ng">×</span>できなかった</span>${FLT
-        ? `<span class="wrap"><span class="corphist t3" style="margin:0;display:inline">${(DEMAND[demandOf(CORP.date)].short || (isOffDay(CORP.date) ? "土日祝" : "平日"))}NN%</span> ＝ 今日と同じ区分（${kindLabelOf(CORP.date)}）での、過去${FLT_DAYS}日に制度が取れた日の割合（平日${FLT.wdDays}日・土日祝${FLT.offDays}日の記録）</span>` : ""}</div>
-    <div class="lead">対象 ${rows.length} 便のうち <b>${ok} 便（${pct}％）</b> が予約できる状態でした。</div>
-    ${hidden ? `<div class="sub"><span class="hint">うち注意</span>：`
-      + `空席あり（残席9以上）なのに制度では出ていない便が <b>${hidden} 便</b>`
-      + `（空席ありの ${availN} 便中 <b>${hiddenPct}％</b>）あります。`
-      + `空席＝制度で取れる、ではありません。</div>` : ""}
-    <div class="rtblock">
-      <div class="rthead">今日、日帰りで行けるか</div>
-      <div class="dthead"><span class="sub">現地にいる時間</span>
+    <div class="chero">
+      <div class="ring" style="--p:${pct}"><span>${pct}%</span></div>
+      <div class="chero-t"><b class="big">${rows.length}便中 ${ok}便が制度で取れる状態</b>
+        <span class="sub">${hhmm(CORP.generatedAt)}時点の記録</span>
+        ${hidden ? `<span class="sub"><span class="hint">空席ありでも制度は× ${hidden}便</span>（空席あり${availN}便のうち）</span>` : ""}</div>
+      <div class="meters">${meter("羽田発", rate(dep))}${meter("羽田着", rate(arr))}${meter("9時前", rate(early))}${meter("17時以降", rate(late))}</div>
+    </div>
+    <div class="cblock rtblock" style="background:none;padding:12px 0 0;margin:14px 0 0;border-radius:0">
+      <div class="dthead"><h4 style="margin:0">今日の日帰り</h4><span class="sub">現地</span>
         <div class="seg stayseg" role="group" aria-label="現地にいる時間">${stayButtons()}</div><span class="sub">以上</span></div>
-      <div class="sub">制度で○だった便どうしで、行きの到着から帰りの出発まで現地に${FC_STAY}時間以上いられる組があるかで見ています。
-        ${nowMin >= 0 ? `いま（${fromMin(nowMin)}）より前に出る便は、もう乗れないので除いています。` : ""}</div>
-      <div class="rtline"><b class="rtok">◎ 日帰りできる行き先 ${trip.good.length}</b>
-        ${trip.good.length ? `：${trip.good.map(x => spokeName(x.spoke)).join("、")}` : "（今日は無し）"}</div>
-      ${trip.good.length ? `<details><summary class="sub">便の組み合わせを見る（現地にいちばん長くいられる組）</summary>`
-        + `${trip.good.map(tripPair).join("")}</details>` : ""}
-      ${trip.noFit.length ? `<div class="rtline"><span class="hint">△ 往復とも○の便はあるが、時刻が合わず日帰りできない</span>：`
-        + `${trip.noFit.map(x => spokeName(x.spoke)).join("、")}</div>`
-        + `<details><summary class="sub">時刻を見る（いちばん早く着く行きと、いちばん遅い帰り）</summary>`
+      ${tg("◎ 日帰りできる", trip.good.length ? chips(trip.good.map(x => spokeName(x.spoke)), "good") : `<span class="sub">今日はありません</span>`)}
+      ${trip.good.length ? `<details><summary class="sub">便の組み合わせ</summary>${trip.good.map(tripPair).join("")}</details>` : ""}
+      ${trip.noFit.length ? tg("△ 時刻が合わない", chips(trip.noFit.map(x => spokeName(x.spoke)), "hard"))
+        + `<details><summary class="sub">いちばん早い行きと遅い帰り</summary>`
         + trip.noFit.map(x => `<div class="dtline"><b>${spokeName(x.spoke)}</b> <span class="sub">`
           + `行き ${x.firstArr.no} ${fromMin(x.firstArr.t.arr)}${x.firstArr.t.arrEst ? "頃" : ""}着・帰り ${x.lastDep.no} ${fromMin(x.lastDep.t.dep)}発`
           + `${x.lastDep.t.dep - x.firstArr.t.arr > 0 ? `（現地は最大${fmtStay(x.lastDep.t.dep - x.firstArr.t.arr)}）` : "（帰りの方が先に出る）"}</span></div>`).join("")
         + `</details>` : ""}
-      ${trip.outOnly.length ? `<div class="rtline"><span class="hint">行きだけ取れる</span><span class="sub">（帰りの○便が${nowMin >= 0 ? "残って" : ""}いない）</span>：`
-        + `${trip.outOnly.map(spokeName).join("、")}</div>` : ""}
-      ${trip.retOnly.length ? `<div class="rtline"><span class="hint">帰りだけ取れる</span><span class="sub">（行きの○便が${nowMin >= 0 ? "残って" : ""}いない）</span>：`
-        + `${trip.retOnly.map(spokeName).join("、")}</div>` : ""}
-      ${trip.gone.length ? `<div class="rtline sub">○の便がもう全部出発した行き先：${trip.gone.map(spokeName).join("、")}</div>` : ""}
+      ${trip.outOnly.length ? tg("行きだけ取れる", chips(trip.outOnly.map(spokeName))) : ""}
+      ${trip.retOnly.length ? tg("帰りだけ取れる", chips(trip.retOnly.map(spokeName))) : ""}
+      ${trip.gone.length ? tg("○の便は出発済み", chips(trip.gone.map(spokeName))) : ""}
     </div>
-    ${lines.length ? `<ul>${lines.map(l => `<li>${l}</li>`).join("")}</ul>` : ""}
-    <div class="sub" style="margin-top:8px">これは記録した瞬間の断面です。搭乗数時間前から
-      徐々に解放される便があるため、その後に取れるようになることがあります。</div>`;
+    ${later.length ? `<div class="cblock"><h4>待つ価値あり <span class="sub">普段は取れるのに今日はまだ×（${kindLabel}の実績）</span></h4>${frList(later)}</div>` : ""}
+    ${rare.length ? `<div class="cblock"><h4>今のうちに <span class="sub">今日は○だが普段は取りにくい（${kindLabel}の実績）</span></h4>${frList(rare)}</div>` : ""}
+    ${hard.length || easy.length ? `<div class="cblock"><h4>区間の傾向</h4>
+      ${hard.length ? tg("取りにくい", chips(hard.map(s => `${segName(s.seg)} ${s.ok}/${s.n}`), "hard")) : ""}
+      ${easy.length ? tg("ほぼ全便取れる", `<details><summary class="sub">${easy.length}区間</summary><div class="seglist">${easy.map(s => segName(s.seg)).join("、")}</div></details>`) : ""}
+    </div>` : ""}`;
   box.hidden = false;
   bindStaySeg(box, ".rtblock .dthead");
 }
@@ -2147,6 +2229,29 @@ function seatGhost(col){
   return `<span class="seatchip ghost"><b>${col}</b></span>`;
 }
 
+/** 便の詳細シートの先頭。一覧から外した数字はここに集める。 */
+function flightFacts(route, f){
+  const h = fltStat(`${route.o}-${route.d}`, f.no);
+  const k = h ? (fltForDate(h, DATA.date) || {label: "普段", rate: h.rate}) : null;
+  const c = corpOf(f);
+  const fact = (label, val, sub = "") => `<div class="fact"><span>${label}</span><b>${val}</b>${sub ? `<small>${sub}</small>` : ""}</div>`;
+  const cabin = (q, n) => q === null || q === undefined ? "—" : seatText(q) + (n === undefined || n === null ? "" : "");
+  const cabSub = (n) => n === undefined || n === null ? "" : n === 0 ? "座席表は満席" : `座席表 ${n}席`;
+  const sc = f.sc !== undefined ? f.sc : Math.max(0, (f.sa || 0) - (f.sw || 0) - (f.sl || 0));
+  const total = (f.sw || 0) + (f.sl || 0) + sc;
+  const seg = (cls, n) => n ? `<i class="${cls}" style="width:${n / total * 100}%"></i>` : "";
+  return `<div class="facts">
+    ${fact("普通席", seatText(f.eco), f.sa === undefined || f.sa === null ? "" : f.sa === 0 ? "座席表は満席" : `座席表 ${f.sa}席`)}
+    ${fact("制度", c === null ? "—" : c ? "○ 取れた" : "× まだ", k ? `${k.label} ${Math.round(k.rate * 100)}%` : "")}
+    ${fact("最安運賃", f.fare ? "¥" + f.fare.toLocaleString("ja-JP") : "—", f.pe !== undefined && f.pe !== f.eco ? `前回 ${seatText(f.pe)}` : "")}
+    ${fact("クラスJ", cabin(f.clsj), cabSub(f.sj))}
+    ${fact("ファースト", cabin(f.first), cabSub(f.sf))}
+    ${fact("機材", acLabel(f.ac) || "—", f.op && f.op !== "JL" ? (OPNAME[f.op] || f.op) : "")}
+  </div>
+  ${total ? `<div class="factbar">${seg("w", f.sw || 0)}${seg("a", f.sl || 0)}${seg("c", sc)}</div>
+  <div class="factkey"><span>窓 <b>${f.sw || 0}</b></span><span>通路 <b>${f.sl || 0}</b></span><span>中央 <b>${sc}</b></span>${f.se ? `<span>非常口 <b>${f.se}</b></span>` : ""}${f.sg ? `<span>足元ゆったり <b>${f.sg}</b></span>` : ""}</div>` : ""}`;
+}
+
 function openSeatDetail(route, f){
   const seats = (f.sm || []).map(parseSeatEntry);
   const byRow = new Map();
@@ -2190,12 +2295,8 @@ function openSeatDetail(route, f){
       </div>
       <button type="button" class="seatmodal-close" id="seatmodal-close" aria-label="閉じる">×</button>
     </div>
-    <p class="seatmodal-note">
-      空いている普通席 <b>${seats.length}席</b>（${hhmm(at)}時点）。
-      <b>色の付いていない席は空席の情報がありません。</b>満席とは限りません。
-      先着順のため、実際に選ぼうとした時点で埋まっていることもあります。
-      ${wingNote}詳しくはJAL公式でご確認ください。
-    </p>
+    ${flightFacts(route, f)}
+    ${seats.length ? `<p class="seatmodal-note">空いている普通席の一覧（${hhmm(at)}時点）。${wingNote}色のない席は「情報なし」で、満席とは限りません。</p>` : ""}
     ${seats.length ? `
     <div class="seatmodal-legend">
       <span class="lw"><i></i>窓側</span>
@@ -2203,7 +2304,7 @@ function openSeatDetail(route, f){
       <span class="lp"><i></i>非常口・足元ゆったり</span>
       ${layout ? '<span class="lg"><i></i>空席の情報なし（満席とは限りません）</span>' : ""}
     </div>
-    ${rowsHtml}` : '<p class="seatmodal-empty">座席の情報がありません。</p>'}
+    ${rowsHtml}` : '<p class="seatmodal-empty">座席表の一覧はありません。</p>'}
   `;
   document.getElementById("seatmodal").hidden = false;
   document.body.style.overflow = "hidden";
@@ -2248,12 +2349,100 @@ function flightsOf(route){
   return list;
 }
 
+/* ---- 一覧の描画（2026-11 再設計） ----
+   行き先1つを1行に畳み、その1日の便を「色の目盛り」で見せる。数字は開いた先／タップした先へ。 */
+const AREA_NAME = {hokkaido:"北海道", tohoku:"東北", kanto:"関東", chubu:"北陸・中部", kansai:"関西",
+  chugoku:"中国", shikoku:"四国", kyushu:"九州", okinawa:"奄美・沖縄"};
+const lsGet = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* 覚えられなくても動く */ } };
+const OPEN_KEY = "jalSeatsOpen", VIEW_KEY = "jalSeatsView";
+const OPEN = new Set(lsGet(OPEN_KEY, "").split(",").filter(Boolean));
+let VISIBLE_SPOKES = [];
+const STRIP_FROM = 360, STRIP_TO = 1380; // 6:00〜23:00（CSSの目盛り 12時・18時と対応）
+const stripPos = (m) => Math.max(0, Math.min(100, (m - STRIP_FROM) / (STRIP_TO - STRIP_FROM) * 100)).toFixed(1);
+const seatLevel = (q) => q == null ? "na" : q <= 0 ? "full" : q <= 3 ? "low" : "ok";
+const seatText = (q) => q == null ? "—" : q <= 0 ? "満席" : q >= 9 ? "空席あり" : `残り${q}席`;
+const corpOf = (f) => (CORP && CORP.date === DATA.date && CORP.byNo.has(f.no)) ? CORP.byNo.get(f.no) : null;
+function nowJstMin(){
+  const n = new Date(), j = new Date(n.getTime() + (n.getTimezoneOffset() + 540) * 60000);
+  return j.getHours() * 60 + j.getMinutes();
+}
+
+/** 羽田の相手先の天気を短く。強風のときだけ風を足す。全文は開いた先に出す。 */
+function wxShort(code){
+  const r = WXNOW?.[code]?.[DATA?.date];
+  if (!r || r.code == null) return "";
+  const strong = r.wind != null && r.wind >= WX_WIND_STRONG;
+  return `${wxNowIcon(r.code)} ${Math.round(r.tmax)}/${Math.round(r.tmin)}°`
+    + (strong ? ` <span class="strong">風${r.wind.toFixed(0)}m</span>` : "");
+}
+
+/** 1区間ぶんの目盛り。絞り込みから外れた便は薄くするだけで消さない（1日の形を保つ）。 */
+function stripRow(route, label){
+  const all = route.flights || [];
+  const shown = new Set(flightsOf(route));
+  const ticks = all.map(f => {
+    const m = toMin(f.dep);
+    if (m == null) return "";
+    const c = corpOf(f) === true ? " c" : "";
+    return `<i class="tk ${seatLevel(f.eco)}${c}${shown.has(f) ? "" : " dim"}" style="left:${stripPos(m)}%"></i>`;
+  }).join("");
+  const nowl = DATA.date === todayJST() ? `<i class="nowl" style="left:${stripPos(nowJstMin())}%"></i>` : "";
+  const open = all.filter(f => f.eco > 0).length;
+  const corpN = all.filter(f => corpOf(f) === true).length;
+  const say = `${label}：${all.length}便中${open}便に空席${corpN ? `、制度で取れた便${corpN}便` : ""}`;
+  return `<span class="ds" role="img" aria-label="${say}"><em>${label}</em><span class="strip">${ticks}${nowl}</span>
+    <span class="dc"><b>${open}</b>/${all.length}${corpN ? `<u>○${corpN}</u>` : ""}</span></span>`;
+}
+
+/** 制度の○×と、普段どれくらい取れるか（数字だけ。区分名は「見方」とシートに出す）。 */
+function flCorp(route, f){
+  const c = corpOf(f);
+  const mark = CORP && CORP.date === DATA.date
+    ? (c === null ? '<span class="corpmark na">–</span>'
+      : c ? '<span class="corpmark ok">○</span>' : '<span class="corpmark ng">×</span>') : "";
+  const h = fltStat(`${route.o}-${route.d}`, f.no);
+  if (!h) return mark;
+  const k = fltForDate(h, DATA.date) || {label: "普段", rate: h.rate};
+  return `${mark}<small class="t${fltTier(k.rate)}" title="${fltTip(h, DATA.date)}">${Math.round(k.rate * 100)}%</small>`;
+}
+
+function cabTile(letter, q, name){
+  if (q === null || q === undefined) return "";
+  return `<i class="${seatLevel(q)}" title="${name}：${seatText(q)}">${letter}</i>`;
+}
+
+function flightRow(route, f){
+  const id = SEAT_LOOKUP.push({route, f}) - 1;
+  const trend = f.pe !== undefined && f.pe !== f.eco
+    ? `<span class="tr ${f.eco > f.pe ? "up" : "down"}">${f.eco > f.pe ? "↑" : "↓"}</span>` : "";
+  const map = f.sa === undefined || f.sa === null ? ""
+    : f.sa === 0 ? "<small><em>座席表は満席</em></small>" : `<small>座席表 ${f.sa}席</small>`;
+  const fare = f.fare ? "¥" + f.fare.toLocaleString("ja-JP") : "";
+  return `<button type="button" class="fl seatcell${f.eco > 0 ? "" : " full"}" data-seat-id="${id}"
+      aria-label="${f.no} ${f.dep}発 ${f.arr}着 普通席${seatText(f.eco)}。詳細を開く">
+    <span class="fl-time"><b>${f.dep}</b><small>${f.arr}着</small></span>
+    <span class="fl-no"><b>${f.no}</b><small>${acLabel(f.ac)}</small></span>
+    <span class="fl-corp">${flCorp(route, f)}</span>
+    <span class="fl-seat">${badge(f.eco)}${trend}${map}</span>
+    <span class="fl-fare">${fare}</span>
+    <span class="fl-cab cab">${cabTile("J", f.clsj, "クラスJ")}${cabTile("F", f.first, "ファースト")}</span>
+  </button>`;
+}
+
+function emptyText(route, dayOver){
+  if (route.status !== "ok") return route.status === "cancelled" && dayOver ? "本日の運航は終了しました" : (route.message || "情報なし");
+  if (state.kind !== "all") return `${KIND_LABEL[state.kind]}が空いている便はありません。`;
+  if (state.minOk !== "" && Number.isFinite(Number(state.minOk))) return "その条件の便はありません。";
+  return state.seats === "full" ? "満席の便はありません。" : "空席のある便はありません。";
+}
+
 function render(){
   const list = document.getElementById("list");
+  renderGlance();
   renderCorpSummary(); // 制度枠のサマリ。絞り込みに関係なく全体の結論を出す
 
-  /* 制度の絞り込みは、その日の記録があるときだけ意味がある。
-     記録が無い日に出すと「取れる便0件」と誤解させるので隠す。 */
+  /* 制度の絞り込みは、その日の記録があるときだけ意味がある。 */
   const hasCorp = !!(CORP && CORP.date === DATA.date);
   document.getElementById("corpfield").hidden = !hasCorp;
   if (!hasCorp && state.corp !== "all") {
@@ -2261,162 +2450,167 @@ function render(){
     [...document.getElementById("corpseg").children]
       .forEach(b => b.classList.toggle("on", b.dataset.corp === "all"));
   }
-  SEAT_LOOKUP = []; // 座席表クリックの参照先。render のたびに作り直す
-  const visible = DATA.routes.filter(routeMatches).sort((a, b) => {
-    // 羽田側ではないほうの空港（＝相手先）の位置で北から並べる
-    const ra = geoRank(a.o === DATA.hub ? a.d : a.o);
-    const rb = geoRank(b.o === DATA.hub ? b.d : b.o);
-    if (ra !== rb) return ra - rb;
-    return (a.o === DATA.hub ? 0 : 1) - (b.o === DATA.hub ? 0 : 1); // 羽田発 → 羽田着
-  });
+  const nFilter = (state.seats !== "avail") + (state.corp !== "all") + (state.minOk !== "");
+  const $fc = document.getElementById("filtercount");
+  $fc.hidden = !nFilter; $fc.textContent = nFilter;
+
+  SEAT_LOOKUP = []; // 便クリックの参照先。render のたびに作り直す
   const dayOver = isDayOver(DATA);
-  const html = [];
-  /* 制度の列は、今日の○×があるか、便ごとの過去実績があれば出す */
-  const showCorp = hasCorp || !!FLT;
-  const corpTitle = "JALオンライン（制度利用）で予約できたか。"
-    + (hasCorp ? `${hhmm(CORP.generatedAt)}時点の記録。` : "")
-    + (FLT ? `「${DEMAND[demandOf(DATA.date)].short || (isOffDay(DATA.date) ? "土日祝" : "平日")}NN%」は、この日と同じ区分（${kindLabelOf(DATA.date)}）での過去${FLT_DAYS}日に制度が取れた日の割合。「≈」は推定。` : "");
-
-  for (const route of visible){
-    const flights = flightsOf(route);
-    if (state.seats !== "all" && !flights.length) continue;
-
-    const total = (route.flights || []).length;
-    const open = (route.flights || []).filter(f => f.eco > 0).length;
-    // 便が取れなかった区間は理由を本文だけに出す（見出しと二重に書かない）
-    const isToday = DATA.date === todayJST();
-    const meta = route.status === "ok"
-      ? `${isToday ? "残り" : ""}${total}便中 ${open}便に普通席の空席`
-      : "";
-
-    // 出発・到着それぞれの空港の予報。片方しか分からない日もあるので個別に出す
-    const wxO = wxTag(route.o), wxD = wxTag(route.d);
-    const wxLine = (wxO || wxD)
-      ? `<span class="wxtag">${wxO}${wxO && wxD ? '<span class="arrow">→</span>' : ""}${wxD}</span>`
-      : "";
-    html.push(`<section class="route">
-      <div class="route-head area-${AREA_OF[route.o === "HND" ? route.d : route.o] || "kanto"}">
-        <h2>${apLabel(route.o)}<span class="arrow">→</span>${apLabel(route.d)}<span
-          class="apicon" aria-hidden="true">${AP_ICON[route.o === "HND" ? route.d : route.o] || ""}</span></h2>
-        <span class="meta">${meta}</span>${wxLine}
-      </div>`);
-
-    if (!flights.length){
-      const reason = route.status === "cancelled" && dayOver
-        ? "本日の運航は終了しました"
-        : (route.message || "情報なし");
-      const none = state.kind !== "all"
-        ? `${KIND_LABEL[state.kind]}が空いている便はありません。`
-        : state.minOk !== "" && Number.isFinite(Number(state.minOk))
-        ? "その条件で当日乗れそうな便はありません。"
-        : (state.seats === "full" ? "満席の便はありません。" : "空席のある便はありません。");
-      html.push(`<div class="empty">${route.status === "ok" ? none : reason}</div>`);
-    } else {
-      html.push(`<div class="tablewrap"><table>
-        <thead><tr><th>便名</th><th>出発 → 到着</th>${
-          /* 制度の○×は一目で拾えることが価値なので、横スクロールで隠れない
-             左寄り（便名・時刻のすぐ隣）に置く。機材や運賃より優先度が高い。 */
-          showCorp ? `<th class="corpcol" title="${corpTitle}">制度</th>` : ""
-        }<th>機材</th><th>普通席</th><th>クラスJ</th><th>ファースト</th><th>最安運賃</th></tr></thead><tbody>`);
-      for (const f of flights){
-        const fare = f.fare ? "¥" + f.fare.toLocaleString("ja-JP") : "—";
-        html.push(`<tr class="${f.eco > 0 ? "" : "full"}">
-          <td class="fno mono">${f.no}</td>
-          <td class="mono">${f.dep} → ${f.arr}</td>
-          ${showCorp ? `<td class="corpcol">${corpCell(route, f)}</td>` : ""}
-          <td>${acLabel(f.ac)}${f.op && f.op !== "JL" ? " / " + (OPNAME[f.op] || f.op) : ""}</td>
-          <td>${seatCell(route, f)}</td>
-          <td>${badge(f.clsj)}${cabinSeatNote(f.sj)}</td>
-          <td>${badge(f.first)}${cabinSeatNote(f.sf)}</td>
-          <td class="mono">${fare}</td>
-        </tr>`);
-      }
-      html.push(`</tbody></table></div>`);
-    }
-    html.push(`</section>`);
+  const groups = new Map();
+  for (const route of DATA.routes.filter(routeMatches)) {
+    const spoke = route.o === DATA.hub ? route.d : route.o;
+    (groups.get(spoke) || groups.set(spoke, []).get(spoke)).push(route);
   }
-
+  const spokes = [...groups.keys()].sort((a, b) => geoRank(a) - geoRank(b));
+  VISIBLE_SPOKES = [];
+  const autoOpen = !!state.q && spokes.length <= 6; // 空港名で絞ったときは開いて見せる
+  const html = [];
+  let area = "";
+  for (const spoke of spokes) {
+    const routes = groups.get(spoke).sort((a, b) => (a.o === DATA.hub ? 0 : 1) - (b.o === DATA.hub ? 0 : 1));
+    if (state.seats !== "all" && !routes.some(r => flightsOf(r).length)) continue;
+    VISIBLE_SPOKES.push(spoke);
+    const a = AREA_OF[spoke] || "kanto";
+    if (a !== area) { area = a; html.push(`<div class="area">${AREA_NAME[a] || ""}</div>`); }
+    const isOpen = autoOpen || OPEN.has(spoke);
+    const label = (r) => r.o === DATA.hub ? "行き" : "帰り";
+    const wxH = wxTag(DATA.hub), wxS = wxTag(spoke);
+    html.push(`<section class="dest${isOpen ? " open" : ""}" data-spoke="${spoke}">
+      <button type="button" class="dest-head" aria-expanded="${isOpen}">
+        <span class="dname">${AP[spoke] || spoke}<i>${spoke}</i><u aria-hidden="true">${AP_ICON[spoke] || ""}</u></span>
+        <span class="dwx">${wxShort(spoke)}</span>
+        <span class="ddirs">${routes.map(r => stripRow(r, label(r))).join("")}</span>
+        <span class="chev" aria-hidden="true"></span>
+      </button>
+      <div class="dest-fold"${isOpen ? "" : " inert"}><div class="dest-inner">
+        <div class="dcols">${routes.map(r => {
+          const fl = flightsOf(r);
+          return `<div class="dcol"><h3>${AP[r.o] || r.o} → ${AP[r.d] || r.d}</h3>${fl.length
+            ? fl.map(f => flightRow(r, f)).join("")
+            : `<div class="empty">${emptyText(r, dayOver)}</div>`}</div>`;
+        }).join("")}</div>
+        ${wxH || wxS ? `<div class="wxfull">${AP[DATA.hub]} ${wxH}　／　${AP[spoke] || spoke} ${wxS}</div>` : ""}
+      </div></div>
+    </section>`);
+  }
   list.className = "";
-  list.innerHTML = html.length
-    ? html.join("")
-    : `<div class="empty">条件に合う便はありません。</div>`;
+  list.innerHTML = html.length ? html.join("") : `<div class="panel-empty" style="display:block">条件に合う便はありません。</div>`;
+  syncExpandAll();
 }
 
-/* 前回の収集から新しく空席が出た便を、上部にまとめて出す。
-   キャンセルが出た便を探すのがいちばんの用途なので、満席→空席だけを拾う。 */
-function renderNewSeats(){
-  const box = document.getElementById("newseats");
-  const found = [];
-  for (const route of DATA.routes){
-    for (const f of route.flights || []){
-      if (f.pe === 0 && f.eco > 0) found.push({route, f});
-    }
-  }
-  if (!found.length || !DATA.prevAt){ box.innerHTML = ""; return; }
+function syncExpandAll(){
+  const allOpen = VISIBLE_SPOKES.length && VISIBLE_SPOKES.every(s => OPEN.has(s));
+  document.getElementById("expandall").textContent = allOpen ? "すべて閉じる" : "すべて開く";
+}
+const saveOpen = () => lsSet(OPEN_KEY, [...OPEN].join(","));
 
-  const at = new Date(DATA.prevAt);
-  const hhmm = `${String(at.getHours()).padStart(2,"0")}:${String(at.getMinutes()).padStart(2,"0")}`;
-  box.className = "newseats";
-  // 多いときは全部並べても読めないので、時刻の早い順に絞る
-  const LIMIT = 12;
-  const shown = found.slice().sort((a, b) => a.f.dep.localeCompare(b.f.dep)).slice(0, LIMIT);
-  box.innerHTML = `<b>前回（${hhmm}）から空席が出た便が${found.length}件あります。</b>`
-    + "<ul>" + shown.map(({route, f}) =>
-        `<li>${AP[route.o] || route.o} → ${AP[route.d] || route.d}`
-        + ` <b>${f.no}</b> ${f.dep} ${badge(f.eco)}`
-        + (f.sa !== undefined ? `（座席表 ${f.sa}席）` : "") + "</li>").join("")
-    + "</ul>"
-    + (found.length > LIMIT ? `<div style="margin-top:6px">ほか ${found.length - LIMIT} 件</div>` : "");
+function setDestOpen(sec, open){
+  sec.classList.toggle("open", open);
+  sec.querySelector(".dest-head").setAttribute("aria-expanded", String(open));
+  sec.querySelector(".dest-fold").inert = !open;
+}
+
+function setView(v){
+  if (!document.querySelector(`.viewpanel[data-panel="${v}"]`)) v = "list";
+  document.querySelectorAll(".viewpanel").forEach(p => { p.hidden = p.dataset.panel !== v; });
+  [...document.getElementById("viewseg").children].forEach(b => b.classList.toggle("on", b.dataset.view === v));
+  lsSet(VIEW_KEY, v);
+}
+
+/** 一覧まわりの操作の配線。render() で作り直される要素には委譲で仕掛ける。 */
+function bindListUi(){
+  setView(lsGet(VIEW_KEY, "list"));
+  document.getElementById("viewseg").addEventListener("click", ev => {
+    const b = ev.target.closest("button");
+    if (b) setView(b.dataset.view);
+  });
+  const $tog = document.getElementById("filtertoggle"), $more = document.getElementById("tbmore");
+  $tog.addEventListener("click", () => {
+    $more.hidden = !$more.hidden;
+    $tog.setAttribute("aria-expanded", String(!$more.hidden));
+  });
+  document.getElementById("list").addEventListener("click", ev => {
+    const head = ev.target.closest(".dest-head");
+    if (!head) return;
+    const sec = head.closest(".dest"), open = !sec.classList.contains("open");
+    setDestOpen(sec, open);
+    open ? OPEN.add(sec.dataset.spoke) : OPEN.delete(sec.dataset.spoke);
+    saveOpen(); syncExpandAll();
+  });
+  document.getElementById("expandall").addEventListener("click", () => {
+    const allOpen = VISIBLE_SPOKES.every(s => OPEN.has(s));
+    VISIBLE_SPOKES.forEach(s => allOpen ? OPEN.delete(s) : OPEN.add(s));
+    document.querySelectorAll("#list .dest").forEach(sec => setDestOpen(sec, !allOpen));
+    saveOpen(); syncExpandAll();
+  });
+  document.getElementById("glance").addEventListener("click", ev => {
+    const t = ev.target.closest(".tile");
+    if (!t) return;
+    if (t.dataset.seats) {
+      setView("list");
+      document.querySelector(`#seatseg [data-seats="${t.dataset.seats}"]`).click();
+      document.querySelector(".listtools").scrollIntoView({block: "start", behavior: "smooth"});
+    } else setView(t.dataset.go);
+  });
+}
+
+function openHelp(){
+  document.getElementById("seatmodal-body").innerHTML = `
+    <div class="seatmodal-head"><div><b>見方</b></div>
+      <button type="button" class="seatmodal-close" id="seatmodal-close" aria-label="閉じる">×</button></div>
+    <ul class="helplist">
+      <li><b>色の目盛り</b>1本が1便で、左が朝・右が夜です。緑=空席あり、橙=残り3席以下、灰=満席。下の青い点は制度で取れた便。赤い線は今の時刻です。</li>
+      <li><b>7/10 ○5</b>「残り10便のうち7便に普通席の空席」「制度で取れた便が5便」という意味です。</li>
+      <li><b>空席あり／残りN席</b>JALの公開する残席は9が上限なので、9席以上は「空席あり」とまとめています。</li>
+      <li><b>座席表 N席</b>その便で実際に指定できる普通席の数です。運賃の在庫とは別管理で、JALが当日空港割り当て分を確保するため、空席ありでも座席表は満席ということがあります。</li>
+      <li><b>制度の ○×と%</b>○×は記録した時点で制度（JALオンライン）で予約できたか。%はその便が同じ区分の日（平日／土日祝など）に過去90日で取れた割合です。搭乗数時間前から解放される便もあります。</li>
+      <li><b>J・F</b>クラスJ・ファーストの空き（色は普通席と同じ）。線で消してあれば満席です。</li>
+      <li><b>便の行をタップ</b>窓側・通路側の内訳、非常口の席、運賃、空いている座席番号が見られます。</li>
+      <li><b>データについて</b>羽田発着の未出発便を手元のブラウザで集めた参考情報です。予約の際は必ずJAL公式でご確認ください。</li>
+    </ul>`;
+  document.getElementById("seatmodal").hidden = false;
+  document.body.style.overflow = "hidden";
 }
 
 function renderSummary(){
-  let seat = 0, full = 0;
-  for (const route of DATA.routes){
-    for (const f of route.flights || []){
-      if (f.eco > 0) seat++; else full++;
-    }
-  }
-  document.getElementById("st-seat").textContent = seat;
-  document.getElementById("st-full").textContent = full;
-  document.getElementById("st-rt").textContent = DATA.routes.length;
-
   const d = new Date(DATA.date + "T00:00:00+09:00");
   const isToday = DATA.date === todayJST();
   document.getElementById("dateline").textContent =
     `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${DOW[d.getDay()]}）の`
-    + `${isToday ? "残り便" : "全便"}・普通席 ※非公式・参考データ`;
+    + `${isToday ? "残り便" : "全便"} ※非公式・参考データ`;
 
   const at = new Date(DATA.generatedAt);
-  const hh = String(at.getHours()).padStart(2, "0");
-  const mm = String(at.getMinutes()).padStart(2, "0");
-  document.getElementById("asof").innerHTML = `取得時点 <b>${hh}:${mm}</b>`;
-
   const ageMin = Math.round((Date.now() - at.getTime()) / 60000);
   const notice = document.getElementById("notice");
-  // 明日分は出発済みの概念がないので、古さだけを見る
-  const stale = ageMin > 180 || DATA.date < todayJST();
-  notice.className = "notice" + (stale ? " stale" : "");
-  const ageText = ageMin < 60
-    ? `${ageMin}分前`
-    : `約${Math.round(ageMin / 60)}時間前`;
+  const stale = ageMin > 180 || DATA.date < todayJST(); // 3時間を超えたら古いと知らせる
+  const ageText = ageMin < 60 ? `${ageMin}分前` : `約${Math.round(ageMin / 60)}時間前`;
+  notice.className = "notice stale";
   if (isDayOver(DATA)) {
-    const other = Object.keys(DAYS).sort().find(d => d !== DATA.date);
-    notice.className = "notice stale";
-    notice.innerHTML = "<b>本日の運航は終了しました。</b> 羽田発着の便はすべて出発済みです。"
-      + (other ? " 上の搭乗日から<b>翌日</b>をお選びください。" : "");
+    const other = Object.keys(DAYS).sort().find(x => x !== DATA.date);
+    notice.innerHTML = `<b>本日の運航は終了しました。</b>${other ? " 上で翌日を選べます。" : ""}`;
+    notice.hidden = false;
     return;
   }
-  notice.innerHTML = stale
-    ? `<b>このデータは${ageText}に取得したものです（搭乗日 ${DATA.date}）。</b>`
-      + ` 空席状況は刻々と変わるため、現在の状況とは大きく異なります。最新はJAL公式でご確認ください。`
-    : `<b>${ageText}に取得した、羽田発着${isToday ? "の未出発便" : "（翌日）"}の空席状況です。</b>`
-      + (isToday ? " 出発済みの便は表示されません。" : " 当日になると出発済みの便は消えます。")
-      + ` JALは残席を9までしか公開しないため、9席以上はまとめて「空席あり」と表示します。`
-      + `<br><b>「座席表」は、その便で実際に指定できる普通席の数です。</b>`
-      + ` 運賃の在庫とは別管理で、JALが当日空港割り当て分を確保しているため、`
-      + ` 空席ありでも座席表は満席ということがあります。`
-      + `<br><b>「窓・通路・中央」と「非常口・足元ゆったり」は、その座席表から数えた内訳です。</b>`
-      + ` 普通席の数字をタップすると、空いている座席番号を並べて見られます。`;
+  notice.hidden = !stale;
+  if (stale) notice.innerHTML = `<b>${ageText}のデータです。</b> 空席は刻々と変わるので、予約前にJAL公式でご確認ください。`;
+}
+
+/** 一覧の上の4つの数字。タップでその内容へ移動する。 */
+function renderGlance(){
+  let seat = 0, full = 0;
+  for (const r of DATA.routes) for (const f of r.flights || []) f.eco > 0 ? seat++ : full++;
+  const rows = corpRows();
+  const ok = rows.filter(x => x.zl).length;
+  const pct = rows.length ? Math.round(ok / rows.length * 100) : 0;
+  const trip = rows.length ? todayTripPlan(rows, FC_STAY, CORP.date === todayJST() ? nowJstMin() : -1) : null;
+  document.getElementById("glance").innerHTML = `
+    <button type="button" class="tile" data-seats="avail"><span>空席あり</span><b class="okc">${seat}</b><small>便</small></button>
+    <button type="button" class="tile" data-seats="full"><span>満席</span><b>${full}</b><small>便</small></button>
+    <button type="button" class="tile" data-go="corp"><span>制度で取れる</span>${rows.length
+      ? `<b>${pct}<span style="display:inline;font-size:13px;color:inherit">%</span></b><small>${ok}/${rows.length}</small><span class="mini"><i style="width:${pct}%"></i></span>`
+      : `<b>–</b><small>記録なし</small>`}</button>
+    <button type="button" class="tile" data-go="corp"><span>日帰り</span>${trip
+      ? `<b class="${trip.good.length ? "okc" : ""}">${trip.good.length}</b><small>行き先</small>` : `<b>–</b>`}</button>`;
 }
 
 function todayJST(){
@@ -2528,7 +2722,6 @@ async function pollRequest(id, startedAt){
     DAYS = await loadAvailability();
     selectDay(state.date);
     renderSummary();
-    renderNewSeats();
     render();
     setTimeout(() => { $runbar.hidden = true; }, 8000);
     return;
@@ -2640,7 +2833,6 @@ $reportbtn.addEventListener("click", async () => {
       } catch { /* 天気なしでもレポート自体は出す */ }
     }
     renderCorpReport(stats, wx);
-    box.scrollIntoView({behavior: "smooth", block: "start"});
   } catch (e) {
     box.innerHTML = `<h3>詳細レポート</h3><div class="sub">読み込めませんでした（${e.message}）。</div>`;
   } finally {
@@ -2751,7 +2943,6 @@ loadAvailability()
       .find(d => (DAYS[d].routes || []).some(r => (r.flights || []).length));
     selectDay(firstUseful || todayJST());
     renderSummary();
-    renderNewSeats();
     render();
     renderHealth(); // 依頼より新しい保存があれば、そちらを最後の成功として出し直す
     setBusy(false); // 更新ボタンのラベルを選択中の日に合わせる
@@ -2763,7 +2954,6 @@ loadAvailability()
       if (!b) return;
       selectDay(b.dataset.day);
       renderSummary();
-      renderNewSeats();
       render();
       setBusy(false);  // ボタンのラベルを選択中の日に合わせ直す
     });
@@ -2808,6 +2998,7 @@ loadAvailability()
 
     /* 座席表の詳細。list は render() のたびに作り直すので、個々のボタンにではなく
        document に1回だけ仕掛ける（委譲）。 */
+    bindListUi();
     document.addEventListener("click", ev => {
       const cell = ev.target.closest(".seatcell");
       if (cell) {
@@ -2815,6 +3006,7 @@ loadAvailability()
         if (item) openSeatDetail(item.route, item.f);
         return;
       }
+      if (ev.target.closest("#helpbtn")) { openHelp(); return; }
       if (ev.target.id === "seatmodal" || ev.target.id === "seatmodal-close") closeSeatDetail();
     });
     document.addEventListener("keydown", ev => {

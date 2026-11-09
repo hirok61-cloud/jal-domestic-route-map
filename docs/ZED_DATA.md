@@ -102,3 +102,12 @@ bash scripts/zed_auto.sh publish    # マージ→バックアップ→KV put→
 
 手動で今すぐ回したいときは、Claudeに「ZEDの原文更新チェックして」と頼むか、
 定期タスクを「今すぐ実行」する。
+
+## アライアンス情報の自動更新（2026-11-09）
+
+`/api/alliances`（`worker/index.js`）が3連合の加盟社を返す。ZEDページは**前回取得から7日たっていれば開いたときに裏で取り直す**（`autoRefreshAlliances()`、ボタンでの手動更新も可）。
+
+- oneworld / SkyTeam … 各公式サイトのHTML
+- Star Alliance … 公式の加盟社本文はサーバーから403になるので、**Wikipedia公開APIの加盟社表**を読み、公式ページのタイトルの社数（`26 Global Airlines`）と一致したときだけ採用する。ブラウザのふりをしてまで公式の本文は取らない
+- 新しい社が増えて `STARALLIANCE_NAME_TO_CODE` に無い名前が出る、または社数が合わないと `live:false` になり控え（`STARALLIANCE_FALLBACK`）を使う。その場合はこの対応表に足す
+- 取得に失敗した連合は前回の一覧を残す（以前は失敗すると空で上書きしてバッジが消えていた）

@@ -56,3 +56,7 @@ NRT/KIX/FUK/NGO/CTS/OKA-TPE、NRT/KIX/FUK-KHH、HND-TSAは既存のJAL/EVA路線
 ## 再生成手順（scratchpadのスクリプト）
 `routes.py`→`s1_enum.py`（路線列挙）→`s2a_fetch.py`/`s2b_collect.py`/`s3_fetch.py`（便照合）→`reverse_fill.py`（復路補完）→`process_land.py`（地図）→`assemble.py`（`records_all.json`＋`land.js`＋`template_intl.html`→ `international/index.html` を生成）→`qa.py`（異常検査）。
 `git push` のみでGH Pages・Vercel両方に反映。
+
+## 2026-11-09 冬ダイヤ化と週次自動更新
+便データを `data/international-timetable.js` へ分離し、更新を自動化した。JAL便は `data/jal-intl-plan.tsv`（公式運航計画の書き写し）が正、
+他社便と機材は FlightAware。手順と設計は `docs/INTERNATIONAL_AUTO.md`。上の「再生成手順」は scratchpad 時代のもので、いまは使わない。

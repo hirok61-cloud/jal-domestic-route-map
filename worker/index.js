@@ -234,15 +234,26 @@ const SKYTEAM_SLUG_TO_CODE = {
   "virgin-atlantic": "VS", "xiamenair": "MF",
 };
 
-/* Star Alliance の加盟社ページは Liferay ポートレットで、セッション紐付きの
-   p_auth トークンが要る＝実ブラウザ無しでは取れない。ここだけ手動確認の
-   固定リストで、live:false を返して「実取得ではない」と正直に伝える。
-   staralliance.com で目視確認した26社のうち、Air China (CA) はこのデータ
-   セットに無いので下に居なくて正常。 */
-const STARALLIANCE_CODES = [
-  "A3", "AC", "AI", "NZ", "NH", "OZ", "OS", "AV", "SN", "CM", "OU", "MS",
+/* Star Alliance の加盟社一覧ページは本文をログイン不要の別リクエストで読み込むが、
+   サーバーからだと403になる（2026-11確認。ブラウザのふりをしてまでは取らない）。
+   そこで Wikipedia の公開API の加盟社表を読み、公式ページのタイトルにある
+   社数（"26 Global Airlines"）と突き合わせて、一致したときだけ採用する。
+   食い違う・知らない社名がある間は、下の控えを使い live:false で正直に伝える。 */
+const STARALLIANCE_FALLBACK = [
+  "A3", "AC", "CA", "AI", "NZ", "NH", "OZ", "OS", "AV", "SN", "CM", "OU", "MS",
   "ET", "BR", "AZ", "LO", "LH", "ZH", "SQ", "SA", "LX", "TP", "TG", "TK", "UA",
 ];
+const STARALLIANCE_NAME_TO_CODE = {
+  "aegean airlines": "A3", "air canada": "AC", "air china": "CA", "air india": "AI",
+  "air new zealand": "NZ", "all nippon airways": "NH", "ana": "NH", "asiana airlines": "OZ",
+  "austrian airlines": "OS", "avianca": "AV", "brussels airlines": "SN", "copa airlines": "CM",
+  "croatia airlines": "OU", "egyptair": "MS", "ethiopian airlines": "ET", "eva air": "BR",
+  "ita airways": "AZ", "lot polish airlines": "LO", "lufthansa": "LH", "shenzhen airlines": "ZH",
+  "singapore airlines": "SQ", "south african airways": "SA", "swiss international air lines": "LX",
+  "swiss": "LX", "tap air portugal": "TP", "thai airways": "TG", "thai airways international": "TG",
+  "turkish airlines": "TK", "united airlines": "UA",
+};
+const UA_WIKI = "jal-route-map/1.0 (personal fan site; alliance member check)";
 
 async function fetchText(url, ua) {
   const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { "User-Agent": ua } });
@@ -268,20 +279,46 @@ async function fetchSkyteam() {
   return [...slugs].map((s) => SKYTEAM_SLUG_TO_CODE[s]).filter(Boolean);
 }
 
+/** Wikipedia の加盟社表と公式の社数から Star Alliance の加盟社コードを得る。 */
+async function fetchStarAlliance() {
+  const api = "https://en.wikipedia.org/w/api.php?action=parse&page=Star_Alliance&format=json&formatversion=2";
+  const sections = JSON.parse(await fetchText(`${api}&prop=sections`, UA_WIKI)).parse.sections;
+  const sec = sections.find((x) => /^Members and affiliates$/i.test(x.line));
+  if (!sec) throw new Error("wikipedia section not found");
+  const body = JSON.parse(await fetchText(`${api}&prop=text&section=${sec.index}`, UA_WIKI)).parse.text;
+  const table = (body.match(/<table[\s\S]*?<\/table>/) || [""])[0];
+  const names = [];
+  for (const row of table.match(/<tr[\s\S]*?<\/tr>/g) || []) {
+    const cell = (row.match(/<td[^>]*>([\s\S]*?)<\/td>/) || row.match(/<th[^>]*scope="row"[^>]*>([\s\S]*?)<\/th>/) || [])[1];
+    const link = cell && cell.match(/<a [^>]*>([^<]+)<\/a>/);
+    if (link) names.push(link[1].replace(/&amp;/g, "&").trim());
+  }
+  const unknown = names.filter((n) => !STARALLIANCE_NAME_TO_CODE[n.toLowerCase()]);
+  if (unknown.length) throw new Error(`unknown member: ${unknown.join(", ")}`);
+  const codes = [...new Set(names.map((n) => STARALLIANCE_NAME_TO_CODE[n.toLowerCase()]))];
+
+  const official = await fetchText("https://www.staralliance.com/en/members", UA_PLAIN);
+  const count = Number((official.match(/<title>[^<]*?\b(\d{2})\s+Global Airlines/i) || [])[1]);
+  if (!count) throw new Error("official count not found");
+  if (count !== codes.length) throw new Error(`count mismatch: official ${count}, list ${codes.length}`);
+  return codes;
+}
+
 async function handleAlliances(request, env) {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_GET });
   if (!isAuthed(request, env)) return unauthorized();
 
-  const [oneworldR, skyteamR] = await Promise.allSettled([fetchOneworld(), fetchSkyteam()]);
+  const [oneworldR, skyteamR, starR] = await Promise.allSettled([fetchOneworld(), fetchSkyteam(), fetchStarAlliance()]);
 
   const result = {
     fetchedAt: new Date().toISOString(),
     oneworld: { live: oneworldR.status === "fulfilled", codes: [] },
     skyteam: { live: skyteamR.status === "fulfilled", codes: [] },
     staralliance: {
-      live: false,
-      codes: STARALLIANCE_CODES,
-      note: "Star Alliance公式サイトはJS認証必須のポータル形式のため自動取得できません。手動確認済みの固定リストです。",
+      live: starR.status === "fulfilled",
+      codes: starR.status === "fulfilled" ? starR.value : STARALLIANCE_FALLBACK,
+      source: "Wikipedia（公式サイトの社数と照合）",
+      ...(starR.status === "rejected" ? { error: String(starR.reason?.message || starR.reason) } : {}),
     },
   };
 
