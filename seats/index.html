@@ -13,6 +13,7 @@
   --bg:#faf9f7;
   --ink:#1b1e24; --sub:#6b7480; --panel:#ffffff; --panel-edge:#e2e0da; --hair:#eceae5; --chipbg:#f4f2ee;
   --hover:#0d55a0;
+  --heat-on:#fff; --rp-keep:#1a7f4b; --rp-gain:#0d55a0; --rp-lost:#b06000;
   --ok:#1a7f4b; --ok-bg:#e7f5ec; --warn:#b06000; --warn-bg:#fdf1e2; --full:#8b98a3; --full-bg:#f2f2f0;
   --shadow:0 10px 30px rgba(30,20,20,.12); --card-shadow:0 2px 10px rgba(30,20,20,.06);
   --area-hokkaido:#eaf1fa; --area-tohoku:#eaf3f5; --area-kanto:#f2f1ec; --area-chubu:#f3f0e8;
@@ -24,6 +25,7 @@
   --bg:#0e1216;
   --ink:#eceff3; --sub:#95a1ad; --panel:#141a21; --panel-edge:#27303a; --hair:#20272f; --chipbg:#1b222b;
   --hover:#5ab0ff;
+  --heat-on:#0e1216; --rp-keep:#33a866; --rp-gain:#3f8fd6; --rp-lost:#cf7f2b;
   --ok:#5ed58f; --ok-bg:#12291d; --warn:#ffb056; --warn-bg:#2e2113; --full:#6c7b87; --full-bg:#1a1f25;
   --shadow:0 10px 30px rgba(0,0,0,.55); --card-shadow:0 2px 10px rgba(0,0,0,.4);
   /* 暗い地の上では、明るさを少し足すだけでは色が付いて見えない。
@@ -39,6 +41,7 @@
   --bg:#faf9f7;
   --ink:#1b1e24; --sub:#6b7480; --panel:#ffffff; --panel-edge:#e2e0da; --hair:#eceae5; --chipbg:#f4f2ee;
   --hover:#0d55a0;
+  --heat-on:#fff; --rp-keep:#1a7f4b; --rp-gain:#0d55a0; --rp-lost:#b06000;
   --ok:#1a7f4b; --ok-bg:#e7f5ec; --warn:#b06000; --warn-bg:#fdf1e2; --full:#8b98a3; --full-bg:#f2f2f0;
   --shadow:0 10px 30px rgba(30,20,20,.12); --card-shadow:0 2px 10px rgba(30,20,20,.06);
   --area-hokkaido:#eaf1fa; --area-tohoku:#eaf3f5; --area-kanto:#f2f1ec; --area-chubu:#f3f0e8;
@@ -50,6 +53,7 @@
   --bg:#0e1216;
   --ink:#eceff3; --sub:#95a1ad; --panel:#141a21; --panel-edge:#27303a; --hair:#20272f; --chipbg:#1b222b;
   --hover:#5ab0ff;
+  --heat-on:#0e1216; --rp-keep:#33a866; --rp-gain:#3f8fd6; --rp-lost:#cf7f2b;
   --ok:#5ed58f; --ok-bg:#12291d; --warn:#ffb056; --warn-bg:#2e2113; --full:#6c7b87; --full-bg:#1a1f25;
   --shadow:0 10px 30px rgba(0,0,0,.55); --card-shadow:0 2px 10px rgba(0,0,0,.4);
   /* 暗い地の上では、明るさを少し足すだけでは色が付いて見えない。
@@ -226,11 +230,6 @@ main{padding:18px 22px 40px;max-width:1180px;margin:0 auto}
 .frow>b{text-align:right;font-variant-numeric:tabular-nums}
 .frow .fmeta{grid-column:1/-1;display:flex;gap:2px 10px;flex-wrap:wrap;align-items:center;font-size:10.5px}
 @media (max-width:480px){.frow{grid-template-columns:118px 1fr 36px}}
-.rpat{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;letter-spacing:1px;
-  color:var(--sub);white-space:nowrap}
-.rpat i{font-style:normal}
-.rpat .o{color:var(--ok);font-weight:700}
-.rpat .x{color:var(--full)}
 .tierlead{display:flex;gap:6px 10px;flex-wrap:wrap;margin:6px 0 4px}
 .tierlead span{padding:3px 9px;border-radius:99px;background:var(--bg);font-size:11.5px;white-space:nowrap}
 .tierlead span b{margin-left:4px}
@@ -568,6 +567,82 @@ main{padding:14px 22px 40px;max-width:1120px;margin:0 auto}
   .tile small{display:block;margin-left:0;font-size:11px}
   .glance{gap:6px}
   .links{margin-left:0}
+}
+
+/* 詳細レポート：問いごとに ひと言の答え＋図 */
+.rp{margin-top:18px;padding-top:14px;border-top:1px solid var(--hair)}
+.corpsum .rp h4{margin:0 0 3px;font-size:15px;font-weight:700;color:var(--ink);letter-spacing:0}
+.rp .ans{margin:0 0 10px;font-size:13px;color:var(--sub);line-height:1.6}
+.rp .ans b{color:var(--ink)}
+.stack-k{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;font-size:12px;color:var(--sub)}
+.stack-k span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.stack-k i{display:inline-block;width:9px;height:9px;border-radius:3px}
+.keep,.pks h5 .keep{background:var(--rp-keep)}
+.pks h5 .lost{background:var(--rp-lost)}.pks h5 .gain{background:var(--rp-gain)}.pks h5 .none{background:var(--hair)}
+.rts-h,.rt2{display:grid;grid-template-columns:72px 1fr 1fr;gap:3px 5px;align-items:center;font-size:12.5px}
+.rts-h{margin-bottom:3px;font-size:11.5px;font-weight:700;text-align:center}
+.rts{display:grid;gap:3px}
+.rt2>span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-read{display:flex;flex-wrap:wrap;gap:2px 12px;align-items:baseline;min-height:22px;margin-bottom:6px;font-size:12.5px;color:var(--sub)}
+.tl-read b{color:var(--ink);font-variant-numeric:tabular-nums}
+.tline{display:flex;align-items:stretch;gap:1px;height:104px;padding-bottom:16px;position:relative;touch-action:pan-y;cursor:pointer}
+.tc{position:relative;flex:1 1 0;min-width:0;display:flex;align-items:flex-end;height:100%}
+.tc i{display:block;width:100%;border-radius:2px 2px 0 0}
+.tc i.wd,.tl-wd{background:color-mix(in srgb,var(--ok) 55%,var(--panel))}
+.tc i.off,.tl-off{background:var(--rp-gain)}
+.tc i.long,.tl-long{background:var(--rp-lost)}
+.tc.sel::before{content:"";position:absolute;inset:0;background:color-mix(in srgb,var(--ink) 10%,transparent);border-radius:2px}
+.tc em{position:absolute;left:0;bottom:-16px;font-style:normal;font-size:10.5px;color:var(--sub);white-space:nowrap}
+.drk{display:flex;gap:14px;margin-bottom:6px;font-size:12px;color:var(--sub)}
+.drk span{display:inline-flex;align-items:center;gap:5px}
+.drk i{display:inline-block;width:9px;height:9px;border-radius:3px}
+.dout{background:var(--rp-keep)}.din{background:var(--rp-gain)}
+.drs{display:grid;gap:9px}
+.dr{display:grid;grid-template-columns:96px 1fr;gap:2px 8px;align-items:center;font-size:12.5px}
+.dr>span{grid-row:span 2}
+.dr small{display:block;font-size:10.5px;color:var(--sub)}
+.dr>div{display:flex;align-items:center;gap:6px;height:14px}
+.dr>div i{display:block;height:9px;min-width:2px;border-radius:0 3px 3px 0}
+.dr>div b{font-size:12px;font-variant-numeric:tabular-nums}
+.dr.thin{opacity:.5}
+.sr{display:grid;grid-template-columns:minmax(110px,180px) 1fr 1fr;gap:6px 12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--hair)}
+.sr-h b{display:block;font-size:13px}.sr-h small{font-size:11px;color:var(--sub)}
+.sc{display:grid;grid-template-columns:40px 1fr 36px;gap:6px;align-items:center;font-size:12.5px}
+.sc em{font-style:normal;font-size:11.5px;color:var(--sub)}
+.sc b{text-align:right;font-variant-numeric:tabular-nums}
+.sc small{grid-column:2/-1;font-size:10.5px;color:var(--sub);margin-top:-5px}
+.sc.none small{margin-top:0;grid-column:2/-1}
+.sc.thin{opacity:.55}
+@media (max-width:560px){.sr{grid-template-columns:1fr}}
+.rp-sel{display:flex;align-items:center;gap:8px;margin:6px 0 8px;font-size:12.5px;color:var(--sub)}
+.rp-sel select{flex:0 1 240px;height:38px;padding:0 10px;border-radius:10px;border:1px solid var(--panel-edge);background:var(--bg);font-size:14px;font-weight:700;color:var(--ink)}
+.fr-h,.fr2{display:grid;grid-template-columns:44px 58px repeat(3,minmax(36px,52px)) minmax(0,1fr);gap:3px 5px;align-items:center}
+.fr-h span{text-align:center;font-size:11.5px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2}
+.fr-h small{display:block;font-size:10px;font-weight:400;color:var(--sub)}
+.fr2{padding:2px 0;font-size:13px}
+.fr2 .tm{font-variant-numeric:tabular-nums}
+.fr2 .fno,.pk .fno{color:var(--red)}
+.hc{display:block;height:26px;line-height:26px;border-radius:5px;text-align:center;font-size:12px;font-weight:700;font-style:normal;font-variant-numeric:tabular-nums;color:var(--ink);
+  background:linear-gradient(90deg,color-mix(in srgb,var(--ok) 40%,var(--panel)) var(--v,0%),var(--bg) var(--v,0%))}
+.hc.na{color:var(--sub);font-weight:400;background:var(--bg)}
+.hb{font-size:11px;font-weight:700;white-space:nowrap;padding-left:5px}
+.hb.lost{color:var(--rp-lost)}.hb.gain{color:var(--rp-gain)}.hb.keep{color:var(--rp-keep)}.hb.none{color:var(--sub)}
+.pks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px 20px;margin-top:12px}
+.corpsum .pks h5{display:flex;align-items:center;gap:6px;margin:0;font-size:13px;color:var(--ink)}
+.pks h5 i{display:inline-block;width:9px;height:9px;border-radius:3px}
+.pks small{display:block;font-size:11px;color:var(--sub);margin-bottom:3px}
+.pk{display:grid;grid-template-columns:58px minmax(0,1fr) 42px 38px;gap:6px;align-items:center;font-size:13px;padding:4px 0;border-bottom:1px solid var(--hair)}
+.pk span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pk em{font-style:normal;color:var(--sub);font-size:12px;font-variant-numeric:tabular-nums}
+.pk>b:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.rb-list{display:grid;gap:6px;margin-top:6px}
+.rb{display:grid;grid-template-columns:minmax(84px,130px) 1fr 40px;gap:8px;align-items:center;font-size:12.5px}
+.rb b{text-align:right;font-variant-numeric:tabular-nums}
+.rb.thin{opacity:.45}
+.rp-how{margin-top:16px}
+@media (max-width:480px){
+  .fr-h,.fr2{grid-template-columns:40px 52px repeat(3,minmax(30px,1fr)) 62px}
+  .hb{padding-left:2px;font-size:10.5px;text-align:right}
 }
 
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
@@ -1377,6 +1452,7 @@ function forecastBody(date){
        （日ごとに重みをそろえるため。Edge Function 側で集計済み）
      - 記録した時刻（朝/昼/晩） → **すべての記録**を使う（比べたいのはまさにここ）
    日ごとの推移では、複数回記録した日はその内訳も添える。 */
+const TIMING_URL = "https://xymbknvwllwhmqlexege.supabase.co/functions/v1/jal-corp-timing";
 const REPORT_DAYS = 400;   // 制度枠（hub=JOH）の保持期間に合わせる
 const STATS_CHUNK = 90;    // 1回の問い合わせで見る日数（Edge Function側の上限は95日）
 
@@ -1455,14 +1531,6 @@ const SEASON_NOTE = {
   "準繁忙": "春休み・夏休み・年末前",
   "通常": "上のどれにも当たらない日",
   "閑散期": "1月中旬〜2月・6月・12月前半",
-};
-
-/* 記録した時刻の区分。1日の中で解放が進むにつれて枠が増えていくので、
-   「朝・昼・晩でどう変わるか」はここで見る（他の区分は日ごとの代表1件で見るのと対照的）。 */
-const REC_SLOTS = ["深夜(〜6時)", "朝(6〜11時)", "昼(11〜16時)", "夕方以降(16時〜)"];
-const recSlot = (at) => {
-  const h = new Date(at).getHours();
-  return h < 6 ? 0 : h < 11 ? 1 : h < 16 ? 2 : 3;
 };
 
 const HOUR_LABELS = ["早朝〜朝(〜9時)", "昼(9〜14時)", "夕方(14〜18時)", "夜(18時〜)"];
@@ -1604,27 +1672,6 @@ function fltStat(seg, no){
   return fltRates(e);
 }
 /** 直近の並び "o/x/-" を ○×· の色付きにする（古い→新しい）。 */
-const fltPattern = (recent) => /[ox]/.test(recent || "")
-  ? `<span class="rpat" title="直近の記録（古い→新しい）。○取れた ×取れなかった ·記録なし">`
-    + [...recent].map(c => c === "o" ? '<i class="o">○</i>' : c === "x" ? '<i class="x">×</i>' : "<i>·</i>").join("")
-    + `</span>`
-  : (recent ? `<span class="rpat sub">直近${recent.length}日は記録なし</span>` : "");
-const fltTip = (h, date) => {
-  const p = (b) => b && b.n ? `${pct100(b.ok, b.n)}％（${b.ok}/${b.n}日）` : "記録なし";
-  const parts = [`直近${FLT_DAYS}日の実績  全体 ${p(h)}`, `平日 ${p(h.wd)}`, `土日祝 ${p(h.off)}`];
-  const sd = date ? fltSameDow(h, date) : null;
-  if (sd) parts.push(`${sd.label} ${p(sd)}`);
-  if (date && h.dk) {
-    const dm = demandOf(date);
-    if (dm !== 2) parts.push(`${DEMAND[dm].label}: 平日 ${p(h.dk[dm][0])}／土日祝 ${p(h.dk[dm][1])}`);
-    const b = fltForDate(h, date);
-    if (b && b.est) parts.push(`表示は推定（${b.long}）`);
-  }
-  parts.push("各日は、その便を最後に記録した時点で制度で予約できたか");
-  if (/[ox]/.test(h.recent || "")) parts.push(`直近: ${h.recent.replace(/o/g, "○").replace(/x/g, "×").replace(/-/g, "·")}`);
-  return parts.join(" ／ ");
-};
-
 /* 時期（混み方）ごとの記録日数と、時期の係数を出す。
    係数＝その時期の取れやすさ ÷ 全期間の取れやすさ（便×日を1件として全便を足したもの）。
    その時期の記録が無い便の予測に、平日/土日祝の実績へ掛けて使う。
@@ -1799,9 +1846,9 @@ function buildReport({captures, seg, flt = new Map(), recentDates = []}, wx = ne
     for (const r of rows) {
       const k = keyFn(r);
       if (k == null) continue;
-      const g = m.get(k) || {n: 0, ok: 0, days: 0, avail: 0, availOnly: 0, recs: new Set()};
+      const g = m.get(k) || {n: 0, ok: 0, days: 0, avail: 0, availOnly: 0};
       g.n += r.n; g.ok += r.ok; g.avail += r.avail; g.availOnly += r.availOnly;
-      g.days++; g.recs.add(recSlot(r.at));
+      g.days++;
       m.set(k, g);
     }
     return m;
@@ -1834,16 +1881,6 @@ function buildReport({captures, seg, flt = new Map(), recentDates = []}, wx = ne
   }).filter(x => x.n >= FLT_MIN_DAYS);
   const fltThin = flt.size - fltRows.length;
 
-  /* 記録した時刻。**ここだけは全記録をそのまま使う。** 1日3回でも減らさない。
-     同じ日の朝・昼・晩を比べるのが目的そのものなので、代表1件に絞ると材料が消える。 */
-  const byRec = new Map();
-  for (const c of captures) {
-    const k = REC_SLOTS[recSlot(c.at)];
-    const g = byRec.get(k) || {n: 0, ok: 0, caps: 0, dates: new Set()};
-    g.n += c.n; g.ok += c.ok; g.caps++; g.dates.add(c.date);
-    byRec.set(k, g);
-  }
-
   return {
     perDay,
     total: perDay.reduce((n, d) => n + d.n, 0),
@@ -1861,197 +1898,268 @@ function buildReport({captures, seg, flt = new Map(), recentDates = []}, wx = ne
     byWind: group(r => (!r.wx || r.wx.wind == null) ? null
       : (r.wx.wind >= WX_WIND_STRONG ? `強風(${WX_WIND_STRONG}m/s以上)` : "平常")),
     wxDays: perDay.filter(r => r.wx).length,
-    hour, segRows, byRec, fltRows, fltThin, recentDates,
+    hour, segRows, fltRows, fltThin, recentDates,
   };
 }
 
-function renderCorpReport(stats, wx){
+/* ---- 詳細レポート（2026-11 再設計） ----
+   文章を読ませず、問いごとに「ひと言の答え＋図」で見せる。注意書きは末尾の「見方」へ。
+   いつ予約するか（解放のタイミング）は jal-corp-timing の、同じ便を時点ごとに追った集計を使う。 */
+const SLOT_TIME = ["0:05", "6:00", "11:30"];
+const SLOT_NAME = ["解放直後", "朝", "昼"];
+const RP_SEG_KEY = "jalSeatsRpSeg";
+const RP_MIN = 3; // これ未満の日数の数字は「–」にする
+const rate0 = (ok, n) => n ? ok / n : 0;
+const shortAp = (c) => ({ITM: "伊丹", KIX: "関西", NGO: "中部"}[c] || (AP[c] || c).replace(/\(.*?\)/, ""));
+const segJa = (sg) => sg.split("-").map(shortAp).join("→");
+const heat = (ok, n, title = "") => {
+  const r = n >= RP_MIN ? Math.round(ok / n * 100) : null;
+  return r === null ? `<span class="hc na">–</span>` : `<span class="hc" style="--v:${r}%"${title ? ` title="${title}"` : ""}>${r}</span>`;
+};
+const rpBars = (rows) => `<div class="rb-list">${rows.map(x =>
+  `<div class="rb${x.thin ? " thin" : ""}"><span>${x.label}</span><span class="bar"><i style="width:${Math.round(x.r * 100)}%"></i></span><b>${Math.round(x.r * 100)}%</b></div>`).join("")}</div>`;
+const bestWorst = (rows, unit = "") => {
+  const a = rows.filter(x => !x.thin);
+  if (a.length < 2) return "";
+  const s = [...a].sort((x, y) => y.r - x.r);
+  return `いちばん取りやすいのは<b>${s[0].label}${unit}</b>（${Math.round(s[0].r * 100)}%）、難しいのは<b>${s[s.length - 1].label}${unit}</b>（${Math.round(s[s.length - 1].r * 100)}%）`;
+};
+
+/** 同じ便を時点ごとに追った集計を、保持期間ぶん読む。失敗してもレポート本体は出す。 */
+async function fetchCorpTiming(){
+  const now = Date.now();
+  const dates = {}, flt = {};
+  for (let back = REPORT_DAYS - 1; back >= 0; back -= STATS_CHUNK) {
+    const from = jstDay(now - back * DAY_MS), to = jstDay(now - Math.max(back - STATS_CHUNK + 1, 0) * DAY_MS);
+    const res = await fetch(`${TIMING_URL}?from=${from}&to=${to}`, {cache: "no-store"});
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const b = await res.json();
+    Object.assign(dates, b.dates || {});
+    for (const [k, v] of Object.entries(b.flt || {})) {
+      const c = flt[k] || (flt[k] = [v[0], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+      for (let i = 1; i <= 10; i++) c[i] += v[i];
+    }
+  }
+  return {dates, flt};
+}
+
+/** 便の「性格」。同じ日の中で○→×や×→○がどれだけ起きたかで決める。 */
+function fltHabit(v){
+  const r = (i) => v[1 + i * 2] >= RP_MIN ? v[2 + i * 2] / v[1 + i * 2] : null;
+  const lost = v[7] >= RP_MIN ? v[8] / v[7] : 0, gain = v[9] >= RP_MIN ? v[10] / v[9] : 0;
+  if (Math.max(lost, gain) >= 0.2) return lost >= gain ? {c: "lost", t: "早い者勝ち"} : {c: "gain", t: "待つと出る"};
+  const rs = [r(0), r(1), r(2)].filter(x => x !== null);
+  if (!rs.length) return null;
+  if (Math.min(...rs) >= 0.75) return {c: "keep", t: "いつでも"};
+  if (Math.max(...rs) < 0.25) return {c: "none", t: "難しい"};
+  return null;
+}
+
+function flightPicker(T){
+  if (!T) return "";
+  const segs = [...new Set(Object.keys(T.flt).map(k => k.split("|")[0]))];
+  const order = segGeoSort(segs);
+  if (!order.length) return "";
+  const lostRows = [], gainRows = [];
+  for (const [k, v] of Object.entries(T.flt)) {
+    const [sg, no] = k.split("|");
+    if (v[7] >= 5 && v[8] / v[7] >= 0.15) lostRows.push({sg, no, v, r: v[8] / v[7]});
+    if (v[9] >= 5 && v[10] / v[9] >= 0.15) gainRows.push({sg, no, v, r: v[10] / v[9]});
+  }
+  const pick = (arr) => arr.sort((a, b) => b.r - a.r).slice(0, 5).map(x =>
+    `<div class="pk"><b class="fno">${x.no}</b><span>${segJa(x.sg)}</span><em>${x.v[0]}</em><b>${Math.round(x.r * 100)}%</b></div>`).join("");
+  const saved = lsGet(RP_SEG_KEY, "");
+  const cur = order.includes(saved) ? saved : (order.includes("HND-CTS") ? "HND-CTS" : order[0]);
+  return `<section class="rp"><h4>どの便を、いつ狙う？</h4>
+    <div class="rp-sel"><label for="rpseg">区間</label><select id="rpseg">${order.map(s =>
+      `<option value="${s}"${s === cur ? " selected" : ""}>${segJa(s)}</option>`).join("")}</select></div>
+    <div class="ft" id="rpfl"></div>
+    <p class="ans" style="margin:8px 0 0">棒が長いほど、その時点で取れた日が多い便です。</p>
+    ${lostRows.length || gainRows.length ? `<div class="pks">
+      ${lostRows.length ? `<div><h5><i class="lost"></i>早い者勝ちの便</h5><small>取れていたのに同じ日に消えた割合</small>${pick(lostRows)}</div>` : ""}
+      ${gainRows.length ? `<div><h5><i class="gain"></i>待つと出てくる便</h5><small>取れなかったのに同じ日に出た割合</small>${pick(gainRows)}</div>` : ""}
+    </div>` : ""}
+  </section>`;
+}
+
+function drawFlights(T, sg){
+  const rows = Object.entries(T.flt).filter(([k]) => k.startsWith(sg + "|"))
+    .sort((a, b) => a[1][0].localeCompare(b[1][0]));
+  document.getElementById("rpfl").innerHTML = `<div class="fr-h"><span></span><span></span>${SLOT_TIME.map((t, i) =>
+    `<span>${t}<small>${SLOT_NAME[i]}</small></span>`).join("")}<span></span></div>` + rows.map(([k, v]) => {
+    const h = fltHabit(v);
+    return `<div class="fr2"><b class="tm">${v[0]}</b><b class="fno">${k.split("|")[1]}</b>
+      ${[0, 1, 2].map(i => heat(v[2 + i * 2], v[1 + i * 2], `${SLOT_TIME[i]}時点：${v[2 + i * 2]}/${v[1 + i * 2]}日`)).join("")}
+      <span class="hb ${h ? h.c : ""}">${h ? h.t : ""}</span></div>`;
+  }).join("");
+}
+
+/* その日が連休のどの位置か。羽田発と羽田着で厳しい日が逆になるので、方向と合わせて見る。 */
+const ROLE_ORDER = ["連休の前日", "連休初日", "連休中日", "連休最終日", "連休の翌日", "ふだんの平日", "ふだんの土日祝"];
+function dayRole(date){
+  if (isOffDay(date)) {
+    if (!inLongOff(date)) return "ふだんの土日祝";
+    if (!isOffDay(addDays(date, -1))) return "連休初日";
+    if (!isOffDay(addDays(date, 1))) return "連休最終日";
+    return "連休中日";
+  }
+  if (inLongOff(addDays(date, 1))) return "連休の前日";
+  if (inLongOff(addDays(date, -1))) return "連休の翌日";
+  return "ふだんの平日";
+}
+
+/** 1日1本の棒を時系列に並べる。連休の谷が見えるのが狙い。タップした日の数字を上に出す。 */
+function timelineBlock(days){
+  const start = days[0].date, end = days[days.length - 1].date, byDate = new Map(days.map(d => [d.date, d]));
+  const cols = [];
+  for (let d = start; d <= end; d = addDays(d, 1)) {
+    const x = byDate.get(d);
+    const first = Number(d.slice(8)) === 1 || d === start;
+    const label = first ? `<em>${Number(d.slice(5, 7))}月</em>` : "";
+    if (!x) { cols.push(`<span class="tc">${label}</span>`); continue; }
+    const cls = x.role.startsWith("連休") && x.role !== "連休の前日" && x.role !== "連休の翌日" ? "long" : isOffDay(d) ? "off" : "wd";
+    cols.push(`<span class="tc" data-d="${d}"><i class="${cls}" style="height:${Math.round(x.r * 100)}%"></i>${label}</span>`);
+  }
+  return `<div class="tl-read" id="tlread"></div><div class="tline" id="tline">${cols.join("")}</div>
+    <div class="stack-k"><span><i class="tl-wd"></i>平日</span><span><i class="tl-off"></i>土日祝</span><span><i class="tl-long"></i>連休</span></div>`;
+}
+function bindTimeline(days){
+  const box = document.getElementById("tline"), out = document.getElementById("tlread");
+  if (!box) return;
+  const byDate = new Map(days.map(d => [d.date, d]));
+  const show = (d) => {
+    const x = byDate.get(d);
+    if (!x) return;
+    box.querySelector(".tc.sel")?.classList.remove("sel");
+    box.querySelector(`[data-d="${d}"]`)?.classList.add("sel");
+    out.innerHTML = `<b>${Number(d.slice(5, 7))}/${Number(d.slice(8))}（${"日月火水木金土"[dowOf(d)]}）</b><span>${x.role}</span>`
+      + `<span>全体 <b>${Math.round(x.r * 100)}%</b></span><span>羽田発 <b>${Math.round(x.out * 100)}%</b></span><span>羽田着 <b>${Math.round(x.in * 100)}%</b></span>`;
+  };
+  const pick = (ev) => {
+    const el = document.elementFromPoint(ev.clientX, Math.min(ev.clientY, box.getBoundingClientRect().bottom - 2))?.closest(".tc[data-d]");
+    if (el) show(el.dataset.d);
+  };
+  box.addEventListener("pointerdown", pick);
+  box.addEventListener("pointermove", pick);
+  show([...days].sort((a, b) => a.r - b.r)[0].date); // 最初は いちばん厳しかった日
+}
+
+/** 時期の考察。各便の出発前最後の記録で、日ごと・方向ごとに集計したものを使う。 */
+function seasonBlock(T){
+  const days = Object.entries(T?.dates || {}).filter(([, d]) => d.last && d.last[0] + d.last[2] >= 100)
+    .map(([date, d]) => {
+      const [on, ook, inn, iok] = d.last;
+      return {date, on, ook, inn, iok, role: dayRole(date), season: seasonOf(date), off: isOffDay(date),
+        r: (ook + iok) / (on + inn), out: rate0(ook, on), in: rate0(iok, inn)};
+    }).sort((a, b) => a.date.localeCompare(b.date));
+  if (!days.length) return "";
+  const sum = (rows) => {
+    const g = rows.reduce((t, x) => ({on: t.on + x.on, ook: t.ook + x.ook, inn: t.inn + x.inn, iok: t.iok + x.iok}), {on: 0, ook: 0, inn: 0, iok: 0});
+    return {out: rate0(g.ook, g.on), in: rate0(g.iok, g.inn), all: rate0(g.ook + g.iok, g.on + g.inn), n: rows.length};
+  };
+  const roles = ROLE_ORDER.map(k => ({k, ...sum(days.filter(d => d.role === k))})).filter(x => x.n);
+  const pair = (x) => `<div class="dr${x.n < 2 ? " thin" : ""}"><span>${x.k}<small>${x.n}日</small></span>
+    <div><i class="dout" style="width:${Math.round(x.out * 100)}%"></i><b>${Math.round(x.out * 100)}%</b></div>
+    <div><i class="din" style="width:${Math.round(x.in * 100)}%"></i><b>${Math.round(x.in * 100)}%</b></div></div>`;
+  const normal = roles.find(x => x.k === "ふだんの平日");
+  const worst = (dir) => [...roles].filter(x => x.n >= 2).sort((a, b) => a[dir] - b[dir])[0];
+  const wo = worst("out"), wi = worst("in");
+  const answer = wo && wi && wo.k === wi.k
+    ? `<b>${wo.k}</b>が最も厳しく、羽田発<b>${Math.round(wo.out * 100)}%</b>・羽田着<b>${Math.round(wo.in * 100)}%</b>`
+    : [wo && `羽田発は<b>${wo.k}</b>が最も厳しく<b>${Math.round(wo.out * 100)}%</b>`,
+       wi && `羽田着は<b>${wi.k}</b>が最も厳しく<b>${Math.round(wi.in * 100)}%</b>`].filter(Boolean).join("、");
+  const seasonRows = SEASON_ORDER.map(s => {
+    const wd = sum(days.filter(d => d.season === s && !d.off)), off = sum(days.filter(d => d.season === s && d.off));
+    const cell = (x, name) => x.n ? `<div class="sc${x.n < 3 ? " thin" : ""}"><em>${name}</em><span class="bar"><i style="width:${Math.round(x.all * 100)}%"></i></span><b>${Math.round(x.all * 100)}%</b><small>${x.n}日</small></div>` : `<div class="sc none"><em>${name}</em><small>まだ記録なし</small></div>`;
+    return `<div class="sr"><div class="sr-h"><b>${s}</b><small>${SEASON_NOTE[s]}</small></div>${cell(wd, "平日")}${cell(off, "土日祝")}</div>`;
+  }).join("");
+  return {days, html: `<section class="rp"><h4>時期でどれくらい変わる？</h4>
+      <p class="ans">日によって大きく変わります。棒が低い日ほど取りにくく、連休に谷ができます。</p>
+      ${timelineBlock(days)}
+    </section>
+    <section class="rp"><h4>連休のどの日が厳しい？</h4>
+      <p class="ans">${answer}${normal ? `（ふだんの平日は羽田発${Math.round(normal.out * 100)}%・羽田着${Math.round(normal.in * 100)}%）` : ""}。</p>
+      <div class="drk"><span><i class="dout"></i>羽田発（行き）</span><span><i class="din"></i>羽田着（帰り）</span></div>
+      <div class="drs">${roles.map(pair).join("")}</div>
+    </section>
+    <section class="rp"><h4>時期ごとの取りやすさ</h4>
+      <p class="ans">繁忙期ほど土日祝との差が開くかを見られます。記録が増えるほど確かになります。</p>
+      ${seasonRows}
+    </section>`};
+}
+
+/** 行き先ごと。色ではなく棒の長さで見せ、取りやすい順に並べる。 */
+function routeRows(R){
+  const by = new Map();
+  for (const x of R.segRows) {
+    const [o, d] = x.k.split("-");
+    const spoke = o === "HND" ? d : o;
+    const e = by.get(spoke) || {n: 0, ok: 0};
+    e[o === "HND" ? "out" : "in"] = x;
+    e.n += x.n; e.ok += x.ok;
+    by.set(spoke, e);
+  }
+  const rows = [...by].map(([s, e]) => ({s, ...e, r: rate0(e.ok, e.n)})).sort((a, b) => b.r - a.r);
+  const cell = (x) => x ? heat(x.ok, x.n) : '<span class="hc na">–</span>';
+  return {rows, html: `<div class="rts-h"><span></span><span>行き</span><span>帰り</span></div><div class="rts">${rows.map(x =>
+    `<div class="rt2"><span>${shortAp(x.s)}</span>${cell(x.out)}${cell(x.in)}</div>`).join("")}</div>`};
+}
+
+function renderCorpReport(stats, wx, timing){
   const box = document.getElementById("corpreport");
   const R = buildReport(stats, wx);
   if (!R.perDay.length) {
-    box.innerHTML = `<h3>詳細レポート</h3><div class="sub">記録がまだありません。`
-      + `「制度枠を記録」を実行すると、その日ぶんが蓄積されます。</div>`;
+    box.innerHTML = `<div class="panel-empty" style="display:block">記録がまだありません。「制度枠を記録」を実行すると蓄積されます。</div>`;
     box.hidden = false;
     return;
   }
-  const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
-  const bar = (r) => `<span class="bar"><i style="width:${Math.round(r * 100)}%"></i></span>`;
-
-  /* 区分ごとの比較。**必ず「何日ぶんか」を添える。** 記録した時刻がバラつくと
-     区分の差ではなく記録時刻の差を見てしまうので、そのときは注意書きを出す。 */
-  const compare = (m, order, note = {}) => {
-    const keys = order ? order.filter(k => m.has(k)) : [...m.keys()];
-    if (keys.length < 2) {
-      const only = keys.length ? `いまは「${keys[0]}」の記録しかありません` : "記録がありません";
-      return `<div class="sub">${only}。比べるには別の区分の記録が要ります。</div>`;
-    }
-    const slots = new Set();
-    for (const k of keys) for (const r of m.get(k).recs) slots.add(r);
-    const rows = keys.map(k => {
-      const g = m.get(k);
-      return `<div class="rrow"><span class="rk">${k}</span>`
-        + bar(g.n ? g.ok / g.n : 0)
-        + `<b>${pct(g.ok, g.n)}%</b>`
-        + `<span class="sub">${g.ok}/${g.n}・${g.days}日</span></div>`
-        + (note[k] ? `<div class="sub" style="margin:-2px 0 3px 104px">${note[k]}</div>` : "");
-    }).join("");
-    const thin = keys.filter(k => m.get(k).days < 3);
-    return rows
-      + (thin.length ? `<div class="sub">${thin.join("・")}は記録が3日未満です。`
-        + `まだ傾向とは言えません。</div>` : "")
-      + (slots.size > 1 ? `<div class="sub">記録した時刻がそろっていません`
-        + `（${[...slots].sort().map(i => REC_SLOTS[i]).join("・")}）。`
-        + `制度枠は当日に向けて解放されるので、この差には記録時刻のちがいも混じります。</div>` : "");
-  };
-
-  const span = `${R.perDay[0].date} 〜 ${R.perDay[R.perDay.length - 1].date}`;
-  const recent = R.perDay.slice(-30).reverse();
-  /* 複数回記録した日は、その日の推移（何時に何%だったか）も1行添える。 */
-  const dayRow = (d) => {
-    const wxTag = d.wx ? `${WX_ICON[wxCat(d.wx.code)] || ""}` : "";
-    const main = `<div class="rrow"><span class="rk">${d.date.slice(5)}(${d.wd})`
-      + `${d.holiday ? "祝" : ""}${wxTag}</span>${bar(d.rate)}<b>${Math.round(d.rate * 100)}%</b>`
-      + `<span class="sub">${d.ok}/${d.n} ${hhmm(d.at)}時点`
-      + (d.capturesCount > 1 ? `・この日${d.capturesCount}回記録` : "") + `</span></div>`;
-    if (d.capturesCount <= 1) return main;
-    const trail = d.captures.map(c => `${hhmm(c.at)} ${pct(c.ok, c.n)}%`).join("　→　");
-    return main + `<div class="sub" style="margin:-2px 0 4px 104px">${trail}</div>`;
-  };
-
-  /* 便ごとの取れやすさ。ここが「結局どの便が取れるのか」への答えなので、
-     区分の比較より前（レポートの先頭）に置く。上位・下位のランキングと、
-     区間ごとの全便一覧（畳んでおく）の2段構え。 */
-  const segName = (sg) => { const [o, d] = sg.split("-"); return `${AP[o] || o}→${AP[d] || d}`; };
-  const fltLine = (x, showSeg) => `<div class="frow">
-      <span class="fk"><b class="fno">${x.no}</b> <span class="mono">${x.dep}</span>${showSeg
-        ? `<span class="sub">${segName(x.seg)}</span>` : ""}</span>
-      ${bar(x.rate)}<b>${Math.round(x.rate * 100)}%</b>
-      <span class="fmeta sub"><span>${x.ok}/${x.n}日${x.wdRate !== null && x.offRate !== null
-        ? `・平日${Math.round(x.wdRate * 100)}%／土日祝${Math.round(x.offRate * 100)}%` : ""}</span>${fltPattern(x.recent)}</span></div>`;
-  const fltSection = () => {
-    const rows = R.fltRows;
-    if (!rows.length) {
-      return `<h4>便ごとの取れやすさ</h4><div class="sub">記録が${FLT_MIN_DAYS}日以上ある便がまだありません。</div>`;
-    }
-    const byTier = [0, 0, 0, 0];
-    for (const x of rows) byTier[fltTier(x.rate)]++;
-    const byRate = (dir) => [...rows].sort((a, b) =>
-      dir * (b.rate - a.rate) || b.n - a.n || a.dep.localeCompare(b.dep));
-    const top = byRate(1).slice(0, 15);
-    const bottom = byRate(-1).slice(0, 15);
-    // 区間ごとの全便。一覧と同じ並び（北から・羽田発→羽田着）、区間の中は出発時刻順
-    const groups = new Map();
-    for (const x of rows) { const g = groups.get(x.seg) || []; g.push(x); groups.set(x.seg, g); }
-    const order = segGeoSort(groups.keys());
-    const groupHtml = order.map(sg => {
-      const g = groups.get(sg).sort((a, b) => a.dep.localeCompare(b.dep));
-      const n = g.reduce((t, x) => t + x.n, 0), ok = g.reduce((t, x) => t + x.ok, 0);
-      const best = g.reduce((m, x) => x.rate > m.rate ? x : m, g[0]);
-      return `<details class="fltgroup"><summary>${segName(sg)}<span class="sub">${g.length}便・平均${pct(ok, n)}%`
-        + `・いちばん取りやすいのは ${best.no} ${best.dep}（${Math.round(best.rate * 100)}%）</span></summary>`
-        + `<div class="rlist">${g.map(x => fltLine(x, false)).join("")}</div></details>`;
-    }).join("");
-    return `
-    <h4>便ごとの取れやすさ（結論）</h4>
-    <div class="sub">記録が${FLT_MIN_DAYS}日以上ある <b>${rows.length} 便</b>${R.fltThin
-      ? `（ほか ${R.fltThin} 便は記録が少ないため除外）` : ""}が対象。
-      各日、その便を最後に記録した時点（＝出発前の最終観測）で制度で予約できた日の割合です。
-      各便の行に平日／土日祝（祝日は休日側）の内訳を添えています。特定の日を狙うなら、
-      上の「この先の日を予測する」で日付を選ぶと、その区分だけで並べ直せます。</div>
-    <div class="tierlead">${[3, 2, 1, 0].map(i =>
-      `<span class="t${i}">${FLT_TIER[i].mark} ${FLT_TIER[i].label}（${FLT_TIER[i].range}）<b>${byTier[i]}便</b></span>`).join("")}</div>
-    <h4>狙い目の便（取れた日の割合が高い順・上位15）</h4>
-    <div class="rlist">${top.map(x => fltLine(x, true)).join("")}</div>
-    <h4>取りにくい便（低い順・下位15）</h4>
-    <div class="rlist">${bottom.map(x => fltLine(x, true)).join("")}</div>
-    <details class="fltall"><summary>全便を区間ごとに見る（${order.length}区間・${rows.length}便）
-      <span class="sub">クリックで開閉</span></summary>
-      <div class="sub" style="margin:6px 0">各区間を開くと出発時刻順に全便が並びます。
-        右端の ○×· は直近${R.recentDates.length || 14}日の並び（古い→新しい）。</div>
-      ${groupHtml}</details>`;
-  };
-
-  const segLine = (x) => `<div class="rrow"><span class="rk">${x.k}</span>${bar(x.rate)}`
-    + `<b>${Math.round(x.rate * 100)}%</b><span class="sub">${x.ok}/${x.n}`
-    + (x.offRate !== null && x.wdRate !== null
-      ? `・平日${Math.round(x.wdRate * 100)}% / 土日祝${Math.round(x.offRate * 100)}%` : "")
-    + `</span></div>`;
+  const pctAll = Math.round(rate0(R.ok, R.total) * 100);
+  const toRows = (m, order) => (order ? order.filter(k => m.has(k)) : [...m.keys()])
+    .map(k => { const g = m.get(k); return {label: k, r: rate0(g.ok, g.n), thin: g.days < 3}; });
+  const route = routeRows(R);
+  const season = seasonBlock(timing) || null;
+  const seasons = toRows(R.bySeason, SEASON_ORDER);
+  const hours = [...R.hour].map(([k, g]) => ({label: k, r: rate0(g.ok, g.n), thin: g.days < 3}));
+  const off = toRows(R.byOff, ["平日", "土日祝"]);
+  const weather = toRows(R.byWeather).map(x => ({...x, label: `${WX_ICON[x.label] || ""} ${x.label}`}));
+  const rain = toRows(R.byRain, ["雨なし", "雨あり(1mm以上)"]);
+  const wind = toRows(R.byWind, ["平常", `強風(${WX_WIND_STRONG}m/s以上)`]);
+  const top = [...R.fltRows].sort((a, b) => b.rate - a.rate || b.n - a.n);
+  const flLine = (x) => `<div class="pk"><b class="fno">${x.no}</b><span>${segJa(x.seg)}</span><em>${x.dep}</em><b>${Math.round(x.rate * 100)}%</b></div>`;
+  const span = `${R.perDay[0].date.slice(5).replace("-", "/")}〜${R.perDay[R.perDay.length - 1].date.slice(5).replace("-", "/")}`;
 
   box.innerHTML = `
-    <h3>詳細レポート（記録 ${R.perDay.length}日分${R.totalCaptures > R.perDay.length
-      ? `・のべ${R.totalCaptures}回` : ""}）</h3>
-    <div class="lead">通算で <b>${pct(R.ok, R.total)}％</b> の便が制度で予約できる状態でした。</div>
-    <div class="sub">対象は ${span}（過去${REPORT_DAYS}日のうち、記録が残っている日。
-      各日は最後の記録・のべ ${R.total} 便）。
-      空席あり（残席9以上）だったのに制度では出ていない便は、
-      のべ ${R.availOnly} 便（空席ありの ${R.avail} 便中 ${pct(R.availOnly, R.avail)}％）。</div>
-
-    ${fltSection()}
-
-    <h4>平日と土日祝</h4>
-    <div class="rlist">${compare(R.byOff, ["平日", "土日祝"])}</div>
-
-    <h4>時期</h4>
-    <div class="rlist">${compare(R.bySeason, SEASON_ORDER, SEASON_NOTE)}</div>
-    ${SEASON_ORDER.filter(k => !R.bySeason.has(k)).length
-      ? `<div class="sub">まだ記録が無い時期: `
-        + `${SEASON_ORDER.filter(k => !R.bySeason.has(k)).join("・")}。`
-        + `その時期に「制度枠を記録」を実行すると比べられるようになります。</div>` : ""}
-
-    ${R.byMonth.size >= 2 ? `<h4>月ごと</h4>
-      <div class="rlist">${[...R.byMonth].sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([k, g]) => `<div class="rrow"><span class="rk">${k}</span>`
-          + bar(g.n ? g.ok / g.n : 0) + `<b>${pct(g.ok, g.n)}%</b>`
-          + `<span class="sub">${g.ok}/${g.n}・${g.days}日</span></div>`).join("")}</div>` : ""}
-
-    ${R.wxDays ? `<h4>天気（羽田・その日の実況）</h4>
-    <div class="rlist">${compare(R.byWeather)}</div>
-    <div class="rlist" style="margin-top:6px">${compare(R.byRain, ["雨なし", "雨あり(1mm以上)"])}</div>
-    <div class="sub" style="margin:6px 0 3px">飛行機は雨より横風の影響を受けやすいため、風の強さでも比べます。</div>
-    <div class="rlist">${compare(R.byWind, ["平常", `強風(${WX_WIND_STRONG}m/s以上)`])}</div>
-    <div class="sub">天気が分かるのは ${R.wxDays}/${R.perDay.length}日
-      （Open-Meteoの過去実況。相手空港ではなく羽田の天気で見ています）。</div>` : ""}
-
-    <h4>出発時間帯</h4>
-    <div class="rlist">${[...R.hour].map(([k, g]) =>
-      `<div class="rrow"><span class="rk">${k}</span>${bar(g.n ? g.ok / g.n : 0)}`
-      + `<b>${pct(g.ok, g.n)}%</b><span class="sub">${g.ok}/${g.n}</span></div>`).join("")}</div>
-
-    ${(() => {
-      /* 上位8・下位8をそのまま出すと、対象が16区間に満たないときに
-         同じ区間が「取りやすい」と「取りにくい」の両方に出てしまう。
-         半分を超えないところで切る。 */
-      const half = Math.min(8, Math.floor(R.segRows.length / 2));
-      if (!half) return "";
-      return `<h4>取りやすい区間</h4>
-      <div class="rlist">${R.segRows.slice(0, half).map(segLine).join("")}</div>
-      <h4>取りにくい区間</h4>
-      <div class="rlist">${R.segRows.slice(-half).reverse().map(segLine).join("")}</div>`;
-    })()}
-
-    <h4>日ごとの推移${R.perDay.length > 30 ? "（新しい30日）" : ""}</h4>
-    <div class="rlist">${recent.map(dayRow).join("")}</div>
-    ${R.perDay.length > 30 ? `<details><summary class="sub">残り ${R.perDay.length - 30}日分を見る</summary>
-      <div class="rlist">${R.perDay.slice(0, -30).reverse().map(dayRow).join("")}</div></details>` : ""}
-
-    <h4>記録した時刻（朝・昼・晩の比較）</h4>
-    <div class="sub" style="margin-bottom:5px">ここだけは<b>すべての記録</b>を使います
-      （1日に複数回記録した日も減らしません）。ほかの区分は、記録回数の多い日に
-      引っ張られないよう、その日の最後の記録だけを使っています。</div>
-    <div class="rlist">${[...R.byRec].sort((a, b) => REC_SLOTS.indexOf(a[0]) - REC_SLOTS.indexOf(b[0]))
-      .map(([k, g]) => `<div class="rrow"><span class="rk">${k}</span>${bar(g.n ? g.ok / g.n : 0)}`
-        + `<b>${pct(g.ok, g.n)}%</b><span class="sub">${g.ok}/${g.n}・${g.dates.size}日`
-        + `${g.caps > g.dates.size ? `(${g.caps}回)` : ""}</span></div>`).join("")}</div>
-    ${[...R.byRec].filter(([, g]) => g.dates.size < 3).length
-      ? `<div class="sub">記録が3日未満の時間帯は、まだ傾向とは言えません。</div>` : ""}
-
-    <div class="sub" style="margin-top:10px">
-      1日に複数回記録した場合、上の区分（平日/土日祝・時期・月ごと・区間・出発時間帯）は
-      <b>その日の最後の記録</b>だけを使います。「記録した時刻」の比較だけは全記録を使うので、
-      同じ日の朝・昼・晩の伸びはそこで見てください。
-      ${R.perDay.length < 5 ? "<br><b>まだ記録が少ないため、傾向としては参考程度に見てください。</b>" : ""}
-    </div>`;
+    <div class="chero">
+      <div class="ring" style="--p:${pctAll}"><span>${pctAll}%</span></div>
+      <div class="chero-t"><b class="big">制度で取れた便の割合</b>
+        <span class="sub">${span}・${R.perDay.length}日分の記録</span>
+        ${R.availOnly ? `<span class="sub"><span class="hint">空席ありでも制度は× ${Math.round(rate0(R.availOnly, R.avail) * 100)}%</span></span>` : ""}</div>
+    </div>
+    ${flightPicker(timing)}
+    <section class="rp"><h4>取りやすい便・難しい便</h4>
+      <div class="pks">
+        <div><h5><i class="keep"></i>取りやすい</h5>${top.slice(0, 6).map(flLine).join("")}</div>
+        <div><h5><i class="none"></i>難しい</h5>${top.slice(-6).reverse().map(flLine).join("")}</div>
+      </div>
+    </section>
+    <section class="rp"><h4>どの行き先が取りやすい？</h4>
+      <p class="ans">${route.rows.length > 1 ? `いちばん取りやすいのは<b>${shortAp(route.rows[0].s)}</b>（${Math.round(route.rows[0].r * 100)}%）、難しいのは<b>${shortAp(route.rows[route.rows.length - 1].s)}</b>（${Math.round(route.rows[route.rows.length - 1].r * 100)}%）` : ""}</p>
+      ${route.html}
+    </section>
+    ${season ? season.html : (seasons.length > 1 ? `<section class="rp"><h4>時期ごとの取りやすさ</h4>${rpBars(seasons)}${rpBars(off)}</section>` : "")}
+    <section class="rp"><h4>何時に出る便が取りやすい？</h4><p class="ans">${bestWorst(hours, "の便")}</p>${rpBars(hours)}</section>
+    ${R.wxDays ? `<section class="rp"><h4>天気で変わる？</h4>${rpBars(weather)}${rpBars(rain)}${rpBars(wind)}</section>` : ""}
+    <details class="fccal rp-how"><summary>このレポートの見方</summary><div class="sub">
+      「どの便を、いつ狙う」は、同じ日の同じ便を深夜（0〜4時台）・朝（5〜9時台）・昼（10〜15時台）の記録で比べています。出発済みの便は比べる対象から外れます。
+      定時の3回がそろう前の日は手動の記録を使っているので、時点ごとの%は対象の日が少し異なります。${RP_MIN}日未満の数字は「–」にしています。<br>
+      時期の比較は、各便が出発する前の最後の記録で集計しています（途中までしか記録できなかった日は除外）。そのほかの比較は、1日のうち最後の記録を使っています。羽田の天気で見ています。傾向を示すもので、取れることを保証するものではありません。</div></details>`;
   box.hidden = false;
+  if (timing && document.getElementById("rpseg")) {
+    const sel = document.getElementById("rpseg");
+    drawFlights(timing, sel.value);
+    sel.addEventListener("change", () => { lsSet(RP_SEG_KEY, sel.value); drawFlights(timing, sel.value); });
+  }
+  if (season) bindTimeline(season.days);
 }
 
 /* 取得時点の結論を先に出すサマリ。「で、何割いけるのか」に即答することを優先し、
@@ -2813,7 +2921,7 @@ $reportbtn.addEventListener("click", async () => {
   $reportbtn.disabled = true;
   $reportbtn.classList.add("busy");
   box.hidden = false;
-  box.innerHTML = `<h3>詳細レポート</h3><div class="sub">記録を読み込んでいます…</div>`;
+  box.innerHTML = `<div class="sub">記録を読み込んでいます…</div>`;
   try {
     const stats = await fetchCorpStats((found, done, total) => {
       box.innerHTML = `<h3>詳細レポート</h3>`
@@ -2832,7 +2940,8 @@ $reportbtn.addEventListener("click", async () => {
         wx = byAirport.get("HND") || new Map();
       } catch { /* 天気なしでもレポート自体は出す */ }
     }
-    renderCorpReport(stats, wx);
+    const timing = await fetchCorpTiming().catch(() => null); // 読めなくてもレポート本体は出す
+    renderCorpReport(stats, wx, timing);
   } catch (e) {
     box.innerHTML = `<h3>詳細レポート</h3><div class="sub">読み込めませんでした（${e.message}）。</div>`;
   } finally {
