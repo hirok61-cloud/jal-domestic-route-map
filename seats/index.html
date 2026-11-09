@@ -1671,7 +1671,21 @@ function fltStat(seg, no){
   if (!e || e.n < FLT_MIN_DAYS) return null;
   return fltRates(e);
 }
-/** 直近の並び "o/x/-" を ○×· の色付きにする（古い→新しい）。 */
+const fltTip = (h, date) => {
+  const p = (b) => b && b.n ? `${pct100(b.ok, b.n)}％（${b.ok}/${b.n}日）` : "記録なし";
+  const parts = [`直近${FLT_DAYS}日の実績  全体 ${p(h)}`, `平日 ${p(h.wd)}`, `土日祝 ${p(h.off)}`];
+  const sd = date ? fltSameDow(h, date) : null;
+  if (sd) parts.push(`${sd.label} ${p(sd)}`);
+  if (date && h.dk) {
+    const dm = demandOf(date);
+    if (dm !== 2) parts.push(`${DEMAND[dm].label}: 平日 ${p(h.dk[dm][0])}／土日祝 ${p(h.dk[dm][1])}`);
+    const b = fltForDate(h, date);
+    if (b && b.est) parts.push(`表示は推定（${b.long}）`);
+  }
+  parts.push("各日は、その便を最後に記録した時点で制度で予約できたか");
+  if (/[ox]/.test(h.recent || "")) parts.push(`直近: ${h.recent.replace(/o/g, "○").replace(/x/g, "×").replace(/-/g, "·")}`);
+  return parts.join(" ／ ");
+};
 /* 時期（混み方）ごとの記録日数と、時期の係数を出す。
    係数＝その時期の取れやすさ ÷ 全期間の取れやすさ（便×日を1件として全便を足したもの）。
    その時期の記録が無い便の予測に、平日/土日祝の実績へ掛けて使う。
@@ -1711,9 +1725,9 @@ async function loadFlightStats(){
     const offDays = dates.filter(isOffDay).length;
     FLT = {days: dates.length, offDays, wdDays: dates.length - offDays, map, recentDates: body.recentDates || []};
     fltDemandStats(FLT, dates);
+    renderForecast(); // 一覧の描き直しに失敗しても予測は出す（先に呼ぶ）
     if (DATA) render(); // 一覧が先に描かれていたら、実績の列を足して描き直す
-    renderForecast();
-  } catch { /* 無くても一覧は出せる */ }
+  } catch (e) { console.error("過去の実績を反映できませんでした", e); /* 無くても一覧は出せる */ }
 }
 
 /* 天気（WMOコード→カテゴリ）。分析用に大づかみな区分にまとめる。
